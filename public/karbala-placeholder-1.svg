@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" fill="none">
+  <!-- Background with Karbala theme -->
+  <rect width="1200" height="1200" fill="url(#bgGradient)" rx="24"/>
+  
+  <!-- Ground/base -->
+  <rect x="0" y="900" width="1200" height="300" fill="url(#groundGradient)"/>
+  
+  <!-- Main Shrine Dome - Imam Hussain (AS) -->
+  <g transform="translate(600, 500)">
+    <!-- Dome base -->
+    <ellipse cx="0" cy="0" rx="200" ry="180" fill="url(#domeGradient)"/>
+    
+    <!-- Dome structure -->
+    <path d="M-200,0 Q-200,-80 -150,-150 Q-100,-200 0,-200 Q100,-200 150,-150 Q200,-80 200,0 Z" 
+          fill="url(#domeGradient)" stroke="url(#goldStroke)" stroke-width="4"/>
+    
+    <!-- Dome decorative bands -->
+    <ellipse cx="0" cy="-100" rx="150" ry="120" fill="none" stroke="url(#goldStroke)" stroke-width="3" opacity="0.6"/>
+    <ellipse cx="0" cy="-50" rx="170" ry="140" fill="none" stroke="url(#goldStroke)" stroke-width="2" opacity="0.4"/>
+    
+    <!-- Crescent and star on top -->
+    <g transform="translate(0, -220)">
+      <path d="M-30,0 Q-30,-15 -15,-15 Q0,-15 0,0 Q0,15 -15,15 Q-30,15 -30,0 Z" fill="url(#goldStroke)"/>
+      <path d="M0,-25 L5,-10 L20,-10 L8,0 L12,15 L0,8 L-12,15 L-8,0 L-20,-10 L-5,-10 Z" fill="url(#goldStroke)"/>
+    </g>
+  </g>
+  
+  <!-- Minarets -->
+  <g transform="translate(300, 400)">
+    <rect x="-15" y="0" width="30" height="250" fill="url(#minaretGradient)" rx="15"/>
+    <rect x="-20" y="0" width="40" height="30" fill="url(#goldStroke)" rx="5"/>
+    <circle cx="0" cy="20" r="8" fill="url(#goldStroke)"/>
+  </g>
+  
+  <g transform="translate(900, 400)">
+    <rect x="-15" y="0" width="30" height="250" fill="url(#minaretGradient)" rx="15"/>
+    <rect x="-20" y="0" width="40" height="30" fill="url(#goldStroke)" rx="5"/>
+    <circle cx="0" cy="20" r="8" fill="url(#goldStroke)"/>
+  </g>
+  
+  <!-- Decorative arches -->
+  <g transform="translate(600, 700)" opacity="0.3">
+    <path d="M-150,0 Q-150,-50 -100,-50 Q-50,-50 -50,0" stroke="url(#goldStroke)" stroke-width="3" fill="none"/>
+    <path d="M50,0 Q50,-50 100,-50 Q150,-50 150,0" stroke="url(#goldStroke)" stroke-width="3" fill="none"/>
+  </g>
+  
+  <!-- Decorative border pattern -->
+  <g opacity="0.2">
+    <rect x="50" y="50" width="1100" height="1100" fill="none" stroke="url(#goldStroke)" stroke-width="2" rx="20"/>
+  </g>
+  
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0" y1="0" x2="1200" y2="1200">
+      <stop offset="0%" stop-color="#1a5c4d" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#2d7a68" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#1a5c4d" stop-opacity="0.95"/>
+    </linearGradient>
+    
+    <linearGradient id="groundGradient" x1="0" y1="900" x2="0" y2="1200">
+      <stop offset="0%" stop-color="#3a8a75" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#1a5c4d" stop-opacity="0.8"/>
+    </linearGradient>
+    
+    <linearGradient id="domeGradient" x1="0" y1="-200" x2="0" y2="0">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="50%" stop-color="#f4e4bc"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    
+    <linearGradient id="minaretGradient" x1="0" y1="0" x2="0" y2="250">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#b8941f"/>
+    </linearGradient>
+    
+    <linearGradient id="goldStroke" x1="0" y1="0" x2="200" y2="200">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#f4e4bc"/>
+    </linearGradient>
+  </defs>
+</svg>

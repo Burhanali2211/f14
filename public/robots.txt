@@ -1,0 +1,11 @@
+# Robots.txt for Kalam Reader
+
+User-agent: *
+Allow: /
+
+# Crawl-delay
+Crawl-delay: 1
+
+# Disallow admin pages from indexing
+Disallow: /admin
+Disallow: /auth

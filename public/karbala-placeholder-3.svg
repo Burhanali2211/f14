@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" fill="none">
+  <!-- Background -->
+  <rect width="1200" height="1200" fill="url(#bgGradient)" rx="24"/>
+  
+  <!-- Ground -->
+  <rect x="0" y="1000" width="1200" height="200" fill="url(#groundGradient)"/>
+  
+  <!-- Sacred Courtyard view -->
+  <g transform="translate(600, 600)">
+    <!-- Main courtyard structure -->
+    <rect x="-250" y="-100" width="500" height="400" fill="url(#courtyardGradient)" rx="20" stroke="url(#goldStroke)" stroke-width="3"/>
+    
+    <!-- Central shrine dome -->
+    <ellipse cx="0" cy="-50" rx="120" ry="100" fill="url(#domeGradient)"/>
+    <path d="M-120,-50 Q-120,-120 -80,-150 Q-40,-170 0,-170 Q40,-170 80,-150 Q120,-120 120,-50 Z" 
+          fill="url(#domeGradient)" stroke="url(#goldStroke)" stroke-width="3"/>
+    
+    <!-- Crescent and star -->
+    <g transform="translate(0, -190)">
+      <path d="M-25,0 Q-25,-12 -12.5,-12 Q0,-12 0,0 Q0,12 -12.5,12 Q-25,12 -25,0 Z" fill="url(#goldStroke)"/>
+      <path d="M0,-20 L4,-8 L16,-8 L6,0 L10,12 L0,6 L-10,12 L-6,0 L-16,-8 L-4,-8 Z" fill="url(#goldStroke)"/>
+    </g>
+    
+    <!-- Side domes -->
+    <ellipse cx="-150" cy="-30" rx="60" ry="50" fill="url(#domeGradient)" opacity="0.8"/>
+    <ellipse cx="150" cy="-30" rx="60" ry="50" fill="url(#domeGradient)" opacity="0.8"/>
+    
+    <!-- Arched entrances -->
+    <path d="M-250,-100 Q-250,-150 -200,-150 Q-150,-150 -150,-100" 
+          stroke="url(#goldStroke)" stroke-width="4" fill="none"/>
+    <path d="M150,-100 Q150,-150 200,-150 Q250,-150 250,-100" 
+          stroke="url(#goldStroke)" stroke-width="4" fill="none"/>
+    
+    <!-- Decorative columns -->
+    <rect x="-280" y="-80" width="20" height="200" fill="url(#goldStroke)" rx="10"/>
+    <rect x="260" y="-80" width="20" height="200" fill="url(#goldStroke)" rx="10"/>
+    
+    <!-- Inner decorative patterns -->
+    <circle cx="0" cy="50" r="80" fill="none" stroke="url(#goldStroke)" stroke-width="2" opacity="0.4"/>
+    <circle cx="0" cy="50" r="50" fill="none" stroke="url(#goldStroke)" stroke-width="2" opacity="0.3"/>
+  </g>
+  
+  <!-- Corner minarets -->
+  <g transform="translate(200, 300)">
+    <rect x="-10" y="0" width="20" height="180" fill="url(#minaretGradient)" rx="10"/>
+    <rect x="-15" y="0" width="30" height="20" fill="url(#goldStroke)" rx="5"/>
+  </g>
+  
+  <g transform="translate(1000, 300)">
+    <rect x="-10" y="0" width="20" height="180" fill="url(#minaretGradient)" rx="10"/>
+    <rect x="-15" y="0" width="30" height="20" fill="url(#goldStroke)" rx="5"/>
+  </g>
+  
+  <!-- Decorative border -->
+  <g opacity="0.2">
+    <rect x="50" y="50" width="1100" height="1100" fill="none" stroke="url(#goldStroke)" stroke-width="2" rx="20"/>
+  </g>
+  
+  <defs>
+    <linearGradient id="bgGradient" x1="0" y1="0" x2="1200" y2="1200">
+      <stop offset="0%" stop-color="#1a5c4d" stop-opacity="0.95"/>
+      <stop offset="50%" stop-color="#2d7a68" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#1a5c4d" stop-opacity="0.95"/>
+    </linearGradient>
+    
+    <linearGradient id="groundGradient" x1="0" y1="1000" x2="0" y2="1200">
+      <stop offset="0%" stop-color="#3a8a75" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#1a5c4d" stop-opacity="0.8"/>
+    </linearGradient>
+    
+    <linearGradient id="domeGradient" x1="0" y1="-170" x2="0" y2="-50">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="50%" stop-color="#f4e4bc"/>
+      <stop offset="100%" stop-color="#d4af37"/>
+    </linearGradient>
+    
+    <linearGradient id="courtyardGradient" x1="-250" y1="-100" x2="250" y2="300">
+      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.7"/>
+      <stop offset="50%" stop-color="#f4e4bc" stop-opacity="0.8"/>
+      <stop offset="100%" stop-color="#d4af37" stop-opacity="0.7"/>
+    </linearGradient>
+    
+    <linearGradient id="minaretGradient" x1="0" y1="0" x2="0" y2="180">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#b8941f"/>
+    </linearGradient>
+    
+    <linearGradient id="goldStroke" x1="0" y1="0" x2="200" y2="200">
+      <stop offset="0%" stop-color="#d4af37"/>
+      <stop offset="100%" stop-color="#f4e4bc"/>
+    </linearGradient>
+  </defs>
+</svg>

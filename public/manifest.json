@@ -1,0 +1,35 @@
+{
+  "name": "Kalam Reader - islamic poetry",
+  "short_name": "Kalam Reader",
+  "description": "Islamic content reader for Naat, Noha, Dua, Manqabat, and Marsiya with audio and video support",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f8f6f2",
+  "theme_color": "#1a5c4d",
+  "categories": ["education", "lifestyle", "books"],
+  "lang": "en",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/main.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/main.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [],
+  "prefer_related_applications": false
+}

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <script>
+      // Immediately prevent zoom on page load (before any content renders)
+      (function() {
+        // Function to detect and fix zoom
+        function detectAndFixZoom() {
+          // Check for zoom using multiple methods
+          var zoom = 1;
+          var hasZoom = false;
+          
+          // Method 1: Visual Viewport API
+          if (window.visualViewport && window.visualViewport.scale) {
+            zoom = window.visualViewport.scale;
+            if (zoom !== 1) hasZoom = true;
+          }
+          // Method 2: Width comparison
+          else if (window.outerWidth && window.innerWidth && window.outerWidth !== window.innerWidth) {
+            zoom = window.outerWidth / window.innerWidth;
+            if (Math.abs(zoom - 1) > 0.01) hasZoom = true;
+          }
+          
+          // If zoom detected, fix it
+          if (hasZoom) {
+            // Force viewport reset
+            var viewport = document.querySelector('meta[name="viewport"]');
+            if (viewport) {
+              var parent = viewport.parentNode;
+              var content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
+              viewport.setAttribute('content', content);
+              // Re-apply by removing and re-adding
+              if (parent) {
+                parent.removeChild(viewport);
+                parent.insertBefore(viewport, parent.firstChild);
+              }
+            }
+            
+            // Reset CSS zoom
+            if (document.body) document.body.style.zoom = '1';
+            if (document.documentElement) document.documentElement.style.zoom = '1';
+          }
+        }
+        
+        // Run immediately
+        detectAndFixZoom();
+        
+        // Run on DOM ready
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', detectAndFixZoom);
+        } else {
+          detectAndFixZoom();
+        }
+        
+        // Run periodically to catch late zoom
+        setInterval(detectAndFixZoom, 500);
+        
+        // Reset zoom immediately
+        if (document.body && document.body.style.zoom !== undefined) {
+          document.body.style.zoom = '1';
+        }
+        if (document.documentElement && document.documentElement.style.zoom !== undefined) {
+          document.documentElement.style.zoom = '1';
+        }
+        
+        // Ensure viewport meta is correct - force re-application
+        var viewport = document.querySelector('meta[name="viewport"]');
+        if (viewport) {
+          var parent = viewport.parentNode;
+          var content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
+          // Force browser to re-parse by removing and re-adding
+          if (parent) {
+            parent.removeChild(viewport);
+            var newViewport = document.createElement('meta');
+            newViewport.setAttribute('name', 'viewport');
+            newViewport.setAttribute('content', content);
+            parent.insertBefore(newViewport, parent.firstChild);
+          }
+        }
+        
+        // Prevent zoom on touch events (early binding)
+        var lastTouchEnd = 0;
+        document.addEventListener('touchstart', function(e) {
+          if (e.target && e.target.closest && e.target.closest('[data-fullscreen-image-viewer]')) {
+            return;
+          }
+          if (e.touches.length > 1) {
+            e.preventDefault();
+          }
+        }, { passive: false });
+        
+        document.addEventListener('touchend', function(e) {
+          if (e.target && e.target.closest && e.target.closest('[data-fullscreen-image-viewer]')) {
+            return;
+          }
+          var now = Date.now();
+          if (now - lastTouchEnd <= 300) {
+            e.preventDefault();
+          }
+          lastTouchEnd = now;
+        }, { passive: false });
+        
+        // Monitor for zoom changes
+        if (window.visualViewport) {
+          window.visualViewport.addEventListener('resize', function() {
+            if (window.visualViewport.scale !== 1) {
+              detectAndFixZoom();
+            }
+          });
+        }
+      })();
+    </script>
+    
+    <!-- Primary Meta Tags -->
+    <title>Kalam Reader - islamic poetry & Content Reader | Naat, Noha, Dua</title>
+    <meta name="title" content="Kalam Reader - islamic poetry & Content Reader" />
+    <meta name="description" content="Discover and read islamic poetry - Naat, Manqabat, Noha, Dua, Marsiya and more. Your spiritual companion with audio and video support. Read, listen, and connect with your heritage." />
+    <meta name="keywords" content="islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Islamic content, Urdu poetry, Arabic poetry, recitation" />
+    <meta name="author" content="Kalam Reader" />
+    <meta name="robots" content="index, follow" />
+    
+    <!-- Theme & PWA -->
+    <meta name="theme-color" content="#1a5c4d" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1f1a" media="(prefers-color-scheme: dark)" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kalam Reader" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-TileColor" content="#1a5c4d" />
+    <meta name="msapplication-config" content="/browserconfig.xml" />
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/main.png" />
+    <link rel="apple-touch-icon" href="/main.png" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Kalam Reader - islamic poetry & Content Reader" />
+    <meta property="og:description" content="Discover and read islamic poetry - Naat, Noha, Dua, Manqabat, Marsiya. Your spiritual companion with audio & video." />
+    <meta property="og:image" content="/main.png" />
+    <meta property="og:site_name" content="Kalam Reader" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="Kalam Reader - islamic poetry Reader" />
+    <meta property="twitter:description" content="Discover and read islamic poetry - Naat, Noha, Dua. Your spiritual companion." />
+    <meta property="twitter:image" content="/main.png" />
+
+    <!-- Preconnect to improve font loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    
+    <!-- Arabic Fonts for Reader -->
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Scheherazade+New:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Kalam Reader",
+      "description": "islamic poetry and content reader for Naat, Noha, Dua, Manqabat, and Marsiya",
+      "applicationCategory": "EducationalApplication",
+      "operatingSystem": "Any",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      }
+    }
+    </script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
