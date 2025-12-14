@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Mail, Lock, Loader2, Home, UserPlus, LogIn, User, Phone, MapPin, CheckCircle2, Navigation, Info, ExternalLink } from 'lucide-react';
+import { BookOpen, Mail, Lock, Loader2, Home, UserPlus, LogIn, User, Phone, MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
-import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { signUp, signIn, saveSession } from '@/lib/auth-utils';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -36,50 +36,9 @@ export default function AuthPage() {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-
-  const openGmail = () => {
-    const userAgent = navigator.userAgent || navigator.vendor || (window as any).opera;
-    const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !(window as any).MSStream;
-    const isAndroid = /android/i.test(userAgent);
-    
-    if (isMobile) {
-      if (isIOS) {
-        // Try to open Gmail app on iOS
-        // Use googlegmail:// scheme for Gmail app
-        const gmailAppUrl = 'googlegmail://';
-        window.location.href = gmailAppUrl;
-        
-        // Fallback: If app doesn't open, redirect to gmail.com after a short delay
-        setTimeout(() => {
-          window.open('https://mail.google.com', '_blank');
-        }, 500);
-      } else if (isAndroid) {
-        // Try to open Gmail app on Android using intent
-        try {
-          // Try Gmail app intent first
-          window.location.href = 'intent://mail.google.com/#Intent;scheme=https;action=android.intent.action.VIEW;end';
-          
-          // Fallback to gmail.com after a delay
-          setTimeout(() => {
-            window.open('https://mail.google.com', '_blank');
-          }, 500);
-        } catch (error) {
-          // If intent fails, open gmail.com directly
-          window.open('https://mail.google.com', '_blank');
-        }
-      } else {
-        // Other mobile devices - open gmail.com
-        window.open('https://mail.google.com', '_blank');
-      }
-    } else {
-      // Desktop/Laptop - open gmail.com in new tab
-      window.open('https://mail.google.com', '_blank');
-    }
-  };
 
   const fetchLocation = async () => {
     if (!navigator.geolocation) {
@@ -217,32 +176,14 @@ export default function AuthPage() {
       if (isLogin) {
         logger.debug('Auth: Attempting login for', email);
         
-        const { data: authData, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const result = await signIn(email, password);
 
-        logger.debug('Auth: Login response', { hasUser: !!authData?.user, error: error?.message });
-
-        if (error) {
-          // Handle specific error cases
-          if (error.message?.includes('Invalid login credentials') || 
-              error.message?.includes('Email not confirmed')) {
-            throw new Error('Invalid email or password. Please check your credentials or confirm your email.');
-          } else if (error.message?.includes('network') || 
-                     error.message?.includes('fetch')) {
-            throw new Error('Network error. Please check your internet connection and try again.');
-          }
-          throw error;
+        if (result.error) {
+          throw new Error(result.error);
         }
 
-        if (!authData.user) {
+        if (!result.user) {
           throw new Error('Failed to get user data. Please try again.');
-        }
-
-        // Check if email is confirmed
-        if (!authData.user.email_confirmed_at) {
-          throw new Error('Please confirm your email address before logging in. Check your inbox for the confirmation link.');
         }
 
         logger.debug('Auth: Login successful, navigating');
@@ -252,175 +193,68 @@ export default function AuthPage() {
           description: 'You have successfully logged in.',
         });
 
-        // Wait a moment for session to be fully established before navigating
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Navigate to home
-        navigate('/', { replace: true });
+        // Navigate to profile page
+        navigate('/profile', { replace: true });
       } else {
         logger.debug('Auth: Attempting signup for', email);
         
-        const { data: signUpData, error } = await supabase.auth.signUp({
+        const result = await signUp(
           email,
           password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              full_name: fullName,
-              phone_number: phoneNumber || null,
-              address: address || null,
-            },
-          },
-        });
+          fullName,
+          phoneNumber || undefined,
+          address || undefined
+        );
 
-        logger.debug('Auth: Signup response', { hasUser: !!signUpData?.user, error: error?.message });
-
-        if (error) {
-          // Handle specific error cases
-          if (error.message?.includes('User already registered')) {
+        if (result.error) {
+          if (result.error.includes('already registered') || result.error.includes('Email already')) {
             throw new Error('This email is already registered. Please sign in instead.');
-          } else if (error.message?.includes('network') || 
-                     error.message?.includes('fetch')) {
-            throw new Error('Network error. Please check your internet connection and try again.');
           }
-          throw error;
+          throw new Error(result.error);
         }
 
-        if (!signUpData.user) {
+        if (!result.user) {
           throw new Error('Failed to create account. Please try again.');
         }
 
-        // Update profile with additional information
-        if (signUpData.user) {
-          logger.debug('Auth: User created, updating profile');
-          
-          // Wait a moment for trigger to create profile
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Update profile with additional fields
-          const { error: updateError } = await safeQuery(async () =>
-            await supabase
-              .from('profiles')
-              .update({
-                full_name: fullName,
-                phone_number: phoneNumber || null,
-                address: address || null,
-                email: signUpData.user.email || email,
-              })
-              .eq('id', signUpData.user.id)
-          );
-
-          if (updateError) {
-            logger.error('Auth: Error updating profile:', updateError);
-            // Try to insert if update fails (profile might not exist yet)
-            const { error: insertError } = await safeQuery(async () =>
-              await supabase
-                .from('profiles')
-                .insert({
-                  id: signUpData.user.id,
-                  email: signUpData.user.email || email,
-                  full_name: fullName,
-                  phone_number: phoneNumber || null,
-                  address: address || null,
-                  role: 'user',
-                })
-            );
-
-            if (insertError) {
-              logger.error('Auth: Error creating profile:', insertError);
-            }
-          }
-        }
-
-        setEmailSent(true);
+        logger.debug('Auth: Signup successful');
+        
         toast({
           title: 'Account created!',
-          description: 'Please check your email to confirm your account. You can then log in with your credentials.',
+          description: 'Your account has been created successfully. You are now logged in.',
         });
+
+        // Navigate to profile page
+        navigate('/profile', { replace: true });
       }
     } catch (error: any) {
       logger.error('Auth: Error occurred', error);
+      
+      // Provide more helpful error messages for mobile users
+      let errorMessage = error.message || 'An error occurred. Please try again.';
+      
+      // Check if it's a network error
+      if (error.message?.includes('Failed to fetch') || 
+          error.message?.includes('NetworkError') ||
+          error.message?.includes('Network error')) {
+        errorMessage = 'Unable to connect to the server. Please check:\n\n' +
+          '• Your internet connection\n' +
+          '• If using mobile data, try WiFi (or vice versa)\n' +
+          '• Make sure you\'re accessing the correct URL\n' +
+          '• Try refreshing the page';
+      }
+      
       toast({
         title: 'Error',
-        description: error.message || 'An error occurred. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
+        duration: 5000, // Show longer for mobile users
       });
     } finally {
       setLoading(false);
     }
   };
 
-  if (emailSent && !isLogin) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4 md:p-6 safe-area-inset relative">
-        {/* Immersive Background - Better Colors */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/6 via-background to-primary/4 dark:from-emerald/8 dark:via-background dark:to-emerald/6" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/8 via-transparent to-transparent dark:from-emerald/12 dark:via-transparent dark:to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-primary/6 via-transparent to-transparent dark:from-emerald/10 dark:via-transparent dark:to-transparent" />
-        
-        <div className="w-full max-w-md relative z-10">
-          <div className="p-4 md:p-6 animate-fade-in">
-            <div className="flex flex-col items-center text-center space-y-4">
-              <div className="relative">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-primary dark:from-emerald dark:to-emerald flex items-center justify-center shadow-md dark:shadow-emerald/30 animate-pulse-slow">
-                  <CheckCircle2 className="w-10 h-10 text-primary-foreground" />
-                </div>
-                <div className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-primary dark:bg-emerald rounded-full animate-bounce-gentle shadow-sm" />
-              </div>
-              <div className="space-y-1.5">
-                <h1 className="font-display text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary to-primary dark:from-emerald dark:to-emerald bg-clip-text text-transparent">
-                  Check Your Email
-                </h1>
-                <p className="text-muted-foreground dark:text-muted-foreground text-xs md:text-sm leading-relaxed max-w-sm">
-                  We've sent a confirmation email to <strong className="text-foreground dark:text-foreground font-semibold">{email}</strong>. 
-                  Please click the link to verify your account.
-                </p>
-                <p className="text-muted-foreground dark:text-muted-foreground text-xs">
-                  Once verified, you can log in.
-                </p>
-              </div>
-              <div className="pt-1 space-y-2.5 w-full">
-                <Button
-                  onClick={openGmail}
-                  className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-primary hover:from-primary/90 hover:to-primary/80 dark:from-emerald dark:to-emerald dark:hover:from-emerald/90 dark:hover:to-emerald/80 shadow-md dark:shadow-emerald/30 transition-all duration-300 rounded-lg"
-                  size="lg"
-                >
-                  <Mail className="w-4 h-4 mr-2" />
-                  {isMobile ? 'Open Gmail App' : 'Open Gmail.com'}
-                  <ExternalLink className="w-3.5 h-3.5 ml-2" />
-                </Button>
-                <Button
-                  onClick={() => {
-                    setEmailSent(false);
-                    setIsLogin(true);
-                    setFullName('');
-                    setEmail('');
-                    setPassword('');
-                    setPhoneNumber('');
-                    setAddress('');
-                  }}
-                  variant="outline"
-                  className="w-full h-11 text-sm font-semibold border border-input dark:border-border hover:bg-muted/50 dark:hover:bg-muted/30 transition-all duration-300 rounded-lg"
-                  size="lg"
-                >
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Go to Login
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/')}
-                  className="w-full h-9 hover:bg-muted/50 dark:hover:bg-muted/30 transition-colors text-sm"
-                >
-                  <Home className="w-3.5 h-3.5 mr-2" />
-                  Go to Home
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 md:p-6 safe-area-inset relative">
@@ -467,17 +301,6 @@ export default function AuthPage() {
             </p>
           </div>
 
-          {/* Email Confirmation Notice - Compact */}
-          {!isLogin && (
-            <div className="mb-4 p-3 rounded-lg bg-primary/5 dark:bg-primary/15 border border-primary/10 dark:border-primary/30 flex items-start gap-2.5">
-              <div className="p-1 rounded-md bg-primary/15 dark:bg-primary/25 flex-shrink-0 mt-0.5">
-                <Info className="w-3.5 h-3.5 text-primary dark:text-accent" />
-              </div>
-              <p className="text-xs text-foreground/90 dark:text-foreground/80 leading-relaxed flex-1">
-                <strong className="text-foreground dark:text-foreground font-semibold">Email confirmation required:</strong> Check your inbox after signing up to verify your account.
-              </p>
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
@@ -632,15 +455,6 @@ export default function AuthPage() {
               )}
             </Button>
 
-            {/* Email Confirmation Reminder at Bottom */}
-            {!isLogin && (
-              <div className="mt-3 pt-3 border-t border-border/30 dark:border-border/20">
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground text-center flex items-center justify-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-primary/70 dark:text-emerald/70" />
-                  <span>Confirmation email will be sent</span>
-                </p>
-              </div>
-            )}
           </form>
 
           {/* Divider */}

@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Bell, X, Settings, AlertCircle } from 'lucide-react';
+import { Bell, X, Sparkles, Heart } from 'lucide-react';
 
 export function NotificationPermissionPrompt() {
   const { 
@@ -20,6 +20,26 @@ export function NotificationPermissionPrompt() {
   const [showDialog, setShowDialog] = useState(false);
   const [hasShownBefore, setHasShownBefore] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
+  const [userInteracted, setUserInteracted] = useState(false);
+
+  // Track user interaction to show prompt at the right moment
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      setUserInteracted(true);
+    };
+
+    // Listen for any user interaction
+    const events = ['click', 'scroll', 'touchstart', 'keydown'];
+    events.forEach(event => {
+      window.addEventListener(event, handleUserInteraction, { once: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleUserInteraction);
+      });
+    };
+  }, []);
 
   useEffect(() => {
     // Check if we've shown this dialog before - if yes, NEVER show again
@@ -37,49 +57,51 @@ export function NotificationPermissionPrompt() {
 
     // Only show if:
     // 1. Notifications are supported
-    // 2. Permission is default (not asked yet) OR blocked
+    // 2. Permission is default (not asked yet)
     // 3. We haven't shown it before (CRITICAL - only show once)
     // 4. Not loading
     // 5. Permission is not already granted
     if (
       'Notification' in window &&
-      (permission.state === 'default' || blocked) &&
+      permission.state === 'default' &&
       !shownBefore &&
       permission.state !== 'granted' &&
       !isLoading
     ) {
-      // Wait 10 seconds after page load to show the dialog (only on first visit)
+      // Strategy: Show after page is fully loaded and user has had time to see content
+      // Priority: User interaction (1.5s delay) > Page loaded (3s delay) > Fallback (4s delay)
+      let delay = 4000; // Fallback: 4 seconds
+      
+      if (userInteracted) {
+        delay = 1500; // 1.5s after user interaction (feels natural)
+      } else if (document.readyState === 'complete') {
+        delay = 3000; // 3s after page load
+      }
+
       const timer = setTimeout(() => {
-        setShowDialog(true);
-      }, 10000); // Show after 10 seconds
+        // Double-check conditions before showing
+        const stillShownBefore = localStorage.getItem('notification-prompt-shown');
+        const currentPermission = 'Notification' in window ? Notification.permission : 'denied';
+        if (!stillShownBefore && currentPermission === 'default' && !isLoading) {
+          setShowDialog(true);
+        }
+      }, delay);
 
       return () => clearTimeout(timer);
     }
-  }, [permission.state, isLoading]);
+  }, [permission.state, isLoading, userInteracted]);
 
   const handleEnable = async () => {
     // Mark as shown immediately so it never appears again
     localStorage.setItem('notification-prompt-shown', 'true');
     setHasShownBefore(true);
     
-    // Don't close dialog immediately - wait for permission result
-    // This ensures the user gesture is preserved for the permission request
     try {
-      console.log('User clicked Enable - requesting permission...');
-      console.log('Current permission state:', Notification.permission);
-      
       const granted = await requestPermission();
-      
-      console.log('Permission request result:', granted);
-      
-      // Close dialog after permission request (browser will show its own popup)
       setShowDialog(false);
-      
-      // Dialog will never show again because we set 'notification-prompt-shown' above
     } catch (error) {
       console.error('Error requesting notification permission:', error);
       setShowDialog(false);
-      // Already marked as shown above, so won't appear again
     }
   };
 
@@ -95,149 +117,108 @@ export function NotificationPermissionPrompt() {
   // 1. Already shown before (CRITICAL - only show once)
   // 2. Permission is already granted
   // 3. Still loading
-  if (hasShownBefore || permission.state === 'granted' || isLoading) {
+  // 4. Blocked (handled separately in settings)
+  if (hasShownBefore || permission.state === 'granted' || isLoading || isBlocked) {
     return null;
   }
 
-  // Blocked notification dialog - also only show once
-  if (isBlocked && !hasShownBefore) {
-    return (
-      <Dialog open={showDialog} onOpenChange={(open) => {
-        if (!open) {
-          // When closing, mark as shown so it never appears again
-          localStorage.setItem('notification-prompt-shown', 'true');
-          setHasShownBefore(true);
-        }
+  // Beautiful, minimalistic, spiritual notification prompt
+  return (
+    <Dialog open={showDialog} onOpenChange={(open) => {
+      if (!open) {
+        handleDismiss();
+      } else {
         setShowDialog(open);
-      }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
-                <AlertCircle className="w-6 h-6 text-destructive" />
-              </div>
-              <DialogTitle>Notifications Are Blocked</DialogTitle>
-            </div>
-            <DialogDescription className="text-left pt-2">
-              To receive event reminders, please enable notifications in your browser settings
-            </DialogDescription>
-          </DialogHeader>
+      }
+    }}>
+      <DialogContent className="max-w-sm p-0 overflow-hidden border-0 shadow-elevated">
+        {/* Spiritual gradient background */}
+        <div className="relative bg-gradient-to-br from-primary/5 via-background to-accent/5 p-8">
+          {/* Subtle geometric pattern overlay */}
+          <div 
+            className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: `radial-gradient(circle at 2px 2px, hsl(var(--primary)) 1px, transparent 0)`,
+              backgroundSize: '24px 24px'
+            }}
+          />
           
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-muted border border-border">
-                <p className="text-sm font-medium mb-3">How to Enable Notifications:</p>
-                <div className="space-y-2.5 text-sm text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <span className="font-semibold text-foreground flex-shrink-0">1.</span>
-                    <span className="flex-1">Click the lock icon (🔒) or info icon (ℹ️) in your browser's address bar</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="font-semibold text-foreground flex-shrink-0">2.</span>
-                    <span className="flex-1">Find "Notifications" in the permissions list</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="font-semibold text-foreground flex-shrink-0">3.</span>
-                    <span className="flex-1">Change it from "Block" to "Allow"</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <span className="font-semibold text-foreground flex-shrink-0">4.</span>
-                    <span className="flex-1">Refresh this page</span>
-                  </div>
+          <div className="relative z-10">
+            {/* Icon with spiritual glow */}
+            <div className="flex items-center justify-center mb-6">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 rounded-full blur-xl animate-pulse" />
+                <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30 backdrop-blur-sm">
+                  <Bell className="w-10 h-10 text-primary" strokeWidth={1.5} />
                 </div>
               </div>
+            </div>
 
-              <div className="p-4 rounded-lg bg-primary/5 border border-primary/20 flex flex-col justify-center">
-                <p className="text-sm font-medium text-foreground mb-2">📱 Mobile Users</p>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  On mobile devices, you may need to enable notifications in your phone's browser settings as well. Check your device settings for browser permissions.
+            {/* Minimalistic title */}
+            <DialogHeader className="text-center space-y-3 mb-6">
+              <DialogTitle className="text-2xl font-display font-semibold text-foreground tracking-tight">
+                Stay Connected
+              </DialogTitle>
+              <DialogDescription className="text-sm text-muted-foreground leading-relaxed max-w-xs mx-auto">
+                Receive gentle reminders for important moments
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Benefit-focused, spiritual messaging */}
+            <div className="space-y-4 mb-8">
+              <div className="flex items-start gap-3 text-left">
+                <div className="mt-0.5">
+                  <Sparkles className="w-4 h-4 text-primary/70" strokeWidth={1.5} />
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Never miss a blessed occasion
+                </p>
+              </div>
+              
+              <div className="flex items-start gap-3 text-left">
+                <div className="mt-0.5">
+                  <Heart className="w-4 h-4 text-primary/70" strokeWidth={1.5} />
+                </div>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Peaceful reminders that work quietly in the background
                 </p>
               </div>
             </div>
-          </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                // Mark as shown so it never appears again
-                localStorage.setItem('notification-prompt-shown', 'true');
-                setHasShownBefore(true);
-                setShowDialog(false);
-              }}
-              className="w-full"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Close
-            </Button>
-            <Button
-              onClick={() => {
-                // Mark as shown before refreshing
-                localStorage.setItem('notification-prompt-shown', 'true');
-                window.location.reload();
-              }}
-              className="w-full"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              I've Enabled It - Refresh
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+            {/* Action buttons - Allow is prominent */}
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-3 px-0">
+              <Button
+                variant="ghost"
+                onClick={handleDismiss}
+                className="w-full sm:w-auto order-2 sm:order-1 text-muted-foreground hover:text-foreground"
+              >
+                Not now
+              </Button>
+              <Button
+                onClick={handleEnable}
+                disabled={isLoading}
+                className="w-full sm:w-auto order-1 sm:order-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-primary/20 shadow-lg font-medium"
+                size="lg"
+              >
+                {isLoading ? (
+                  <>
+                    <Bell className="w-4 h-4 mr-2 animate-pulse" />
+                    Enabling...
+                  </>
+                ) : (
+                  <>
+                    Allow Notifications
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
 
-  // Default permission request dialog - SIMPLIFIED
-  return (
-    <Dialog open={showDialog} onOpenChange={setShowDialog}>
-      <DialogContent className="max-w-md sm:max-w-lg">
-        <DialogHeader>
-          <div className="flex items-center justify-center mb-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Bell className="w-8 h-8 text-primary" />
-            </div>
-          </div>
-          <DialogTitle className="text-center text-xl">Get Event Reminders</DialogTitle>
-          <DialogDescription className="text-center pt-2">
-            We'll send you notifications about upcoming important events
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="py-4">
-          <div className="text-center space-y-2 mb-6">
-            <p className="text-sm text-muted-foreground">
-              Never miss important dates like birthdays and anniversaries
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Works even when the website is closed
-            </p>
-          </div>
-
-          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 mb-4">
-            <p className="text-xs text-center text-muted-foreground">
-              You'll receive a test notification in 1-2 minutes to confirm it's working
+            {/* Subtle trust signal */}
+            <p className="text-xs text-center text-muted-foreground/60 mt-6 pt-4 border-t border-border/50">
+              You can change this anytime in settings
             </p>
           </div>
         </div>
-
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          <Button
-            variant="outline"
-            onClick={handleDismiss}
-            className="w-full sm:w-auto order-2 sm:order-1"
-          >
-            <X className="w-4 h-4 mr-2" />
-            Not Now
-          </Button>
-          <Button
-            onClick={handleEnable}
-            disabled={isLoading}
-            className="w-full sm:w-auto order-1 sm:order-2"
-          >
-            <Bell className="w-4 h-4 mr-2" />
-            {isLoading ? "Enabling..." : "Yes, Enable"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

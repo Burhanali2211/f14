@@ -23,7 +23,7 @@ import type { SiteSettings } from '@/lib/supabase-types';
 
 export default function SiteSettingsPage() {
   const navigate = useNavigate();
-  const { role: currentRole, loading: roleLoading } = useUserRole();
+  const { role: currentRole, loading: roleLoading, user: currentUser, refresh: refreshRole } = useUserRole();
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -138,7 +138,7 @@ export default function SiteSettingsPage() {
 
   useEffect(() => {
     checkAuth();
-  }, [currentRole, roleLoading]);
+  }, [currentRole, roleLoading, currentUser]);
 
   useEffect(() => {
     if (currentRole === 'admin') {
@@ -149,19 +149,57 @@ export default function SiteSettingsPage() {
   const checkAuth = async () => {
     if (roleLoading) return;
 
-    if (currentRole !== 'admin') {
+    // Check custom auth session first
+    if (!currentUser) {
+      navigate('/auth');
+      return;
+    }
+
+    // Security: Refresh role from database to get latest role changes
+    await refreshRole();
+    
+    // Get refreshed role - fetch directly from DB to verify
+    const { data: userData, error: roleError } = await safeQuery(async () => {
+      return await (supabase as any)
+        .from('users')
+        .select('role, is_active')
+        .eq('id', currentUser.id)
+        .eq('is_active', true)
+        .single();
+    });
+
+    // Security: If we can't verify the role from DB, deny access
+    if (roleError || !userData) {
+      logger.error('SiteSettingsPage: Could not verify user role from database', { error: roleError });
       toast({
         title: 'Access Denied',
-        description: 'Only admins can access this page.',
+        description: 'Unable to verify permissions. Please try again.',
         variant: 'destructive',
       });
       navigate('/');
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    // Security: Verify user ID matches
+    if (userData.id && userData.id !== currentUser.id) {
+      logger.error('SiteSettingsPage: User ID mismatch - potential security issue', {
+        sessionId: currentUser.id,
+        dbId: userData.id
+      });
       navigate('/auth');
+      return;
+    }
+
+    const actualRole = userData?.role || currentRole;
+
+    // Security: Strict role check - only 'admin' role allowed
+    if (actualRole !== 'admin') {
+      toast({
+        title: 'Access Denied',
+        description: 'Only admins can access this page.',
+        variant: 'destructive',
+      });
+      navigate('/');
       return;
     }
   };

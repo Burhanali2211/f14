@@ -28,6 +28,7 @@ import FavoritesPage from "./pages/FavoritesPage";
 import SettingsPage from "./pages/SettingsPage";
 import CalendarPage from "./pages/CalendarPage";
 import AnnouncementsPage from "./pages/AnnouncementsPage";
+import ProfilePage from "./pages/ProfilePage";
 import NotFound from "./pages/NotFound";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -42,55 +43,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Component to handle email confirmation and auth state changes
-function AuthHandler() {
-  const navigate = useNavigate();
-  
-  useEffect(() => {
-    // Handle email confirmation callback
-    const handleEmailConfirmation = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Check if we're coming from an email confirmation link
-      const urlParams = new URLSearchParams(window.location.search);
-      const type = urlParams.get('type');
-      
-      if (type === 'signup' && session?.user) {
-        // Check if email was just confirmed
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email_confirmed_at) {
-          logger.info('Email confirmed successfully');
-          // Show success message
-          toast({
-            title: 'Email confirmed!',
-            description: 'Your account has been verified. You can now log in.',
-          });
-          // Clean up URL
-          window.history.replaceState({}, '', window.location.pathname);
-        }
-      }
-    };
-    
-    handleEmailConfirmation();
-    
-    // Listen for SIGNED_IN event after email confirmation
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
-        logger.info('User signed in after email confirmation');
-        // Navigate to home if on auth page
-        if (window.location.pathname === '/auth') {
-          navigate('/', { replace: true });
-        }
-      }
-    });
-    
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [navigate]);
-  
-  return null;
-}
 
 // Component to handle service worker messages and Supabase Realtime announcements
 function ServiceWorkerHandler() {
@@ -540,7 +492,6 @@ const App = () => (
                     }}
                   >
                     <ScrollToTop />
-                    <AuthHandler />
                     <ServiceWorkerHandler />
                     <NotificationPermissionPrompt />
                     <Routes>
@@ -561,6 +512,7 @@ const App = () => (
                       <Route path="/favorites" element={<FavoritesPage />} />
                       <Route path="/settings" element={<SettingsPage />} />
                       <Route path="/calendar" element={<CalendarPage />} />
+                      <Route path="/profile" element={<ProfilePage />} />
                       <Route path="*" element={<NotFound />} />
                     </Routes>
                   </BrowserRouter>

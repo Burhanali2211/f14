@@ -1,13 +1,22 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Shield, Menu, X, Sparkles, Heart, Settings, Upload, Calendar } from 'lucide-react';
+import { Home, BookOpen, Shield, Menu, X, Sparkles, Heart, Settings, Upload, Calendar, LogIn, User, LayoutDashboard, LogOut } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/use-user-role';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
-import type { User } from '@supabase/supabase-js';
+import { signOut } from '@/lib/auth-utils';
 import type { SiteSettings } from '@/lib/supabase-types';
 
 export function Header() {
@@ -77,8 +86,8 @@ export function Header() {
     fetchSiteSettings();
   }, []);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    signOut();
     navigate('/');
   };
 
@@ -198,24 +207,79 @@ export function Header() {
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <ThemeToggle />
             {user ? (
-              <Button 
-                variant="outline" 
-                onClick={handleLogout} 
-                className="hidden lg:inline-flex rounded-xl h-9 sm:h-10 text-xs sm:text-sm px-3 sm:px-4" 
-                size="sm"
-              >
-                <span className="hidden xl:inline">Logout</span>
-                <span className="xl:hidden">Out</span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    className="hidden lg:flex rounded-xl h-9 sm:h-10 w-9 sm:w-10 p-0" 
+                    size="sm"
+                  >
+                    {role === 'admin' || role === 'uploader' ? (
+                      // Dashboard button for admin/uploader
+                      <div className="flex items-center justify-center w-full h-full rounded-xl bg-primary/10 hover:bg-primary/20 transition-colors">
+                        {role === 'admin' ? (
+                          <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                        ) : (
+                          <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                        )}
+                      </div>
+                    ) : (
+                      // Avatar for regular users
+                      <Avatar className="h-9 w-9 sm:h-10 sm:w-10">
+                        <AvatarImage src="" alt={user.full_name || user.email} />
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs sm:text-sm font-medium">
+                          {user.full_name 
+                            ? user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                            : user.email[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel className="flex flex-col">
+                    <span className="font-medium">{user.full_name || 'User'}</span>
+                    <span className="text-xs text-muted-foreground font-normal">{user.email}</span>
+                    {role && (
+                      <span className="text-xs text-muted-foreground font-normal capitalize mt-1">
+                        {role === 'admin' ? 'Administrator' : role === 'uploader' ? 'Content Uploader' : 'User'}
+                      </span>
+                    )}
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {role === 'admin' || role === 'uploader' ? (
+                    <DropdownMenuItem asChild>
+                      <Link to={role === 'admin' ? '/admin' : '/uploader'} className="flex items-center gap-2 cursor-pointer">
+                        <LayoutDashboard className="w-4 h-4" />
+                        <span>Dashboard</span>
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                      <User className="w-4 h-4" />
+                      <span>My Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={handleLogout}
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             ) : (
               <Button 
                 asChild 
-                className="hidden lg:inline-flex rounded-xl h-9 sm:h-10 bg-gradient-to-r from-primary to-emerald-light hover:opacity-90 text-xs sm:text-sm px-3 sm:px-4" 
+                variant="ghost"
+                className="hidden lg:inline-flex rounded-xl h-9 sm:h-10 w-9 sm:w-10 p-0" 
                 size="sm"
               >
-                <Link to="/auth">
-                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 sm:mr-2" />
-                  <span className="hidden sm:inline">Admin</span>
+                <Link to="/auth" className="flex items-center justify-center w-full h-full">
+                  <LogIn className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground hover:text-foreground transition-colors" />
                 </Link>
               </Button>
             )}
@@ -277,6 +341,16 @@ export function Header() {
               </Link>
               {user ? (
                 <>
+                  <Link 
+                    to="/profile" 
+                    onClick={closeMenu} 
+                    className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                      isActive('/profile') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
+                    }`}
+                  >
+                    <User className="w-5 h-5 flex-shrink-0" />
+                    <span>Profile</span>
+                  </Link>
                   {role === 'admin' && (
                     <Link 
                       to="/admin" 
@@ -286,7 +360,7 @@ export function Header() {
                       }`}
                     >
                       <Shield className="w-5 h-5 flex-shrink-0" />
-                      <span>Admin</span>
+                      <span>Admin Dashboard</span>
                     </Link>
                   )}
                   {(role === 'uploader' || role === 'admin') && (
@@ -298,7 +372,7 @@ export function Header() {
                       }`}
                     >
                       <Upload className="w-5 h-5 flex-shrink-0" />
-                      <span>Upload</span>
+                      <span>Upload Dashboard</span>
                     </Link>
                   )}
                   <Button 
@@ -306,7 +380,8 @@ export function Header() {
                     onClick={() => { handleLogout(); closeMenu(); }} 
                     className="justify-start px-4 py-2.5 sm:py-3 text-destructive hover:text-destructive hover:bg-destructive/10 text-sm sm:text-base"
                   >
-                    Logout
+                    <LogOut className="w-5 h-5 mr-3 flex-shrink-0" />
+                    <span>Logout</span>
                   </Button>
                 </>
               ) : (
@@ -315,7 +390,7 @@ export function Header() {
                   onClick={closeMenu} 
                   className="flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl bg-primary text-primary-foreground text-sm sm:text-base transition-opacity hover:opacity-90"
                 >
-                  <Sparkles className="w-5 h-5 flex-shrink-0" />
+                  <LogIn className="w-5 h-5 flex-shrink-0" />
                   <span>Login</span>
                 </Link>
               )}

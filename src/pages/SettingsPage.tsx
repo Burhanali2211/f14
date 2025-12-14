@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { 
   ChevronLeft, Type, Eye, Palette, 
-  Accessibility, RotateCcw, Download, Trash2, Bell, BellOff
+  Accessibility, RotateCcw, Download, Trash2, Bell, BellOff, Settings
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -300,8 +300,16 @@ export default function SettingsPage() {
                 <Switch
                   checked={notificationsEnabled}
                   onCheckedChange={async (checked) => {
-                    if (checked && permission.state === 'default') {
-                      setShowPermissionDialog(true);
+                    if (checked && (permission.state === 'default' || permission.state === 'denied')) {
+                      // If permission is default or denied, request it
+                      const granted = await requestPermission();
+                      if (!granted && permission.state === 'denied') {
+                        toast({
+                          title: "Notifications blocked",
+                          description: "Please enable notifications in your browser settings first",
+                          variant: "destructive"
+                        });
+                      }
                     } else {
                       await toggleNotifications();
                     }
@@ -310,28 +318,37 @@ export default function SettingsPage() {
                 />
               </div>
 
-              {permission.state === 'denied' && (
+              {!notificationsEnabled && (permission.state === 'default' || permission.state === 'denied') && (
                 <>
                   <Separator />
-                  <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20">
-                    <p className="text-sm text-destructive font-medium mb-2">
-                      Notifications are blocked
+                  <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                    <p className="text-sm text-foreground font-medium mb-2 flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-primary" />
+                      Enable Notifications
                     </p>
                     <p className="text-xs text-muted-foreground mb-3">
-                      To enable notifications, please allow them in your browser settings and refresh the page.
+                      {permission.state === 'denied' 
+                        ? "Notifications are currently blocked. Please enable them in your browser settings, then toggle the switch above."
+                        : "Click the switch above to enable gentle reminders for important events."
+                      }
                     </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        toast({
-                          title: "How to enable notifications",
-                          description: "1. Click the lock icon in your browser's address bar\n2. Find 'Notifications' and set it to 'Allow'\n3. Refresh this page",
-                        });
-                      }}
-                    >
-                      Learn More
-                    </Button>
+                    {permission.state === 'denied' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          toast({
+                            title: "How to enable notifications",
+                            description: "1. Click the lock icon (🔒) in your browser's address bar\n2. Find 'Notifications' in permissions\n3. Change it to 'Allow'\n4. Refresh this page and toggle the switch",
+                            duration: 8000,
+                          });
+                        }}
+                        className="w-full sm:w-auto"
+                      >
+                        <Settings className="w-4 h-4 mr-2" />
+                        Show Instructions
+                      </Button>
+                    )}
                   </div>
                 </>
               )}
@@ -340,11 +357,12 @@ export default function SettingsPage() {
                 <>
                   <Separator />
                   <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-                    <p className="text-sm text-primary font-medium mb-1">
-                      ✓ Notifications Active
+                    <p className="text-sm text-primary font-medium mb-1 flex items-center gap-2">
+                      <span className="text-lg">✓</span>
+                      Notifications Active
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      You'll receive reminders about upcoming events. Notifications work even when the app is closed.
+                      You'll receive peaceful reminders about upcoming events. Notifications work even when the app is closed.
                     </p>
                   </div>
                 </>

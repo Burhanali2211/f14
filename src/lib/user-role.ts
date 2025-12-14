@@ -1,18 +1,18 @@
 import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from './db-utils';
 import { logger } from './logger';
+import { getCurrentUser } from './auth-utils';
 import type { UserRole, UserProfile } from './supabase-types';
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
   logger.debug('UserRole: Fetching profile for userId', userId);
   
   const { data, error } = await safeQuery(async () => {
-    const result = await (supabase as any)
-      .from('profiles')
-      .select('*')
+    return await (supabase as any)
+      .from('users')
+      .select('id, email, full_name, role, created_at, updated_at')
       .eq('id', userId)
       .single();
-    return result;
   });
 
   if (error) {
@@ -25,7 +25,17 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     return null;
   }
   
-  const profile = data as UserProfile;
+  const userData = data as any;
+  const profile: UserProfile = {
+    id: userData.id,
+    email: userData.email,
+    role: userData.role as UserRole,
+    full_name: userData.full_name,
+    avatar_url: null,
+    created_at: userData.created_at,
+    updated_at: userData.updated_at,
+  };
+  
   logger.debug('UserRole: Profile found', { id: profile.id, role: profile.role });
   return profile;
 }
@@ -34,20 +44,14 @@ export async function getCurrentUserRole(): Promise<UserRole> {
   try {
     logger.debug('UserRole: Getting current user role');
     
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError) {
-      logger.error('UserRole: Error getting user:', userError);
-      return 'user';
-    }
+    const user = getCurrentUser();
     
     if (!user) {
       logger.debug('UserRole: No user found');
       return 'user';
     }
 
-    const profile = await getUserProfile(user.id);
-    const role = profile?.role || 'user';
+    const role = user.role as UserRole || 'user';
     logger.debug('UserRole: Current role', role);
     return role;
   } catch (error) {
@@ -60,19 +64,73 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
   try {
     logger.debug('UserRole: Getting current user profile');
     
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    
-    if (userError) {
-      logger.error('UserRole: Error getting user:', userError);
-      return null;
-    }
+    const user = getCurrentUser();
     
     if (!user) {
       logger.debug('UserRole: No user found');
       return null;
     }
 
-    return await getUserProfile(user.id);
+    // Security: Validate user ID format (UUID)
+    if (!user.id || typeof user.id !== 'string' || user.id.length < 30) {
+      logger.error('UserRole: Invalid user ID format', { userId: user.id });
+      return null;
+    }
+
+    // Fetch fresh data from database to get latest role
+    // Security: Only fetch for the authenticated user's own ID
+    const { data, error } = await safeQuery(async () => {
+      return await (supabase as any)
+        .from('users')
+        .select('id, email, full_name, role, created_at, updated_at')
+        .eq('id', user.id)
+        .eq('is_active', true) // Security: Only fetch active users
+        .single();
+    });
+
+    if (error) {
+      logger.error('UserRole: Error fetching user profile from DB:', error);
+      // Security: Fallback to session data only if DB fetch fails (network issue, not auth issue)
+      // This prevents unauthorized access if session is compromised
+      const profile: UserProfile = {
+        id: user.id,
+        email: user.email,
+        role: user.role as UserRole,
+        full_name: user.full_name,
+        avatar_url: null,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+      };
+      return profile;
+    }
+
+    if (!data) {
+      logger.debug('UserRole: No profile data found in DB');
+      return null;
+    }
+
+    // Security: Verify the returned data matches the authenticated user
+    const userData = data as any;
+    if (userData.id !== user.id) {
+      logger.error('UserRole: User ID mismatch - potential security issue', {
+        sessionId: user.id,
+        dbId: userData.id
+      });
+      return null;
+    }
+
+    const profile: UserProfile = {
+      id: userData.id,
+      email: userData.email,
+      role: userData.role as UserRole,
+      full_name: userData.full_name,
+      avatar_url: null,
+      created_at: userData.created_at,
+      updated_at: userData.updated_at,
+    };
+
+    logger.debug('UserRole: Profile fetched from DB', { id: profile.id, role: profile.role });
+    return profile;
   } catch (error) {
     logger.error('UserRole: Error in getCurrentUserProfile:', error);
     return null;

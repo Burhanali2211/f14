@@ -48,7 +48,7 @@ import { ReciterCombobox } from '@/components/ReciterCombobox';
 
 export default function AdminPage() {
   const navigate = useNavigate();
-  const { role: currentRole, loading: roleLoading } = useUserRole();
+  const { role: currentRole, loading: roleLoading, user: currentUser, refresh: refreshRole } = useUserRole();
   const [categories, setCategories] = useState<Category[]>([]);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [imams, setImams] = useState<Imam[]>([]);
@@ -69,7 +69,15 @@ export default function AdminPage() {
   // User Management
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
-  const [userForm, setUserForm] = useState({ role: 'user' as 'admin' | 'uploader' | 'user' });
+  const [isAddingUser, setIsAddingUser] = useState(false);
+  const [userForm, setUserForm] = useState({ 
+    email: '',
+    password: '',
+    full_name: '',
+    phone_number: '',
+    address: '',
+    role: 'user' as 'admin' | 'uploader' | 'user' 
+  });
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [userPermissions, setUserPermissions] = useState<UploaderPermission[]>([]);
@@ -129,8 +137,15 @@ export default function AdminPage() {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:108',message:'checkAuth effect triggered',data:{currentRole,roleLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
     // #endregion
-    checkAuth();
-  }, [currentRole, roleLoading]);
+    // Force refresh role from database when accessing admin page
+    if (currentUser && !roleLoading) {
+      refreshRole().then(() => {
+        checkAuth();
+      });
+    } else {
+      checkAuth();
+    }
+  }, [currentRole, roleLoading, currentUser]);
 
   useEffect(() => {
     if (currentRole === 'admin') {
@@ -149,9 +164,60 @@ export default function AdminPage() {
       return;
     }
 
-    if (currentRole !== 'admin') {
+    // Check custom auth session first
+    if (!currentUser) {
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:125',message:'redirecting to home - not admin',data:{currentRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:133',message:'redirecting to auth - no user',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
+      navigate('/auth');
+      return;
+    }
+
+    // Security: Refresh role from database to get latest role changes
+    // This ensures role changes in DB are immediately reflected
+    await refreshRole();
+    
+    // Get refreshed role - we need to check it after refresh completes
+    // Since refresh is async and updates state, we'll fetch directly from DB
+    // Security: Only fetch for the authenticated user's own ID
+    const { data: userData, error: roleError } = await safeQuery(async () => {
+      return await (supabase as any)
+        .from('users')
+        .select('role, is_active')
+        .eq('id', currentUser.id)
+        .eq('is_active', true) // Security: Only check active users
+        .single();
+    });
+
+    // Security: If we can't verify the role from DB, deny access
+    if (roleError || !userData) {
+      logger.error('AdminPage: Could not verify user role from database', { error: roleError });
+      toast({
+        title: 'Access Denied',
+        description: 'Unable to verify permissions. Please try again.',
+        variant: 'destructive',
+      });
+      navigate('/');
+      return;
+    }
+
+    // Security: Verify user ID matches (prevent ID manipulation)
+    const userDataTyped = userData as any;
+    if (userDataTyped?.id && userDataTyped.id !== currentUser.id) {
+      logger.error('AdminPage: User ID mismatch - potential security issue', {
+        sessionId: currentUser.id,
+        dbId: userDataTyped.id
+      });
+      navigate('/auth');
+      return;
+    }
+
+    const actualRole = userDataTyped?.role || currentRole;
+
+    // Security: Strict role check - only 'admin' role allowed
+    if (actualRole !== 'admin') {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:125',message:'redirecting to home - not admin',data:{actualRole,currentRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
       // #endregion
       toast({
         title: 'Access Denied',
@@ -162,21 +228,7 @@ export default function AdminPage() {
       return;
     }
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:129',message:'checking session',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    const { data: { session } } = await supabase.auth.getSession();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:131',message:'session check result',data:{hasSession:!!session},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
-    if (!session) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:133',message:'redirecting to auth - no session',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
-      navigate('/auth');
-      return;
-    }
-    setUser(session.user);
+    setUser(currentUser);
   };
 
   const fetchData = async () => {
@@ -197,7 +249,7 @@ export default function AdminPage() {
           return { data: sorted, error: null };
         }),
         safeQuery(async () => await (supabase as any).from('artistes').select('*').order('name')),
-        safeQuery(async () => await (supabase as any).from('profiles').select('*').order('created_at', { ascending: false })),
+        safeQuery(async () => await (supabase as any).from('users').select('id, email, full_name, phone_number, address, role, is_active, created_at, updated_at').order('created_at', { ascending: false })),
         safeQuery(async () => await (supabase as any).from('ahlul_bait_events').select('*, imam:imams(*)').order('event_date', { ascending: true })),
       ]);
 
@@ -821,38 +873,157 @@ export default function AdminPage() {
   const openUserDialog = (userProfile?: UserProfile) => {
     if (userProfile) {
       setEditingUser(userProfile);
-      setUserForm({ role: userProfile.role });
+      setIsAddingUser(false);
+      setUserForm({ 
+        email: userProfile.email || '',
+        password: '',
+        full_name: userProfile.full_name || '',
+        phone_number: '',
+        address: '',
+        role: userProfile.role 
+      });
     } else {
       setEditingUser(null);
-      setUserForm({ role: 'user' });
+      setIsAddingUser(true);
+      setUserForm({ 
+        email: '',
+        password: '',
+        full_name: '',
+        phone_number: '',
+        address: '',
+        role: 'user' 
+      });
     }
     setUserDialogOpen(true);
   };
 
+  // Hash password using SHA-256 (same as auth function)
+  const hashPassword = async (password: string): Promise<string> => {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  };
+
   const saveUser = async () => {
-    if (!editingUser) {
-      toast({ title: 'Error', description: 'No user selected', variant: 'destructive' });
-      return;
+    if (isAddingUser) {
+      // Create new user
+      if (!userForm.email || !userForm.password) {
+        toast({ 
+          title: 'Error', 
+          description: 'Email and password are required', 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
+      if (userForm.password.length < 6) {
+        toast({ 
+          title: 'Error', 
+          description: 'Password must be at least 6 characters', 
+          variant: 'destructive' 
+        });
+        return;
+      }
+
+      try {
+        logger.debug('Admin: Creating new user', { email: userForm.email, role: userForm.role });
+        
+        const passwordHash = await hashPassword(userForm.password);
+
+        const { data: newUser, error } = await safeQuery(async () => {
+          return await (supabase as any)
+            .from('users')
+            .insert({
+              email: userForm.email,
+              password_hash: passwordHash,
+              full_name: userForm.full_name || null,
+              phone_number: userForm.phone_number || null,
+              address: userForm.address || null,
+              role: userForm.role,
+              is_active: true,
+            })
+            .select('id, email, full_name, phone_number, address, role, is_active, created_at, updated_at')
+            .single();
+        });
+
+        if (error) {
+          logger.error('Admin: Error creating user:', error);
+          if (error.code === '23505' || error.message?.includes('unique') || error.message?.includes('duplicate')) {
+            toast({ 
+              title: 'Error', 
+              description: 'Email already exists', 
+              variant: 'destructive' 
+            });
+          } else {
+            toast({ 
+              title: 'Error', 
+              description: error.message || 'Failed to create user', 
+              variant: 'destructive' 
+            });
+          }
+          return;
+        }
+
+        toast({ title: 'Success', description: 'User created successfully' });
+        setUserDialogOpen(false);
+        fetchData();
+      } catch (error: any) {
+        logger.error('Admin: Unexpected error creating user:', error);
+        toast({ 
+          title: 'Error', 
+          description: error.message || 'Failed to create user', 
+          variant: 'destructive' 
+        });
+      }
+    } else {
+      // Update existing user
+      if (!editingUser) {
+        toast({ title: 'Error', description: 'No user selected', variant: 'destructive' });
+        return;
+      }
+
+      logger.debug('Admin: Updating user', { userId: editingUser.id, newRole: userForm.role });
+
+      const updateData: any = {
+        role: userForm.role,
+        full_name: userForm.full_name || null,
+        phone_number: userForm.phone_number || null,
+        address: userForm.address || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Only update password if provided
+      if (userForm.password && userForm.password.length > 0) {
+        if (userForm.password.length < 6) {
+          toast({ 
+            title: 'Error', 
+            description: 'Password must be at least 6 characters', 
+            variant: 'destructive' 
+          });
+          return;
+        }
+        updateData.password_hash = await hashPassword(userForm.password);
+      }
+
+      const { error } = await safeQuery(async () =>
+        await (supabase as any)
+          .from('users')
+          .update(updateData)
+          .eq('id', editingUser.id)
+      );
+
+      if (error) {
+        logger.error('Admin: Error updating user:', error);
+        toast({ title: 'Error', description: error.message || 'Failed to update user', variant: 'destructive' });
+        return;
+      }
+
+      toast({ title: 'Success', description: 'User updated successfully' });
+      setUserDialogOpen(false);
+      fetchData();
     }
-
-    logger.debug('Admin: Updating user role', { userId: editingUser.id, newRole: userForm.role });
-
-    const { error } = await safeQuery(async () =>
-      await (supabase as any)
-        .from('profiles')
-        .update({ role: userForm.role })
-        .eq('id', editingUser.id)
-    );
-
-    if (error) {
-      logger.error('Admin: Error updating user role:', error);
-      toast({ title: 'Error', description: error.message || 'Failed to update user role', variant: 'destructive' });
-      return;
-    }
-
-    toast({ title: 'Success', description: 'User role updated' });
-    setUserDialogOpen(false);
-    fetchData();
   };
 
   const openPermissionDialog = async (userProfile: UserProfile) => {
@@ -1435,53 +1606,71 @@ export default function AdminPage() {
 
           {/* Users Tab */}
           <TabsContent value="users" className="space-y-4">
+            <div className="flex justify-end mb-4">
+              <Button onClick={() => openUserDialog()} className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add User
+              </Button>
+            </div>
             <div className="grid gap-3">
-              {userProfiles.map((userProfile) => (
-                <div
-                  key={userProfile.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-card rounded-lg shadow-soft"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2">
-                      <h3 className="font-medium text-foreground truncate text-sm sm:text-base">{userProfile.email}</h3>
-                      <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 w-fit ${
-                        userProfile.role === 'admin' 
-                          ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
-                          : userProfile.role === 'uploader'
-                          ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
-                      }`}>
-                        {userProfile.role}
-                      </span>
+              {userProfiles.map((userProfile) => {
+                const isCurrentUser = currentUser && userProfile.id === currentUser.id;
+                return (
+                  <div
+                    key={userProfile.id}
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-3 sm:p-4 bg-card rounded-lg shadow-soft ${
+                      isCurrentUser ? 'ring-2 ring-primary' : ''
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-2">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-foreground truncate text-sm sm:text-base">{userProfile.email}</h3>
+                          {isCurrentUser && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                              You
+                            </span>
+                          )}
+                        </div>
+                        <span className={`text-xs px-2 py-1 rounded-full flex-shrink-0 w-fit ${
+                          userProfile.role === 'admin' 
+                            ? 'bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200'
+                            : userProfile.role === 'uploader'
+                            ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200'
+                        }`}>
+                          {userProfile.role}
+                        </span>
+                      </div>
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate mt-1">
+                        {userProfile.full_name || 'No name provided'}
+                      </p>
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground truncate mt-1">
-                      {userProfile.full_name || 'No name provided'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openUserDialog(userProfile)}
-                      title="Edit role"
-                      className="h-9 w-9 sm:h-10 sm:w-10"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
-                    {userProfile.role === 'uploader' && (
+                    <div className="flex items-center gap-2 flex-shrink-0">
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => openPermissionDialog(userProfile)}
-                        title="Manage permissions"
+                        onClick={() => openUserDialog(userProfile)}
+                        title="Edit role"
                         className="h-9 w-9 sm:h-10 sm:w-10"
                       >
-                        <Key className="w-4 h-4" />
+                        <Edit2 className="w-4 h-4" />
                       </Button>
-                    )}
+                      {userProfile.role === 'uploader' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openPermissionDialog(userProfile)}
+                          title="Manage permissions"
+                          className="h-9 w-9 sm:h-10 sm:w-10"
+                        >
+                          <Key className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </TabsContent>
 
@@ -1892,20 +2081,67 @@ export default function AdminPage() {
 
       {/* User Role Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit User Role</DialogTitle>
+            <DialogTitle>{isAddingUser ? 'Add New User' : 'Edit User'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Email</Label>
-              <Input value={editingUser?.email || ''} disabled />
+              <Label htmlFor="user-email">Email {isAddingUser && <span className="text-destructive">*</span>}</Label>
+              <Input 
+                id="user-email"
+                type="email"
+                value={userForm.email} 
+                onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                disabled={!isAddingUser}
+                placeholder="user@example.com"
+              />
+            </div>
+            <div>
+              <Label htmlFor="user-password">
+                Password {isAddingUser ? <span className="text-destructive">*</span> : <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}
+              </Label>
+              <Input 
+                id="user-password"
+                type="password"
+                value={userForm.password} 
+                onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                placeholder={isAddingUser ? "At least 6 characters" : "Enter new password"}
+              />
+            </div>
+            <div>
+              <Label htmlFor="user-name">Full Name</Label>
+              <Input 
+                id="user-name"
+                value={userForm.full_name} 
+                onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })}
+                placeholder="John Doe"
+              />
+            </div>
+            <div>
+              <Label htmlFor="user-phone">Phone Number</Label>
+              <Input 
+                id="user-phone"
+                type="tel"
+                value={userForm.phone_number} 
+                onChange={(e) => setUserForm({ ...userForm, phone_number: e.target.value })}
+                placeholder="+1 (555) 123-4567"
+              />
+            </div>
+            <div>
+              <Label htmlFor="user-address">Address</Label>
+              <Input 
+                id="user-address"
+                value={userForm.address} 
+                onChange={(e) => setUserForm({ ...userForm, address: e.target.value })}
+                placeholder="123 Main St, City, State"
+              />
             </div>
             <div>
               <Label htmlFor="user-role">Role</Label>
               <Select
                 value={userForm.role}
-                onValueChange={(v) => setUserForm({ role: v as 'admin' | 'uploader' | 'user' })}
+                onValueChange={(v) => setUserForm({ ...userForm, role: v as 'admin' | 'uploader' | 'user' })}
               >
                 <SelectTrigger id="user-role">
                   <SelectValue />
@@ -1920,7 +2156,7 @@ export default function AdminPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setUserDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveUser}>Save</Button>
+            <Button onClick={saveUser}>{isAddingUser ? 'Create User' : 'Save Changes'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
