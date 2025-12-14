@@ -31,6 +31,7 @@ import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotFound from "./pages/NotFound";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { toast } from "@/hooks/use-toast";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,56 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Component to handle email confirmation and auth state changes
+function AuthHandler() {
+  const navigate = useNavigate();
+  
+  useEffect(() => {
+    // Handle email confirmation callback
+    const handleEmailConfirmation = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Check if we're coming from an email confirmation link
+      const urlParams = new URLSearchParams(window.location.search);
+      const type = urlParams.get('type');
+      
+      if (type === 'signup' && session?.user) {
+        // Check if email was just confirmed
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email_confirmed_at) {
+          logger.info('Email confirmed successfully');
+          // Show success message
+          toast({
+            title: 'Email confirmed!',
+            description: 'Your account has been verified. You can now log in.',
+          });
+          // Clean up URL
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+      }
+    };
+    
+    handleEmailConfirmation();
+    
+    // Listen for SIGNED_IN event after email confirmation
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user?.email_confirmed_at) {
+        logger.info('User signed in after email confirmation');
+        // Navigate to home if on auth page
+        if (window.location.pathname === '/auth') {
+          navigate('/', { replace: true });
+        }
+      }
+    });
+    
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
+  
+  return null;
+}
 
 // Component to handle service worker messages and Supabase Realtime announcements
 function ServiceWorkerHandler() {
@@ -66,8 +117,60 @@ function ServiceWorkerHandler() {
 
   // Listen for Supabase Realtime announcements via database changes
   useEffect(() => {
-    // Track shown notifications to prevent duplicates
-    const shownNotificationIds = new Set<string>();
+    // Helper functions for persistent notification deduplication
+    const STORAGE_KEY = 'shown_notification_ids';
+    const RETENTION_MS = 24 * 60 * 60 * 1000; // 24 hours
+    
+    const getShownNotificationIds = (): Set<string> => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (!stored) return new Set();
+        
+        const data = JSON.parse(stored);
+        const now = Date.now();
+        const validIds = new Set<string>();
+        
+        // Only keep IDs that are less than 24 hours old
+        for (const [id, timestamp] of Object.entries(data)) {
+          if (now - (timestamp as number) < RETENTION_MS) {
+            validIds.add(id);
+          }
+        }
+        
+        // Update storage with only valid IDs
+        if (validIds.size !== Object.keys(data).length) {
+          const updated: Record<string, number> = {};
+          validIds.forEach(id => {
+            updated[id] = data[id] || now;
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        }
+        
+        return validIds;
+      } catch (error) {
+        logger.error('Error reading shown notification IDs:', error);
+        return new Set();
+      }
+    };
+    
+    const markNotificationAsShown = (id: string): void => {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const data = stored ? JSON.parse(stored) : {};
+        data[id] = Date.now();
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (error) {
+        logger.error('Error saving shown notification ID:', error);
+      }
+    };
+    
+    const isNotificationShown = (id: string): boolean => {
+      const shownIds = getShownNotificationIds();
+      return shownIds.has(id);
+    };
+    
+    // Track shown notifications to prevent duplicates (in-memory cache for quick access)
+    const shownNotificationIds = getShownNotificationIds();
     
     logger.info('Setting up Realtime subscription for announcements');
     
@@ -95,6 +198,7 @@ function ServiceWorkerHandler() {
             event_date?: string | null;
             hijri_date?: string | null;
             template_data?: any;
+            thumbnail_url?: string | null;
           };
           
           logger.info('New announcement detected via database Realtime:', {
@@ -107,7 +211,7 @@ function ServiceWorkerHandler() {
           });
           
           // Deduplication: Check if we've already shown this notification
-          if (shownNotificationIds.has(announcement.id)) {
+          if (isNotificationShown(announcement.id)) {
             logger.info('Notification already shown for announcement:', announcement.id);
             return;
           }
@@ -117,13 +221,9 @@ function ServiceWorkerHandler() {
           if (announcement.sent_at && Notification.permission === 'granted') {
             logger.info('Showing notification for announcement:', announcement.title);
             
-            // Mark as shown immediately to prevent duplicates
+            // Mark as shown immediately to prevent duplicates (persistent storage)
+            markNotificationAsShown(announcement.id);
             shownNotificationIds.add(announcement.id);
-            
-            // Clean up old IDs after 1 minute to prevent memory leak
-            setTimeout(() => {
-              shownNotificationIds.delete(announcement.id);
-            }, 60000);
             
             // Get notification template based on event type
             const { getNotificationTemplate } = await import('@/lib/notification-templates');
@@ -226,7 +326,7 @@ function ServiceWorkerHandler() {
         try {
           const { data: recentAnnouncements } = await supabase
             .from('announcements')
-            .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data')
+            .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
             .not('sent_at', 'is', null)
             .order('created_at', { ascending: false })
             .limit(5); // Check last 5 announcements
@@ -234,7 +334,8 @@ function ServiceWorkerHandler() {
           if (recentAnnouncements && recentAnnouncements.length > 0) {
             // Check each announcement to see if we missed it
             for (const announcement of recentAnnouncements) {
-              if (!shownNotificationIds.has(announcement.id) && 
+              // Use persistent storage check
+              if (!isNotificationShown(announcement.id) && 
                   announcement.sent_at && 
                   Notification.permission === 'granted') {
                 
@@ -245,10 +346,9 @@ function ServiceWorkerHandler() {
                 if (sentTime > fiveMinutesAgo) {
                   logger.info('Found missed announcement while in background:', announcement.title);
                   
+                  // Mark as shown in persistent storage
+                  markNotificationAsShown(announcement.id);
                   shownNotificationIds.add(announcement.id);
-                  setTimeout(() => {
-                    shownNotificationIds.delete(announcement.id);
-                  }, 60000);
 
                   const { getNotificationTemplate } = await import('@/lib/notification-templates');
                   const template = getNotificationTemplate({
@@ -348,7 +448,7 @@ function ServiceWorkerHandler() {
         // Get the most recent announcement
         const { data, error } = await supabase
           .from('announcements')
-          .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data')
+          .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
           .not('sent_at', 'is', null)
           .order('created_at', { ascending: false })
           .limit(1)
@@ -357,18 +457,16 @@ function ServiceWorkerHandler() {
         if (error || !data) return;
 
         // If this is a new announcement we haven't seen, show notification
-        if (data.id !== lastAnnouncementId && !shownNotificationIds.has(data.id)) {
+        if (data.id !== lastAnnouncementId && !isNotificationShown(data.id)) {
           lastAnnouncementId = data.id;
           
           // Only show if notification permission is granted
           if (data.sent_at && Notification.permission === 'granted') {
             logger.info('New announcement detected via polling fallback:', data.title);
             
-            // Mark as shown
+            // Mark as shown in persistent storage
+            markNotificationAsShown(data.id);
             shownNotificationIds.add(data.id);
-            setTimeout(() => {
-              shownNotificationIds.delete(data.id);
-            }, 60000);
 
             // Get notification template
             const { getNotificationTemplate } = await import('@/lib/notification-templates');
@@ -442,6 +540,7 @@ const App = () => (
                     }}
                   >
                     <ScrollToTop />
+                    <AuthHandler />
                     <ServiceWorkerHandler />
                     <NotificationPermissionPrompt />
                     <Routes>
