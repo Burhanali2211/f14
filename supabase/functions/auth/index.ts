@@ -1,8 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  const requestOrigin = origin || '';
+const getCorsHeaders = (origin: string | null, referer: string | null): Record<string, string> => {
+  const requestOrigin = origin || referer || '';
   
   // Allow ALL origins for maximum compatibility
   // CRITICAL: When Access-Control-Allow-Credentials is 'true',
@@ -10,8 +10,9 @@ const getCorsHeaders = (origin: string | null): Record<string, string> => {
   // So we use the request origin if present
   let corsOrigin: string;
   if (requestOrigin) {
-    // Use the request origin - this allows any origin to work
-    corsOrigin = requestOrigin;
+    // Extract origin from referer if needed (for mobile browsers that might not send origin)
+    const originMatch = requestOrigin.match(/^https?:\/\/[^\/]+/);
+    corsOrigin = originMatch ? originMatch[0] : requestOrigin;
   } else {
     // No origin means same-origin request or direct API call
     // Use a default origin that works with credentials
@@ -20,10 +21,12 @@ const getCorsHeaders = (origin: string | null): Record<string, string> => {
   
   return {
     'Access-Control-Allow-Origin': corsOrigin,
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, origin, referer',
     'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
     'Access-Control-Max-Age': '86400',
     'Access-Control-Allow-Credentials': 'true',
+    // Add additional headers for mobile compatibility
+    'Vary': 'Origin, Referer',
   };
 };
 
@@ -31,6 +34,7 @@ Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
   const referer = req.headers.get('referer');
   const userAgent = req.headers.get('user-agent') || '';
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
   
   // Log for debugging mobile issues
   console.log('Auth request:', {
@@ -38,10 +42,12 @@ Deno.serve(async (req) => {
     referer,
     method: req.method,
     userAgent: userAgent.substring(0, 50),
-    url: req.url
+    isMobile,
+    url: req.url,
+    allHeaders: Object.fromEntries(req.headers.entries())
   });
   
-  const corsHeaders = getCorsHeaders(origin || referer);
+  const corsHeaders = getCorsHeaders(origin, referer);
   
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -154,8 +160,19 @@ Deno.serve(async (req) => {
       });
     }
   } catch (error: any) {
+    console.error('Auth function error:', {
+      error: error.message,
+      stack: error.stack,
+      isMobile,
+      userAgent: userAgent.substring(0, 50)
+    });
+    
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({ 
+        error: error.message || "Internal server error",
+        // Add helpful message for mobile
+        ...(isMobile && { hint: "Please check your internet connection and try again." })
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

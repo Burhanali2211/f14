@@ -42,3 +42,4 @@ CREATE TRIGGER update_site_settings_updated_at
   FOR EACH ROW
   EXECUTE FUNCTION public.update_site_settings_updated_at();
 
+

@@ -5,6 +5,28 @@ import { logger } from './logger';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const AUTH_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/auth`;
 
+/**
+ * Test if the auth endpoint is reachable (for mobile debugging)
+ */
+async function testConnection(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for test
+    
+    const response = await fetch(AUTH_FUNCTION_URL, {
+      method: 'OPTIONS', // CORS preflight
+      signal: controller.signal,
+      mode: 'cors',
+    });
+    
+    clearTimeout(timeoutId);
+    return response.ok || response.status === 200;
+  } catch (error) {
+    logger.debug('Connection test failed:', error);
+    return false;
+  }
+}
+
 // Get the anon key (JWT token) for Edge Functions
 // The anon key is a JWT that works with verify_jwt: true
 const getAnonKey = (): string => {
@@ -146,7 +168,8 @@ export async function signUp(
     
     let response: Response;
     try {
-      response = await fetchWithRetry(AUTH_FUNCTION_URL, {
+      // For mobile devices, use a more permissive fetch configuration
+      const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -165,7 +188,11 @@ export async function signUp(
         credentials: 'include',
         // Add mode for better CORS handling
         mode: 'cors',
-      });
+        // Add cache control for mobile
+        cache: 'no-cache',
+      };
+      
+      response = await fetchWithRetry(AUTH_FUNCTION_URL, fetchOptions);
     } catch (fetchError: any) {
       // Handle specific error types
       if (fetchError.name === 'AbortError') {
@@ -175,7 +202,9 @@ export async function signUp(
       
       if (fetchError.message?.includes('Failed to fetch') || 
           fetchError.message?.includes('NetworkError') ||
-          fetchError.message?.includes('Network request failed')) {
+          fetchError.message?.includes('Network request failed') ||
+          fetchError.message?.includes('Load failed') ||
+          fetchError.message?.includes('timeout')) {
         logger.error('Network error during signup:', { 
           error: fetchError.message,
           url: AUTH_FUNCTION_URL,
@@ -183,9 +212,20 @@ export async function signUp(
           isMobile,
           origin: window.location.origin
         });
+        
+        // More helpful error message for mobile
+        const mobileErrorMsg = isMobile 
+          ? 'Unable to connect to server. Please check:\n\n' +
+            '• Your internet connection (WiFi or mobile data)\n' +
+            '• Try switching between WiFi and mobile data\n' +
+            '• Make sure you have a stable connection\n' +
+            '• Try refreshing the page\n' +
+            '• If the problem persists, check if the website is accessible'
+          : 'Network error. Please check your internet connection. If using mobile data, try switching to WiFi or vice versa.';
+        
         return { 
           user: null, 
-          error: 'Network error. Please check your internet connection. If using mobile data, try switching to WiFi or vice versa.' 
+          error: mobileErrorMsg
         };
       }
       
@@ -246,17 +286,30 @@ export async function signUp(
 }
 
 // Helper function to retry fetch with exponential backoff
+// Mobile devices get longer timeout and more retries
 async function fetchWithRetry(
   url: string,
   options: RequestInit,
   maxRetries: number = 2
 ): Promise<Response> {
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Mobile devices get longer timeout (60s) and more retries (3)
+  const timeout = isMobile ? 60000 : 30000;
+  const retries = isMobile ? 3 : maxRetries;
+  
   let lastError: any;
   
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      
+      logger.debug(`Fetch attempt ${attempt + 1}/${retries + 1}`, { 
+        url, 
+        isMobile, 
+        timeout,
+        attempt 
+      });
       
       const response = await fetch(url, {
         ...options,
@@ -264,18 +317,37 @@ async function fetchWithRetry(
       });
       
       clearTimeout(timeoutId);
+      
+      // Check if response is ok, if not, might retry on 5xx errors
+      if (!response.ok && response.status >= 500 && attempt < retries) {
+        logger.warn(`Server error ${response.status}, will retry...`, { attempt });
+        lastError = new Error(`Server error: ${response.status}`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+        continue;
+      }
+      
       return response;
     } catch (error: any) {
       lastError = error;
       
-      // Don't retry on abort (timeout)
+      // Don't retry on abort (timeout) on last attempt
       if (error.name === 'AbortError') {
-        throw error;
+        if (attempt < retries) {
+          logger.warn('Request timeout, retrying...', { attempt, isMobile });
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
+          continue;
+        }
+        throw new Error('Request timed out. Please check your internet connection and try again.');
       }
       
       // Don't retry on last attempt
-      if (attempt < maxRetries) {
-        // Exponential backoff: 1s, 2s
+      if (attempt < retries) {
+        logger.debug('Network error, retrying...', { 
+          error: error.message, 
+          attempt,
+          isMobile 
+        });
+        // Exponential backoff: 1s, 2s, 4s for mobile
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
         continue;
       }
@@ -305,9 +377,21 @@ export async function signIn(
       origin: window.location.origin
     });
     
+    // For mobile, test connection first (non-blocking)
+    if (isMobile) {
+      testConnection().then(connected => {
+        if (!connected) {
+          logger.warn('Connection test failed on mobile device');
+        }
+      }).catch(() => {
+        // Ignore test errors
+      });
+    }
+    
     let response: Response;
     try {
-      response = await fetchWithRetry(AUTH_FUNCTION_URL, {
+      // For mobile devices, use a more permissive fetch configuration
+      const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -323,7 +407,11 @@ export async function signIn(
         credentials: 'include',
         // Add mode for better CORS handling
         mode: 'cors',
-      });
+        // Add cache control for mobile
+        cache: 'no-cache',
+      };
+      
+      response = await fetchWithRetry(AUTH_FUNCTION_URL, fetchOptions);
     } catch (fetchError: any) {
       // Handle specific error types
       if (fetchError.name === 'AbortError') {
@@ -333,7 +421,9 @@ export async function signIn(
       
       if (fetchError.message?.includes('Failed to fetch') || 
           fetchError.message?.includes('NetworkError') ||
-          fetchError.message?.includes('Network request failed')) {
+          fetchError.message?.includes('Network request failed') ||
+          fetchError.message?.includes('Load failed') ||
+          fetchError.message?.includes('timeout')) {
         logger.error('Network error during login:', { 
           error: fetchError.message,
           url: AUTH_FUNCTION_URL,
@@ -341,9 +431,20 @@ export async function signIn(
           isMobile,
           origin: window.location.origin
         });
+        
+        // More helpful error message for mobile
+        const mobileErrorMsg = isMobile 
+          ? 'Unable to connect to server. Please check:\n\n' +
+            '• Your internet connection (WiFi or mobile data)\n' +
+            '• Try switching between WiFi and mobile data\n' +
+            '• Make sure you have a stable connection\n' +
+            '• Try refreshing the page\n' +
+            '• If the problem persists, check if the website is accessible'
+          : 'Network error. Please check your internet connection. If using mobile data, try switching to WiFi or vice versa.';
+        
         return { 
           user: null, 
-          error: 'Network error. Please check your internet connection. If using mobile data, try switching to WiFi or vice versa.' 
+          error: mobileErrorMsg
         };
       }
       
