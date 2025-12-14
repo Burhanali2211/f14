@@ -189,56 +189,62 @@ export default function AnnouncementsPage() {
 
       logger.info(`Sending notifications to ${users.length} users`);
 
-      // Broadcast to all active clients via service worker
+      // Broadcast notification via service worker
+      // The service worker will handle broadcasting to all active clients
+      let sentCount = 0;
+      
       if ('serviceWorker' in navigator) {
         try {
           const registration = await navigator.serviceWorker.ready;
           
-          // Send message to all service worker clients (active users)
-          const clients = await registration.clients.matchAll({ includeUncontrolled: true });
-          
-          let sentCount = 0;
-          if (clients && clients.length > 0) {
-            clients.forEach((client) => {
-              client.postMessage({
-                type: 'ANNOUNCEMENT_NOTIFICATION',
-                title,
-                body: message,
-                data: {
-                  url: '/',
-                  type: 'announcement'
-                }
-              });
-              sentCount++;
-            });
-          }
-
-          // Also show notification directly if we have permission (for admin)
-          if (Notification.permission === 'granted') {
-            registration.showNotification(title, {
+          // Send message to service worker to broadcast to all clients
+          // The service worker has access to clients.matchAll()
+          if (registration.active) {
+            registration.active.postMessage({
+              type: 'BROADCAST_ANNOUNCEMENT',
+              title,
               body: message,
-              icon: '/main.png',
-              badge: '/main.png',
-              tag: `announcement-${Date.now()}`,
               data: {
                 url: '/',
                 type: 'announcement'
-              },
-              requireInteraction: false,
-              vibrate: [200, 100, 200],
-              actions: [
-                {
-                  action: 'view',
-                  title: 'View'
-                }
-              ]
+              }
             });
-            sentCount++;
+            logger.info('Broadcast message sent to service worker');
           }
 
-          logger.info(`Notification sent to ${sentCount} active client(s)`);
+          // Show notification directly via service worker registration
+          // This will show the notification to the current user and can be seen by others
+          if (Notification.permission === 'granted') {
+            try {
+              await registration.showNotification(title, {
+                body: message,
+                icon: '/main.png',
+                badge: '/main.png',
+                tag: `announcement-${Date.now()}`,
+                data: {
+                  url: '/',
+                  type: 'announcement'
+                },
+                requireInteraction: false,
+                vibrate: [200, 100, 200],
+                actions: [
+                  {
+                    action: 'view',
+                    title: 'View'
+                  }
+                ]
+              });
+              sentCount++;
+              logger.info('Notification shown via service worker registration');
+            } catch (notifError) {
+              logger.error('Error showing notification:', notifError);
+            }
+          }
           
-          // Note: This sends to active clients only. For offline users, you would need:
+          logger.info(`Notification sent successfully`);
+          
+          // Note: The service worker will broadcast to all active clients.
+          // For offline users, you would need:
           // 1. Web Push API with subscription tokens stored in database
           // 2. A backend service (Supabase Edge Function) to send push notifications
           // 3. Or use a service like Firebase Cloud Messaging
@@ -247,21 +253,33 @@ export default function AnnouncementsPage() {
           logger.error('Error with service worker notification:', swError);
           // Fallback: try direct notification if permission is granted
           if (Notification.permission === 'granted') {
-            new Notification(title, {
-              body: message,
-              icon: '/main.png',
-              tag: `announcement-${Date.now()}`,
-            });
+            try {
+              new Notification(title, {
+                body: message,
+                icon: '/main.png',
+                tag: `announcement-${Date.now()}`,
+              });
+              sentCount++;
+              logger.info('Fallback notification sent');
+            } catch (notifError) {
+              logger.error('Error with fallback notification:', notifError);
+            }
           }
         }
       } else {
         // Fallback if service worker is not available
         if (Notification.permission === 'granted') {
-          new Notification(title, {
-            body: message,
-            icon: '/main.png',
-            tag: `announcement-${Date.now()}`,
-          });
+          try {
+            new Notification(title, {
+              body: message,
+              icon: '/main.png',
+              tag: `announcement-${Date.now()}`,
+            });
+            sentCount++;
+            logger.info('Direct notification sent (no service worker)');
+          } catch (notifError) {
+            logger.error('Error with direct notification:', notifError);
+          }
         }
       }
       

@@ -9,11 +9,6 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { safeQuery } from "@/lib/db-utils";
 import { logger } from "@/lib/logger";
@@ -37,6 +32,8 @@ export function ReciterCombobox({
   const [reciters, setReciters] = React.useState<string[]>([]);
   const [loading, setLoading] = React.useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const listRef = React.useRef<HTMLDivElement>(null);
 
   // Fetch distinct reciters from database
   React.useEffect(() => {
@@ -78,7 +75,7 @@ export function ReciterCombobox({
 
   // Filter reciters based on input value
   const filteredReciters = React.useMemo(() => {
-    if (!value) return reciters;
+    if (!value || value.trim().length === 0) return [];
     const lowerValue = value.toLowerCase().trim();
     return reciters.filter(reciter =>
       reciter.toLowerCase().includes(lowerValue)
@@ -88,18 +85,17 @@ export function ReciterCombobox({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
-    // Always show suggestions when typing if there are matches
-    if (newValue.length > 0) {
+    // Show suggestions when typing if there are matches
+    if (newValue.trim().length > 0) {
       setOpen(filteredReciters.length > 0);
     } else {
-      // Show all reciters when input is cleared
-      setOpen(reciters.length > 0 && reciters.length <= 50);
+      setOpen(false);
     }
   };
 
   const handleSelect = (selectedValue: string) => {
     onChange(selectedValue);
-    // Close popover but keep input focused and editable
+    // Close dropdown but keep input focused and editable
     setOpen(false);
     // Set cursor to end of input so user can continue editing
     setTimeout(() => {
@@ -112,20 +108,15 @@ export function ReciterCombobox({
   };
 
   const handleFocus = () => {
-    // Show suggestions when focused
-    if (value && filteredReciters.length > 0) {
-      setOpen(true);
-    } else if (reciters.length > 0 && reciters.length <= 50) {
-      // Show all if there are not too many (max 50)
+    // Show suggestions when focused if there are matches
+    if (value && value.trim().length > 0 && filteredReciters.length > 0) {
       setOpen(true);
     }
   };
 
   const handleClick = () => {
-    // Reopen suggestions when clicking on the input
-    if (value && filteredReciters.length > 0) {
-      setOpen(true);
-    } else if (reciters.length > 0 && reciters.length <= 50) {
+    // Show suggestions when clicking if there are matches
+    if (value && value.trim().length > 0 && filteredReciters.length > 0) {
       setOpen(true);
     }
   };
@@ -133,61 +124,75 @@ export function ReciterCombobox({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       setOpen(false);
-      inputRef.current?.blur();
     }
   };
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target as Node)
+      ) {
+        setOpen(false);
+      }
+    };
+
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [open]);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Input
-          ref={inputRef}
-          id={id}
-          value={value}
-          onChange={handleInputChange}
-          onFocus={handleFocus}
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className={className}
-          autoComplete="off"
-        />
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[var(--radix-popover-trigger-width)] p-0"
-        align="start"
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <Command>
-          <CommandList>
-            {loading ? (
-              <CommandEmpty>Loading reciters...</CommandEmpty>
-            ) : filteredReciters.length === 0 ? (
-              <CommandEmpty>
-                No matching reciter found. Type to add new.
-              </CommandEmpty>
-            ) : (
-              <CommandGroup>
-                {filteredReciters.map((reciter) => (
-                  <CommandItem
-                    key={reciter}
-                    value={reciter}
-                    onSelect={() => handleSelect(reciter)}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value === reciter ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {reciter}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+    <div ref={containerRef} className="relative w-full">
+      <Input
+        ref={inputRef}
+        id={id}
+        value={value}
+        onChange={handleInputChange}
+        onFocus={handleFocus}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        className={className}
+        autoComplete="off"
+      />
+      {open && filteredReciters.length > 0 && (
+        <div
+          ref={listRef}
+          className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-[300px] overflow-hidden"
+        >
+          <Command>
+            <CommandList>
+              {loading ? (
+                <CommandEmpty>Loading reciters...</CommandEmpty>
+              ) : (
+                <CommandGroup>
+                  {filteredReciters.map((reciter) => (
+                    <CommandItem
+                      key={reciter}
+                      value={reciter}
+                      onSelect={() => handleSelect(reciter)}
+                      className="cursor-pointer"
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === reciter ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {reciter}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </div>
+      )}
+    </div>
   );
 }

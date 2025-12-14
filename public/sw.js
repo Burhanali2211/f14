@@ -188,5 +188,66 @@ self.addEventListener('message', (event) => {
     }).catch((error) => {
       console.error('[Service Worker] Error showing announcement notification:', error);
     });
+  } else if (event.data && event.data.type === 'BROADCAST_ANNOUNCEMENT') {
+    // Handle broadcast announcement - send to all clients
+    const { title, body, data } = event.data;
+    
+    console.log(`[Service Worker] Broadcasting announcement: ${title}`);
+    
+    // Broadcast to all clients
+    self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+      console.log(`[Service Worker] Found ${clients.length} clients to notify`);
+      
+      // Send message to all clients
+      clients.forEach((client) => {
+        client.postMessage({
+          type: 'ANNOUNCEMENT_NOTIFICATION',
+          title,
+          body,
+          data: data || { url: '/', type: 'announcement' }
+        });
+      });
+      
+      // Also show notification for all clients
+      // This will show the notification to users who have the page open
+      self.registration.showNotification(title, {
+        body,
+        icon: '/main.png',
+        badge: '/main.png',
+        tag: `announcement-${Date.now()}`,
+        data: data || { url: '/', type: 'announcement' },
+        requireInteraction: false,
+        vibrate: [200, 100, 200],
+        actions: [
+          {
+            action: 'view',
+            title: 'View'
+          }
+        ]
+      }).catch((error) => {
+        console.error('[Service Worker] Error showing broadcast notification:', error);
+      });
+    }).catch((error) => {
+      console.error('[Service Worker] Error matching clients:', error);
+      
+      // Fallback: just show the notification
+      self.registration.showNotification(title, {
+        body,
+        icon: '/main.png',
+        badge: '/main.png',
+        tag: `announcement-${Date.now()}`,
+        data: data || { url: '/', type: 'announcement' },
+        requireInteraction: false,
+        vibrate: [200, 100, 200],
+        actions: [
+          {
+            action: 'view',
+            title: 'View'
+          }
+        ]
+      }).catch((notifError) => {
+        console.error('[Service Worker] Error showing fallback notification:', notifError);
+      });
+    });
   }
 });
