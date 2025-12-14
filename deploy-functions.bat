@@ -43,15 +43,6 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
-echo Deploying audio-proxy function...
-supabase functions deploy audio-proxy
-if %ERRORLEVEL% NEQ 0 (
-    echo ERROR: Failed to deploy audio-proxy
-    pause
-    exit /b 1
-)
-
-echo.
 echo ========================================
 echo Functions deployed successfully!
 echo ========================================

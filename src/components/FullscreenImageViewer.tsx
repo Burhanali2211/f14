@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, ZoomIn, ZoomOut, Maximize2, Minimize2, RotateCw, Download } from 'lucide-react';
+import { X, Maximize2, Minimize2, RotateCw, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FullscreenImageViewerProps {
@@ -18,6 +18,7 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
   const [error, setError] = useState(false);
   const [controlsVisible, setControlsVisible] = useState(true);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -28,13 +29,24 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
   const [fitZoom, setFitZoom] = useState(1);
   const [minZoom, setMinZoom] = useState(1);
   
+  // Zoom constraints
+  const MAX_ZOOM = 5;
+  const MIN_ZOOM_MULTIPLIER = 0.5; // Minimum zoom is 50% of fit zoom
+  
   // Drag state
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const lastPositionRef = useRef({ x: 0, y: 0 });
+  const mouseDownPositionRef = useRef({ x: 0, y: 0, time: 0 });
+  const hasMovedRef = useRef(false);
   
-  // Touch state for pinch zoom
+  // Double tap/click detection
+  const lastClickTimeRef = useRef(0);
+  const clickCountRef = useRef(0);
+  
+  // Touch state for pinch zoom and tap detection
   const touchStartRef = useRef<{ distance: number; center: { x: number; y: number } } | null>(null);
+  const initialTouchRef = useRef<{ x: number; y: number; time: number } | null>(null);
   
   // Track previous rotation to detect changes
   const prevRotationRef = useRef(0);
@@ -59,11 +71,10 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     const scaleY = viewportHeight / effectiveImgHeight;
     const fitZoomValue = Math.min(scaleX, scaleY);
     
-    // Minimum zoom: ensure image fills at least 80% of the smaller viewport dimension
-    // This prevents images from being too small while still allowing some zoom out
-    const minZoomValue = Math.min(scaleX, scaleY) * 0.8;
+    // Minimum zoom: allow zooming out to 50% of fit zoom
+    const minZoomValue = fitZoomValue * MIN_ZOOM_MULTIPLIER;
     
-    return { fitZoom: fitZoomValue, minZoom: Math.max(minZoomValue, 0.5) };
+    return { fitZoom: fitZoomValue, minZoom: Math.max(minZoomValue, 0.3) };
   }, []);
 
   // Update fit calculations when image dimensions or rotation changes
@@ -126,11 +137,14 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     if (controlsTimeoutRef.current) {
       clearTimeout(controlsTimeoutRef.current);
     }
-    setControlsVisible(true);
-    controlsTimeoutRef.current = setTimeout(() => {
-      setControlsVisible(false);
-    }, 3000);
-  }, []);
+    // Only auto-hide if controls are already visible
+    // Don't auto-show controls - they should only show on double tap
+    if (controlsVisible) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setControlsVisible(false);
+      }, 3000);
+    }
+  }, [controlsVisible]);
 
   // Handle fullscreen API
   const toggleFullscreen = useCallback(async () => {
@@ -159,19 +173,60 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
-  // Disable body scrolling when image viewer is open
+  // Disable body scrolling and prevent wheel events when image viewer is open
   useEffect(() => {
     if (isOpen) {
+      // Store original styles
+      const originalOverflow = document.body.style.overflow;
+      const originalPosition = document.body.style.position;
+      const originalWidth = document.body.style.width;
+      const originalHeight = document.body.style.height;
+      
+      // Prevent scrolling
       document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.width = '100%';
+      document.body.style.height = '100%';
+      
+      // Prevent all wheel and touch events from scrolling the background
+      // React's synthetic events will still work because we only preventDefault, not stopPropagation
+      const handleWheel = (e: WheelEvent) => {
+        e.preventDefault();
+        // Don't stop propagation - let React handlers still fire
+      };
+      
+      const handleTouchMove = (e: TouchEvent) => {
+        e.preventDefault();
+        // Don't stop propagation - let React handlers still fire
+      };
+      
+      // Add listeners with capture: true to catch events early
+      // React's event delegation will still work
+      const options = { passive: false, capture: true };
+      
+      document.addEventListener('wheel', handleWheel, options);
+      document.addEventListener('touchmove', handleTouchMove, options);
+      window.addEventListener('wheel', handleWheel, options);
+      window.addEventListener('touchmove', handleTouchMove, options);
+      
       return () => {
-        document.body.style.overflow = '';
+        // Restore original styles
+        document.body.style.overflow = originalOverflow;
+        document.body.style.position = originalPosition;
+        document.body.style.width = originalWidth;
+        document.body.style.height = originalHeight;
+        
+        document.removeEventListener('wheel', handleWheel, options);
+        document.removeEventListener('touchmove', handleTouchMove, options);
+        window.removeEventListener('wheel', handleWheel, options);
+        window.removeEventListener('touchmove', handleTouchMove, options);
       };
     }
   }, [isOpen]);
 
-  // Reset on open
+  // Reset on open and when src changes
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && src) {
       setRotation(0);
       setPosition({ x: 0, y: 0 });
       setIsLoading(true);
@@ -180,23 +235,87 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
       resetControlsTimeout();
       isDraggingRef.current = false;
       touchStartRef.current = null;
+      initialTouchRef.current = null;
+      hasMovedRef.current = false;
+      mouseDownPositionRef.current = { x: 0, y: 0, time: 0 };
+      lastClickTimeRef.current = 0;
+      clickCountRef.current = 0;
       isInitialLoadRef.current = true;
       prevRotationRef.current = 0;
       setImageDimensions({ width: 0, height: 0 });
+      
+      // Clear any existing loading timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
+      
+      // Check if image is already loaded (cached images might not trigger onLoad)
+      // Use requestAnimationFrame to check after the image element is rendered
+      const checkImageLoaded = () => {
+        requestAnimationFrame(() => {
+          if (imageRef.current && isOpen) {
+            const img = imageRef.current;
+            // Check if image is already complete (cached)
+            if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+              // Image is already loaded, process it immediately
+              setImageDimensions({ width: img.naturalWidth, height: img.naturalHeight });
+              setIsLoading(false);
+              setError(false);
+              if (loadingTimeoutRef.current) {
+                clearTimeout(loadingTimeoutRef.current);
+                loadingTimeoutRef.current = null;
+              }
+              return;
+            }
+          }
+          
+          // If not loaded yet, set timeout
+          if (isOpen) {
+            loadingTimeoutRef.current = setTimeout(() => {
+              if (isOpen) {
+                setIsLoading(prev => {
+                  if (prev) {
+                    console.warn('Image loading timeout - stopping loader');
+                    return false;
+                  }
+                  return prev;
+                });
+                setError(true);
+              }
+            }, 10000);
+          }
+        });
+      };
+      
+      // Check after image element has a chance to render
+      checkImageLoaded();
+      
       // Zoom will be set when image loads
-    } else {
+    } else if (!isOpen || !src) {
+      // If no src or viewer is closed, stop loading immediately
+      setIsLoading(false);
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
+      }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
       }
     }
     return () => {
       if (controlsTimeoutRef.current) {
         clearTimeout(controlsTimeoutRef.current);
       }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
     };
-  }, [isOpen, resetControlsTimeout]);
+  }, [isOpen, src, resetControlsTimeout]);
   
-  // Constrain position to image bounds (accounting for rotation)
+  // Constrain position with 5px padding from image edges to viewport edges
+  // This ensures at least 5px of the image is always visible at each edge
   const constrainPosition = useCallback((x: number, y: number, currentZoom: number) => {
     if (!imageRef.current || !imageContainerRef.current || imageDimensions.width === 0) return { x: 0, y: 0 };
     
@@ -205,58 +324,134 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     const viewportWidth = containerRect.width;
     const viewportHeight = containerRect.height;
     
-    // Account for rotation
+    // 5px padding constraint - minimum space between image edge and viewport edge
+    const PADDING = 5;
+    
+    // Account for rotation - when rotated 90/270, width and height swap
     const isRotated = rotation === 90 || rotation === 270;
     const effectiveImgWidth = isRotated ? imageDimensions.height : imageDimensions.width;
-    const effectiveImgHeight = isRotated ? imageDimensions.height : imageDimensions.width;
+    const effectiveImgHeight = isRotated ? imageDimensions.width : imageDimensions.height;
     
-    // Calculate scaled dimensions
+    // Calculate scaled dimensions after zoom
     const scaledWidth = effectiveImgWidth * currentZoom;
     const scaledHeight = effectiveImgHeight * currentZoom;
     
-    // Calculate bounds - only constrain if image is larger than viewport
-    const maxX = Math.max(0, (scaledWidth - viewportWidth) / 2);
-    const maxY = Math.max(0, (scaledHeight - viewportHeight) / 2);
+    // Calculate pan bounds with 5px padding
+    // Image is centered at (0, 0). When panned by (x, y):
+    // - Image left edge: -scaledWidth/2 + x
+    // - Image right edge: scaledWidth/2 + x
+    // - Viewport left edge: -viewportWidth/2
+    // - Viewport right edge: viewportWidth/2
+    //
+    // For 5px padding:
+    // - Left edge constraint: -scaledWidth/2 + x >= -viewportWidth/2 + PADDING
+    //   => x >= (scaledWidth - viewportWidth)/2 + PADDING
+    // - Right edge constraint: scaledWidth/2 + x <= viewportWidth/2 - PADDING
+    //   => x <= -(scaledWidth - viewportWidth)/2 - PADDING
     
-    // Only constrain if zoomed in beyond fit
-    if (currentZoom > fitZoom) {
-      return {
-        x: Math.max(-maxX, Math.min(maxX, x)),
-        y: Math.max(-maxY, Math.min(maxY, y))
-      };
+    let minX = 0, maxX = 0, minY = 0, maxY = 0;
+    
+    if (scaledWidth > viewportWidth) {
+      const halfDiff = (scaledWidth - viewportWidth) / 2;
+      minX = halfDiff + PADDING;  // Pan right to see left edge
+      maxX = -halfDiff - PADDING; // Pan left to see right edge
     }
     
-    return { x: 0, y: 0 };
-  }, [imageDimensions, rotation, fitZoom]);
+    if (scaledHeight > viewportHeight) {
+      const halfDiff = (scaledHeight - viewportHeight) / 2;
+      minY = halfDiff + PADDING;  // Pan down to see top edge
+      maxY = -halfDiff - PADDING; // Pan up to see bottom edge
+    }
+    
+    // Apply constraints - clamp position to ensure 5px padding at all edges
+    return {
+      x: Math.max(maxX, Math.min(minX, x)), // Note: maxX < minX (maxX is negative, minX is positive)
+      y: Math.max(maxY, Math.min(minY, y))
+    };
+  }, [imageDimensions, rotation]);
   
   // Mouse drag handlers
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button !== 0) return; // Only left mouse button
-    if (zoom <= fitZoom) return; // Only allow drag when zoomed beyond fit
+    
+    // Store initial mouse position and time to detect clicks vs drags
+    mouseDownPositionRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    hasMovedRef.current = false;
     
     isDraggingRef.current = true;
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     lastPositionRef.current = { ...position };
     e.preventDefault();
     resetControlsTimeout();
-  }, [zoom, fitZoom, position, resetControlsTimeout]);
+  }, [position, resetControlsTimeout]);
   
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingRef.current) return;
     
-    const deltaX = e.clientX - dragStartRef.current.x;
-    const deltaY = e.clientY - dragStartRef.current.y;
+    // Check if mouse has moved significantly (more than 5px) to distinguish drag from click
+    const deltaX = e.clientX - mouseDownPositionRef.current.x;
+    const deltaY = e.clientY - mouseDownPositionRef.current.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     
-    const newX = lastPositionRef.current.x + deltaX;
-    const newY = lastPositionRef.current.y + deltaY;
+    if (distance > 5) {
+      hasMovedRef.current = true;
+    }
     
+    // Calculate delta from the last mouse position (not from the initial start)
+    // This ensures 1:1 movement ratio - image moves exactly as much as mouse moves
+    const dragDeltaX = e.clientX - dragStartRef.current.x;
+    const dragDeltaY = e.clientY - dragStartRef.current.y;
+    
+    // Add delta to the last known position
+    const newX = lastPositionRef.current.x + dragDeltaX;
+    const newY = lastPositionRef.current.y + dragDeltaY;
+    
+    // Constrain the position
     const constrained = constrainPosition(newX, newY, zoom);
     setPosition(constrained);
+    
+    // Update references for next move event
+    // Update lastPositionRef to the constrained position
+    lastPositionRef.current = constrained;
+    // Update dragStartRef to current mouse position so next delta is relative to here
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
   }, [zoom, constrainPosition]);
   
   const handleMouseUp = useCallback(() => {
+    const wasDragging = isDraggingRef.current;
+    const wasClick = !hasMovedRef.current;
+    
     isDraggingRef.current = false;
-  }, []);
+    
+    // Double click detection for showing controls
+    if (wasDragging && wasClick) {
+      const timeSinceDown = Date.now() - mouseDownPositionRef.current.time;
+      if (timeSinceDown < 300) {
+        const now = Date.now();
+        const timeSinceLastClick = now - lastClickTimeRef.current;
+        
+        // If clicked within 300ms of last click, it's a double click
+        if (timeSinceLastClick < 300 && clickCountRef.current > 0) {
+          // Double click - show controls
+          setControlsVisible(true);
+          resetControlsTimeout();
+          clickCountRef.current = 0;
+        } else {
+          // Single click - don't toggle, just track for double click
+          clickCountRef.current = 1;
+          lastClickTimeRef.current = now;
+          
+          // Hide controls on single click if they're visible
+          if (controlsVisible) {
+            setControlsVisible(false);
+          }
+        }
+      }
+    }
+    
+    // Reset movement tracking
+    hasMovedRef.current = false;
+  }, [resetControlsTimeout, controlsVisible]);
   
   // Touch handlers for drag and pinch zoom
   const getTouchDistance = (touches: TouchList): number => {
@@ -278,10 +473,17 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
   };
   
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 1 && zoom > 1) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      // Store initial touch for tap detection
+      initialTouchRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      
       // Single touch - start drag
       isDraggingRef.current = true;
-      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      dragStartRef.current = { x: touch.clientX, y: touch.clientY };
       lastPositionRef.current = { ...position };
     } else if (e.touches.length === 2) {
       // Two touches - start pinch zoom
@@ -289,51 +491,132 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
       const center = getTouchCenter(e.touches);
       touchStartRef.current = { distance, center };
       isDraggingRef.current = false;
+      initialTouchRef.current = null;
     }
     resetControlsTimeout();
-  }, [zoom, position, resetControlsTimeout]);
+  }, [position, resetControlsTimeout]);
   
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     
-    if (e.touches.length === 1 && isDraggingRef.current && zoom > fitZoom) {
-      // Single touch drag - only when zoomed beyond fit
+    if (e.touches.length === 1 && isDraggingRef.current) {
+      // Single touch drag - calculate delta from last touch position for 1:1 movement
       const deltaX = e.touches[0].clientX - dragStartRef.current.x;
       const deltaY = e.touches[0].clientY - dragStartRef.current.y;
       
+      // Add delta to the last known position
       const newX = lastPositionRef.current.x + deltaX;
       const newY = lastPositionRef.current.y + deltaY;
       
+      // Constrain the position
       const constrained = constrainPosition(newX, newY, zoom);
       setPosition(constrained);
-    } else if (e.touches.length === 2 && touchStartRef.current) {
-      // Pinch zoom
-      const currentDistance = getTouchDistance(e.touches);
-      const scaleChange = currentDistance / touchStartRef.current.distance;
-      const newZoom = Math.max(minZoom, Math.min(5, zoom * scaleChange));
       
-      if (newZoom !== zoom) {
-        setZoom(newZoom);
-        // Reset position when zoom changes to fit or below
-        if (newZoom <= fitZoom) {
-          setPosition({ x: 0, y: 0 });
-        } else {
-          // Constrain position after zoom
-          const constrained = constrainPosition(position.x, position.y, newZoom);
+      // Update references for next move event
+      // Update lastPositionRef to the constrained position
+      lastPositionRef.current = constrained;
+      // Update dragStartRef to current touch position so next delta is relative to here
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2 && touchStartRef.current) {
+      // Pinch zoom with smooth scaling towards initial pinch center
+      const currentDistance = getTouchDistance(e.touches);
+      
+      if (touchStartRef.current.distance > 0 && currentDistance > 0) {
+        const scaleChange = currentDistance / touchStartRef.current.distance;
+        const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, zoom * scaleChange));
+        
+        if (Math.abs(newZoom - zoom) > 0.001) {
+          // Use the initial pinch center as the zoom point (more natural)
+          if (!imageContainerRef.current || !imageRef.current) return;
+          
+          const containerRect = imageContainerRef.current.getBoundingClientRect();
+          const initialCenter = touchStartRef.current.center;
+          
+          // Calculate zoom center relative to container center
+          const centerX = initialCenter.x - containerRect.left - containerRect.width / 2;
+          const centerY = initialCenter.y - containerRect.top - containerRect.height / 2;
+          
+          // Adjust position to zoom towards the initial pinch center
+          const zoomFactor = newZoom / zoom;
+          const newX = centerX - (centerX - position.x) * zoomFactor;
+          const newY = centerY - (centerY - position.y) * zoomFactor;
+          
+          setZoom(newZoom);
+          
+          // Constrain position after zoom with 5px padding
+          const constrained = constrainPosition(newX, newY, newZoom);
           setPosition(constrained);
         }
       }
       
+      // Update distance for next move (but keep initial center)
       touchStartRef.current.distance = currentDistance;
     }
-  }, [zoom, fitZoom, minZoom, position, constrainPosition]);
+  }, [zoom, minZoom, position, constrainPosition]);
   
-  const handleTouchEnd = useCallback(() => {
-    isDraggingRef.current = false;
-    if (touchStartRef.current) {
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // If only one touch remains, switch to drag mode
+    if (e.touches.length === 1) {
+      isDraggingRef.current = true;
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      lastPositionRef.current = { ...position };
       touchStartRef.current = null;
+    } else if (e.touches.length === 0) {
+      // No touches left - check if it was a tap
+      const wasDragging = isDraggingRef.current;
+      const wasPinching = touchStartRef.current !== null;
+      
+      isDraggingRef.current = false;
+      touchStartRef.current = null;
+      
+      // Check if it was a tap (not a drag or pinch)
+      if (!wasDragging && !wasPinching && initialTouchRef.current && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const initialTouch = initialTouchRef.current;
+        
+        // Check if it was a tap (small movement and short duration)
+        const deltaX = Math.abs(touch.clientX - initialTouch.x);
+        const deltaY = Math.abs(touch.clientY - initialTouch.y);
+        const deltaTime = Date.now() - initialTouch.time;
+        
+        if (deltaX < 10 && deltaY < 10 && deltaTime < 300) {
+          // Double tap detection for showing controls
+          const now = Date.now();
+          const timeSinceLastTap = now - lastClickTimeRef.current;
+          
+          // If tapped within 300ms of last tap, it's a double tap
+          if (timeSinceLastTap < 300 && clickCountRef.current > 0) {
+            // Double tap - show controls
+            setControlsVisible(true);
+            resetControlsTimeout();
+            clickCountRef.current = 0;
+          } else {
+            // Single tap - don't show controls, just track for double tap
+            clickCountRef.current = 1;
+            lastClickTimeRef.current = now;
+            
+            // On single tap, always hide controls (don't show them)
+            // Only double tap should show controls
+            if (controlsVisible) {
+              setControlsVisible(false);
+            }
+            
+            // Clear any pending timeout that might show controls
+            if (controlsTimeoutRef.current) {
+              clearTimeout(controlsTimeoutRef.current);
+              controlsTimeoutRef.current = null;
+            }
+          }
+        }
+      }
+      
+      initialTouchRef.current = null;
     }
-  }, []);
+  }, [zoom, position, resetControlsTimeout, controlsVisible]);
   
   // Global mouse event listeners for drag
   useEffect(() => {
@@ -344,9 +627,9 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
         handleMouseMove(e);
       }
     };
-    const handleGlobalMouseUp = () => {
+    const handleGlobalMouseUp = (e: MouseEvent) => {
       if (isDraggingRef.current) {
-        handleMouseUp();
+        handleMouseUp(e);
       }
     };
     
@@ -376,11 +659,10 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
         case '=':
           e.preventDefault();
           setZoom(prev => {
-            const newZoom = Math.min(5, prev + 0.25);
-            if (newZoom > fitZoom) {
-              const constrained = constrainPosition(position.x, position.y, newZoom);
-              setPosition(constrained);
-            }
+            const newZoom = Math.min(MAX_ZOOM, prev + 0.25);
+            // Constrain position with 5px padding after zoom
+            const constrained = constrainPosition(position.x, position.y, newZoom);
+            setPosition(constrained);
             return newZoom;
           });
           break;
@@ -388,12 +670,9 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
           e.preventDefault();
           setZoom(prev => {
             const newZoom = Math.max(minZoom, prev - 0.25);
-            if (newZoom <= fitZoom) {
-              setPosition({ x: 0, y: 0 });
-            } else {
-              const constrained = constrainPosition(position.x, position.y, newZoom);
-              setPosition(constrained);
-            }
+            // Constrain position with 5px padding after zoom
+            const constrained = constrainPosition(position.x, position.y, newZoom);
+            setPosition(constrained);
             return newZoom;
           });
           break;
@@ -425,34 +704,33 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, isFullscreen, onClose, toggleFullscreen]);
 
-  // Handle tap/click to toggle controls (but not when dragging)
+  // Handle tap/click to toggle controls on container background (not on image)
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget && !isDraggingRef.current) {
+    // Only handle clicks directly on the container background, not on child elements
+    if (e.target === e.currentTarget && !isDraggingRef.current && !hasMovedRef.current) {
       setControlsVisible(prev => !prev);
       resetControlsTimeout();
     }
   }, [resetControlsTimeout]);
 
-  // Wheel zoom with position reset
+
+  // Wheel zoom with position constraint
   const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      setZoom(prev => {
-        const newZoom = Math.max(minZoom, Math.min(5, prev + delta));
-        // Reset position when zooming out to fit or below
-        if (newZoom <= fitZoom) {
-          setPosition({ x: 0, y: 0 });
-        } else {
-          // Constrain position after zoom
-          const constrained = constrainPosition(position.x, position.y, newZoom);
-          setPosition(constrained);
-        }
-        return newZoom;
-      });
-      resetControlsTimeout();
-    }
-  }, [minZoom, fitZoom, position, constrainPosition, resetControlsTimeout]);
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Always zoom when wheel is used on the image viewer
+    // Ctrl/Cmd + wheel is standard, but we'll also allow plain wheel
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => {
+      const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, prev + delta));
+      // Constrain position with 5px padding after zoom
+      const constrained = constrainPosition(position.x, position.y, newZoom);
+      setPosition(constrained);
+      return newZoom;
+    });
+    resetControlsTimeout();
+  }, [minZoom, position, constrainPosition, resetControlsTimeout]);
 
   // Download image
   const handleDownload = useCallback(async () => {
@@ -480,7 +758,11 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-sm"
       onClick={handleContainerClick}
       onWheel={handleWheel}
-      style={{ touchAction: 'none' }}
+      style={{ 
+        touchAction: 'none',
+        overscrollBehavior: 'none',
+        WebkitOverflowScrolling: 'touch',
+      }}
     >
       {/* Image Container - Centered with proper fit */}
       <div 
@@ -489,6 +771,20 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
         style={{
           padding: 0,
           margin: 0,
+          touchAction: 'none',
+          overscrollBehavior: 'none',
+        }}
+        onWheel={handleWheel}
+        onTouchStart={(e) => {
+          // Don't prevent default on container - let buttons handle their own touches
+          e.stopPropagation();
+        }}
+        onTouchMove={(e) => {
+          // Only prevent if it's actually a drag, not a button interaction
+          if (isDraggingRef.current || touchStartRef.current) {
+            e.preventDefault();
+          }
+          e.stopPropagation();
         }}
       >
         {isLoading && (
@@ -508,9 +804,10 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
         )}
         <img
           ref={imageRef}
-          src={src}
+          src={src || ''}
           alt={alt}
-          className={`${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200 ${zoom > fitZoom ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}`}
+          key={src}
+          className={`${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200 cursor-grab active:cursor-grabbing`}
           style={{
             width: imageDimensions.width > 0 ? `${imageDimensions.width}px` : 'auto',
             height: imageDimensions.height > 0 ? `${imageDimensions.height}px` : 'auto',
@@ -522,25 +819,62 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
             userSelect: 'none',
             WebkitUserDrag: 'none',
             touchAction: 'none',
+            WebkitTouchCallout: 'none',
+            overscrollBehavior: 'none',
           }}
           onMouseDown={handleMouseDown}
+          onMouseUp={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            handleMouseUp();
+          }}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={(e) => {
+            e.preventDefault();
+            isDraggingRef.current = false;
+            touchStartRef.current = null;
+            initialTouchRef.current = null;
+          }}
           onLoad={(e) => {
             const img = e.currentTarget;
             const naturalWidth = img.naturalWidth;
             const naturalHeight = img.naturalHeight;
             
-            // Set dimensions first - useEffect will calculate fit zoom
-            setImageDimensions({ width: naturalWidth, height: naturalHeight });
-            setIsLoading(false);
-            setRotation(0);
-            setPosition({ x: 0, y: 0 });
+            // Clear loading timeout
+            if (loadingTimeoutRef.current) {
+              clearTimeout(loadingTimeoutRef.current);
+              loadingTimeoutRef.current = null;
+            }
+            
+            // Only process if we have valid dimensions and viewer is still open
+            if (isOpen && naturalWidth > 0 && naturalHeight > 0) {
+              // Set dimensions first - useEffect will calculate fit zoom
+              setImageDimensions({ width: naturalWidth, height: naturalHeight });
+              setIsLoading(false);
+              setError(false);
+              setRotation(0);
+              setPosition({ x: 0, y: 0 });
+            } else {
+              // Invalid image dimensions
+              setIsLoading(false);
+              setError(true);
+            }
           }}
-          onError={() => {
-            setIsLoading(false);
-            setError(true);
+          onError={(e) => {
+            // Clear loading timeout
+            if (loadingTimeoutRef.current) {
+              clearTimeout(loadingTimeoutRef.current);
+              loadingTimeoutRef.current = null;
+            }
+            
+            // Only update state if viewer is still open
+            if (isOpen) {
+              setIsLoading(false);
+              setError(true);
+              console.error('Image failed to load:', src);
+            }
           }}
           draggable={false}
         />
@@ -548,68 +882,22 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
 
       {/* Controls */}
       <div 
-        className={`absolute bottom-4 left-4 right-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex items-center gap-1.5 md:gap-2 bg-black/80 backdrop-blur-md rounded-lg p-1.5 md:p-2 border border-white/10 transition-all duration-300 max-w-full ${
+        className={`absolute bottom-4 left-4 right-4 md:bottom-auto md:left-auto md:top-4 md:right-4 flex items-center gap-2 bg-black/80 backdrop-blur-md rounded-lg p-1.5 md:p-2 border border-white/10 transition-all duration-300 max-w-full ${
           controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
         }`}
         onMouseEnter={resetControlsTimeout}
+        onTouchStart={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-1.5 md:gap-2 flex-wrap justify-center w-full md:w-auto">
-          {/* Zoom Controls */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20 h-8 w-8 md:h-9 md:w-9 touch-manipulation"
-            onClick={() => {
-              setZoom(prev => {
-                const newZoom = Math.max(minZoom, prev - 0.25);
-                if (newZoom <= fitZoom) {
-                  setPosition({ x: 0, y: 0 });
-                } else {
-                  const constrained = constrainPosition(position.x, position.y, newZoom);
-                  setPosition(constrained);
-                }
-                return newZoom;
-              });
-              resetControlsTimeout();
-            }}
-            disabled={zoom <= minZoom}
-            title="Zoom Out (-)"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </Button>
-          <span className="text-white text-xs md:text-sm min-w-[50px] md:min-w-[60px] text-center font-medium hidden sm:inline">
-            {Math.round(zoom * 100)}%
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-white hover:bg-white/20 h-8 w-8 md:h-9 md:w-9 touch-manipulation"
-            onClick={() => {
-              setZoom(prev => {
-                const newZoom = Math.min(5, prev + 0.25);
-                if (newZoom > fitZoom) {
-                  const constrained = constrainPosition(position.x, position.y, newZoom);
-                  setPosition(constrained);
-                }
-                return newZoom;
-              });
-              resetControlsTimeout();
-            }}
-            disabled={zoom >= 5}
-            title="Zoom In (+)"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </Button>
-
-          <div className="w-px h-5 md:h-6 bg-white/30 mx-0.5 md:mx-1" />
-
+        <div className="flex items-center gap-2 flex-wrap justify-center w-full md:w-auto">
           {/* Reset */}
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-8 w-8 md:h-9 md:w-9 touch-manipulation"
-            onClick={() => {
+            className="text-white hover:bg-white/20 active:bg-white/30 h-9 w-9 touch-manipulation"
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
               setZoom(fitZoom);
               setRotation(0);
               setPosition({ x: 0, y: 0 });
@@ -620,14 +908,16 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
             <RotateCw className="w-4 h-4" />
           </Button>
 
-          <div className="w-px h-5 md:h-6 bg-white/30 mx-0.5 md:mx-1" />
+          <div className="w-px h-6 bg-white/30" />
 
           {/* Rotate */}
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-8 w-8 md:h-9 md:w-9 touch-manipulation"
-            onClick={() => {
+            className="text-white hover:bg-white/20 active:bg-white/30 h-9 w-9 touch-manipulation"
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
               setRotation(prev => {
                 const newRotation = (prev + 90) % 360;
                 // Reset position when rotating
@@ -643,7 +933,7 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
 
           {/* Desktop-only: Fullscreen and Download */}
           <div className="hidden md:contents">
-            <div className="w-px h-6 bg-white/30 mx-1" />
+            <div className="w-px h-6 bg-white/30" />
             <Button
               variant="ghost"
               size="icon"
@@ -660,7 +950,7 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
                 <Maximize2 className="w-4 h-4" />
               )}
             </Button>
-            <div className="w-px h-6 bg-white/30 mx-1" />
+            <div className="w-px h-6 bg-white/30" />
             <Button
               variant="ghost"
               size="icon"
@@ -675,14 +965,16 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
             </Button>
           </div>
 
-          <div className="w-px h-5 md:h-6 bg-white/30 mx-0.5 md:mx-1" />
+          <div className="w-px h-6 bg-white/30" />
 
           {/* Close */}
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-8 w-8 md:h-9 md:w-9 touch-manipulation"
-            onClick={() => {
+            className="text-white hover:bg-white/20 active:bg-white/30 h-9 w-9 touch-manipulation"
+            onTouchStart={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
               onClose();
               resetControlsTimeout();
             }}
@@ -693,26 +985,6 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
         </div>
       </div>
 
-      {/* Mobile Instructions */}
-      <div className={`absolute bottom-16 left-4 right-4 md:hidden transition-all duration-300 ${
-        controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
-      }`}>
-        <div className="bg-black/70 backdrop-blur-md rounded-lg p-2.5 border border-white/10 text-white text-xs">
-          <p className="font-medium mb-1">Touch Gestures:</p>
-          <p>• Pinch to zoom • Drag to pan • Tap image to show/hide controls</p>
-        </div>
-      </div>
-
-      {/* Desktop Instructions */}
-      <div className={`absolute bottom-4 left-4 hidden md:block transition-all duration-300 ${
-        controlsVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
-      }`}>
-        <div className="bg-black/70 backdrop-blur-md rounded-lg p-3 border border-white/10 text-white text-xs">
-          <p className="font-medium mb-1">Keyboard Shortcuts:</p>
-          <p>+/- Zoom | 0 Reset | R Rotate | F Fullscreen | Esc Close</p>
-          <p className="mt-1 text-white/70">Click image to toggle controls</p>
-        </div>
-      </div>
     </div>
   );
 }

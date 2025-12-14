@@ -1,4 +1,4 @@
-import { X, RotateCcw, Type, Eye, Volume2, Palette, Accessibility } from 'lucide-react';
+import { X, RotateCcw, Type, Eye, Palette, Accessibility } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
@@ -42,15 +42,12 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         </SheetHeader>
 
         <Tabs defaultValue="reading" className="mt-4">
-          <TabsList className="w-full grid grid-cols-4">
+          <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="reading" className="text-xs">
               <Type className="w-4 h-4" />
             </TabsTrigger>
             <TabsTrigger value="display" className="text-xs">
               <Eye className="w-4 h-4" />
-            </TabsTrigger>
-            <TabsTrigger value="audio" className="text-xs">
-              <Volume2 className="w-4 h-4" />
             </TabsTrigger>
             <TabsTrigger value="appearance" className="text-xs">
               <Palette className="w-4 h-4" />
@@ -151,7 +148,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label>Highlight Current Verse</Label>
-                  <p className="text-xs text-muted-foreground">Highlight while audio plays</p>
+                  <p className="text-xs text-muted-foreground">Highlight current verse while reading</p>
                 </div>
                 <Switch
                   checked={settings.highlightCurrentVerse}
@@ -183,61 +180,6 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   checked={settings.compactMode}
                   onCheckedChange={(v) => updateSetting('compactMode', v)}
                 />
-              </div>
-            </div>
-          </TabsContent>
-
-          {/* Audio Settings */}
-          <TabsContent value="audio" className="space-y-6 mt-6">
-            <div className="space-y-4">
-              <h3 className="font-medium text-foreground flex items-center gap-2">
-                <Volume2 className="w-4 h-4 text-primary" />
-                Audio Playback
-              </h3>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Playback Speed: {settings.playbackSpeed}x</Label>
-                </div>
-                <Slider
-                  value={[settings.playbackSpeed]}
-                  min={0.5}
-                  max={2}
-                  step={0.25}
-                  onValueChange={([v]) => updateSetting('playbackSpeed', v)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Auto-Play Next</Label>
-                  <p className="text-xs text-muted-foreground">Play next recitation automatically</p>
-                </div>
-                <Switch
-                  checked={settings.autoPlayNext}
-                  onCheckedChange={(v) => updateSetting('autoPlayNext', v)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>Repeat Mode</Label>
-                <Select
-                  value={settings.repeatMode}
-                  onValueChange={(v) => updateSetting('repeatMode', v as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Repeat</SelectItem>
-                    <SelectItem value="one">Repeat One</SelectItem>
-                    <SelectItem value="all">Repeat All</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </TabsContent>

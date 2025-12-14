@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, FolderOpen, FileText, Loader2, ChevronLeft, Upload, Image as ImageIcon, Users, Languages, Maximize2, ZoomIn, ZoomOut, X as XIcon, Scissors, UserCog, Shield, Key, Settings, Mic, Calendar } from 'lucide-react';
+import { Plus, Edit2, Trash2, FolderOpen, FileText, Loader2, ChevronLeft, Upload, Image as ImageIcon, Users, Languages, Maximize2, ZoomIn, ZoomOut, X as XIcon, Scissors, UserCog, Shield, Key, Settings, Mic, Calendar, Bell } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getKarbalaPlaceholder } from '@/lib/utils';
 import type { Category, Piece, Imam, UserProfile, UploaderPermission, SiteSettings, Artiste, AhlulBaitEvent, EventType } from '@/lib/supabase-types';
 import { optimizeArtistImage, validateImageFile, formatFileSize } from '@/lib/image-optimizer';
+import { ReciterCombobox } from '@/components/ReciterCombobox';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -90,7 +91,6 @@ export default function AdminPage() {
     reciter: '',
     language: 'Urdu',
     text_content: '',
-    audio_url: '',
     video_url: '',
     image_url: '',
   });
@@ -594,7 +594,6 @@ export default function AdminPage() {
         reciter: piece.reciter || '',
         language: piece.language,
         text_content: piece.text_content,
-        audio_url: piece.audio_url || '',
         video_url: piece.video_url || '',
         image_url: piece.image_url || '',
       });
@@ -607,7 +606,6 @@ export default function AdminPage() {
         reciter: '',
         language: 'Kashmiri',
         text_content: '',
-        audio_url: '',
         video_url: '',
         image_url: '',
       });
@@ -628,7 +626,6 @@ export default function AdminPage() {
       reciter: pieceForm.reciter || null,
       language: pieceForm.language,
       text_content: pieceForm.text_content,
-      audio_url: pieceForm.audio_url || null,
       video_url: pieceForm.video_url || null,
       image_url: pieceForm.image_url || null,
     };
@@ -1073,6 +1070,13 @@ export default function AdminPage() {
                 <span>Users</span>
                 <span className="hidden md:inline"> ({userProfiles.length})</span>
               </TabsTrigger>
+              <Link to="/admin/announcements">
+                <Button variant="ghost" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap h-9 sm:h-10">
+                  <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                  <span className="hidden sm:inline">Announcements</span>
+                  <span className="sm:hidden">Announce</span>
+                </Button>
+              </Link>
               <Link to="/admin/site-settings">
                 <Button variant="ghost" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap h-9 sm:h-10">
                   <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
@@ -1678,10 +1682,10 @@ export default function AdminPage() {
               </div>
               <div>
                 <Label htmlFor="piece-reciter">Reciter (optional)</Label>
-                <Input
+                <ReciterCombobox
                   id="piece-reciter"
                   value={pieceForm.reciter}
-                  onChange={(e) => setPieceForm(f => ({ ...f, reciter: e.target.value }))}
+                  onChange={(value) => setPieceForm(f => ({ ...f, reciter: value }))}
                   placeholder="e.g., Maher Zain"
                 />
               </div>
@@ -1828,15 +1832,6 @@ export default function AdminPage() {
               </p>
             </div>
             
-            <div>
-              <Label htmlFor="piece-audio">Audio URL (optional)</Label>
-              <Input
-                id="piece-audio"
-                value={pieceForm.audio_url}
-                onChange={(e) => setPieceForm(f => ({ ...f, audio_url: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
             <div>
               <Label htmlFor="piece-video">Video URL (optional)</Label>
               <Input

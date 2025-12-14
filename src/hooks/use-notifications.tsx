@@ -265,11 +265,10 @@ class NotificationService {
     let notificationBody: string;
 
     if (isTestNotification) {
-      // Test notification - send in 90 seconds (1.5 minutes)
-      notificationDelay = 90 * 1000; // 90 seconds
-      notificationTitle = `Test: Upcoming Event - ${event.event_name}`;
-      const timeRemaining = this.formatTimeRemaining(timeUntilEvent);
-      notificationBody = `${event.imam?.name || 'Ahlul Bait'} - ${timeRemaining} left until this event`;
+      // Test notification - send in 2 minutes (120 seconds) to ensure it works
+      notificationDelay = 120 * 1000; // 2 minutes
+      notificationTitle = 'Notifications Enabled!';
+      notificationBody = 'You will receive notifications for upcoming events. This is a test notification.';
     } else if (timeUntilEvent < 2 * 60 * 1000) {
       // Event is very soon - send immediately
       notificationDelay = 2000; // 2 seconds

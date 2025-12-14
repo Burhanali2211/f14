@@ -38,14 +38,6 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "Deploying audio-proxy function..."
-supabase functions deploy audio-proxy
-if [ $? -ne 0 ]; then
-    echo "ERROR: Failed to deploy audio-proxy"
-    exit 1
-fi
-
-echo ""
 echo "========================================"
 echo "Functions deployed successfully!"
 echo "========================================"

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Filter, Grid3X3, List, SortAsc, 
-  ArrowUpDown, Music, Video, Eye, Calendar, ArrowUpRight, Volume2, Play
+  ArrowUpDown, Video, Eye, Calendar, ArrowUpRight, Play
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -42,7 +42,6 @@ export default function CategoryPage() {
   const [reciters, setReciters] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [selectedReciter, setSelectedReciter] = useState<string>('all');
-  const [hasAudio, setHasAudio] = useState<boolean | null>(null);
   const [hasVideo, setHasVideo] = useState<boolean | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('title');
@@ -57,7 +56,7 @@ export default function CategoryPage() {
 
   useEffect(() => {
     filterAndSortPieces();
-  }, [pieces, selectedLanguage, selectedReciter, hasAudio, hasVideo, searchQuery, sortBy]);
+  }, [pieces, selectedLanguage, selectedReciter, hasVideo, searchQuery, sortBy]);
 
   const fetchCategory = async () => {
     try {
@@ -121,13 +120,6 @@ export default function CategoryPage() {
       filtered = filtered.filter(p => p.reciter === selectedReciter);
     }
 
-    // Audio filter
-    if (hasAudio === true) {
-      filtered = filtered.filter(p => p.audio_url);
-    } else if (hasAudio === false) {
-      filtered = filtered.filter(p => !p.audio_url);
-    }
-
     // Video filter
     if (hasVideo === true) {
       filtered = filtered.filter(p => p.video_url);
@@ -166,7 +158,6 @@ export default function CategoryPage() {
   const clearFilters = () => {
     setSelectedLanguage('all');
     setSelectedReciter('all');
-    setHasAudio(null);
     setHasVideo(null);
     setSearchQuery('');
     setSortBy('title');
@@ -174,13 +165,11 @@ export default function CategoryPage() {
 
   const hasActiveFilters = selectedLanguage !== 'all' || 
     selectedReciter !== 'all' || 
-    hasAudio !== null || 
     hasVideo !== null ||
     searchQuery.trim() !== '';
 
   const stats = {
     total: filteredPieces.length,
-    withAudio: filteredPieces.filter(p => p.audio_url).length,
     withVideo: filteredPieces.filter(p => p.video_url).length,
     totalViews: filteredPieces.reduce((sum, p) => sum + p.view_count, 0),
   };
@@ -262,12 +251,6 @@ export default function CategoryPage() {
               <SortAsc className="w-3 h-3" />
               {stats.total} pieces
             </Badge>
-            {stats.withAudio > 0 && (
-              <Badge variant="outline" className="gap-1.5">
-                <Music className="w-3 h-3" />
-                {stats.withAudio} with audio
-              </Badge>
-            )}
             {stats.withVideo > 0 && (
               <Badge variant="outline" className="gap-1.5">
                 <Video className="w-3 h-3" />
@@ -381,16 +364,6 @@ export default function CategoryPage() {
             )}
 
             <Button
-              variant={hasAudio === true ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setHasAudio(hasAudio === true ? null : true)}
-              className="h-9 gap-1.5"
-            >
-              <Music className="w-3.5 h-3.5" />
-              With Audio
-            </Button>
-
-            <Button
               variant={hasVideo === true ? 'default' : 'outline'}
               size="sm"
               onClick={() => setHasVideo(hasVideo === true ? null : true)}
@@ -458,11 +431,6 @@ export default function CategoryPage() {
                         {piece.title}
                       </h3>
                       <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
-                        {piece.audio_url && (
-                          <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all duration-300 group-hover:scale-110" title="Has Audio">
-                            <Volume2 className="w-4 h-4 md:w-4.5 md:h-4.5 text-primary group-hover:text-primary-foreground" />
-                          </div>
-                        )}
                         {piece.video_url && (
                           <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent transition-all duration-300 group-hover:scale-110" title="Has Video">
                             <Video className="w-4 h-4 md:w-4.5 md:h-4.5 text-accent group-hover:text-accent-foreground" />

@@ -20,8 +20,8 @@ export function UpcomingEvents() {
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<(AhlulBaitEvent & { nextOccurrence: Date; daysUntil: number }) | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
-  const isHorizontalScrollRef = useRef<boolean | null>(null);
+  const isDraggingRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     fetchUpcomingEvents();
@@ -136,12 +136,19 @@ export function UpcomingEvents() {
             </div>
           </div>
           <div 
-            className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4"
+            className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory cursor-grab"
             style={{ 
-              touchAction: 'pan-x pan-y',
+              touchAction: 'pan-x',
               WebkitOverflowScrolling: 'touch',
+              scrollBehavior: 'smooth',
+              scrollPaddingLeft: '1rem',
+              scrollPaddingRight: '1rem',
+              paddingLeft: '1rem',
+              paddingRight: '1rem',
               maxWidth: '100%',
-              contain: 'layout style'
+              contain: 'layout style paint',
+              userSelect: 'none',
+              WebkitUserSelect: 'none'
             }}
           >
             {[...Array(4)].map((_, i) => (
@@ -180,125 +187,113 @@ export function UpcomingEvents() {
 
         <div 
           ref={scrollContainerRef}
-          className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4 cursor-grab active:cursor-grabbing select-none"
+          className={`flex gap-3 overflow-x-auto pb-2 scrollbar-hide select-none ${
+            isDragging ? '' : 'snap-x snap-mandatory'
+          } ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
           style={{ 
             WebkitUserSelect: 'none',
             userSelect: 'none',
-            touchAction: 'pan-x pan-y', // Allow both horizontal and vertical panning
+            MozUserSelect: 'none',
+            msUserSelect: 'none',
+            touchAction: 'pan-x',
             WebkitOverflowScrolling: 'touch',
-            // Prevent this container from affecting viewport zoom
+            scrollBehavior: isDragging ? 'auto' : 'smooth',
+            scrollPaddingLeft: '1rem',
+            scrollPaddingRight: '1rem',
+            paddingLeft: '1rem',
+            paddingRight: '1rem',
             maxWidth: '100%',
-            contain: 'layout style'
-          }}
-          onTouchStart={(e) => {
-            // Don't interfere if clicking on a button
-            if ((e.target as HTMLElement).closest('button')) {
-              return;
-            }
-
-            if (e.touches.length === 1 && scrollContainerRef.current) {
-              const touch = e.touches[0];
-              touchStartRef.current = {
-                x: touch.clientX,
-                y: touch.clientY,
-                time: Date.now()
-              };
-              isHorizontalScrollRef.current = null;
-            }
-          }}
-          onTouchMove={(e) => {
-            // Don't interfere if clicking on a button
-            if ((e.target as HTMLElement).closest('button')) {
-              return;
-            }
-
-            if (e.touches.length === 1 && touchStartRef.current && scrollContainerRef.current) {
-              const touch = e.touches[0];
-              const deltaX = touch.clientX - touchStartRef.current.x;
-              const deltaY = touch.clientY - touchStartRef.current.y;
-              const absDeltaX = Math.abs(deltaX);
-              const absDeltaY = Math.abs(deltaY);
-              
-              // Determine scroll direction on first significant movement (threshold: 10px)
-              if (isHorizontalScrollRef.current === null) {
-                if (absDeltaX > 10 || absDeltaY > 10) {
-                  // If horizontal movement is significantly more than vertical, it's horizontal scroll
-                  isHorizontalScrollRef.current = absDeltaX > absDeltaY * 1.5;
-                }
-              }
-              
-              // Only prevent default and scroll horizontally if we've determined it's a horizontal scroll
-              if (isHorizontalScrollRef.current === true) {
-                e.preventDefault();
-                e.stopPropagation();
-                const element = scrollContainerRef.current;
-                element.scrollLeft -= deltaX;
-                touchStartRef.current.x = touch.clientX;
-                touchStartRef.current.y = touch.clientY;
-              } else if (isHorizontalScrollRef.current === false) {
-                // It's a vertical scroll - don't prevent default, let the page scroll naturally
-                // Just update the start position to avoid re-detection
-                touchStartRef.current.y = touch.clientY;
-              }
-              // If still null (movement too small), don't do anything yet
-            }
-          }}
-          onTouchEnd={(e) => {
-            // If it was a tap (not a scroll), allow click events
-            if (touchStartRef.current && 
-                Math.abs(touchStartRef.current.x - (e.changedTouches[0]?.clientX || 0)) < 5 &&
-                Math.abs(touchStartRef.current.y - (e.changedTouches[0]?.clientY || 0)) < 5) {
-              // It was a tap, allow default behavior
-            }
-            touchStartRef.current = null;
-            isHorizontalScrollRef.current = null;
-          }}
-          onTouchCancel={() => {
-            touchStartRef.current = null;
-            isHorizontalScrollRef.current = null;
+            contain: 'layout style paint'
           }}
           onMouseDown={(e) => {
-            // Don't start drag if clicking on a button
-            if ((e.target as HTMLElement).closest('button')) {
+            // Don't start drag if clicking on a button or link
+            if ((e.target as HTMLElement).closest('button, a')) {
               return;
             }
 
+            e.preventDefault(); // Prevent text selection immediately
             const element = e.currentTarget;
-            const startX = e.pageX - element.offsetLeft;
-            const scrollLeft = element.scrollLeft;
+            const startX = e.clientX; // Use clientX for more accurate tracking
+            const startScrollLeft = element.scrollLeft;
             let isDown = true;
             let hasMoved = false;
+            let lastX = startX;
+
+            // Add dragging state immediately
+            isDraggingRef.current = true;
+            setIsDragging(true);
+            element.style.cursor = 'grabbing';
+            element.style.scrollBehavior = 'auto'; // Disable smooth scroll during drag
+            element.style.scrollSnapType = 'none'; // Disable snap during drag
 
             const handleMouseMove = (e: MouseEvent) => {
-              if (!isDown) return;
-              const x = e.pageX - element.offsetLeft;
-              const walk = (x - startX) * 2;
+              if (!isDown || !element) return;
               
-              // Only prevent default if we've actually moved
-              if (Math.abs(walk) > 5) {
+              const currentX = e.clientX;
+              const deltaX = currentX - lastX; // Calculate relative movement
+              
+              // Mark as moved if we've moved more than 1px
+              if (Math.abs(deltaX) > 1) {
                 hasMoved = true;
-                e.preventDefault();
-                element.scrollLeft = scrollLeft - walk;
               }
+              
+              // Always prevent default to stop text selection and smooth scrolling
+              e.preventDefault();
+              e.stopPropagation();
+              
+              // Update scroll position smoothly following mouse movement
+              // Use relative movement for smoother tracking
+              element.scrollLeft -= deltaX;
+              
+              // Update last position for next move
+              lastX = currentX;
             };
 
             const handleMouseUp = (e: MouseEvent) => {
               isDown = false;
+              isDraggingRef.current = false;
+              setIsDragging(false);
+              element.style.cursor = 'grab';
+              element.style.scrollBehavior = 'smooth'; // Re-enable smooth scroll
+              element.style.scrollSnapType = ''; // Re-enable snap
+              
               document.removeEventListener('mousemove', handleMouseMove);
               document.removeEventListener('mouseup', handleMouseUp);
+              document.removeEventListener('mouseleave', handleMouseUp);
               
-              // If we didn't move much, it was a click, not a drag
-              // Allow default click behavior for buttons
-              if (!hasMoved && (e.target as HTMLElement).closest('button')) {
-                const button = (e.target as HTMLElement).closest('button');
-                if (button) {
-                  button.click();
-                }
+              // Prevent click if we dragged
+              if (hasMoved) {
+                e.preventDefault();
+                e.stopPropagation();
               }
             };
 
-            document.addEventListener('mousemove', handleMouseMove);
+            // Also handle mouse leave to clean up
+            const handleMouseLeave = () => {
+              if (isDown) {
+                handleMouseUp(new MouseEvent('mouseup'));
+              }
+            };
+
+            document.addEventListener('mousemove', handleMouseMove, { passive: false });
             document.addEventListener('mouseup', handleMouseUp);
+            document.addEventListener('mouseleave', handleMouseLeave);
+            
+            // Prevent text selection globally during drag
+            document.body.style.userSelect = 'none';
+            document.body.style.webkitUserSelect = 'none';
+            
+            const cleanupSelection = () => {
+              document.body.style.userSelect = '';
+              document.body.style.webkitUserSelect = '';
+            };
+            
+            document.addEventListener('mouseup', cleanupSelection, { once: true });
+          }}
+          onDragStart={(e) => {
+            // Prevent default drag behavior
+            e.preventDefault();
+            return false;
           }}
         >
           {upcomingEvents.map((event, index) => {
@@ -318,7 +313,21 @@ export function UpcomingEvents() {
             return (
               <Card 
                 key={event.id} 
-                className={`flex-shrink-0 w-64 overflow-hidden border-2 transition-all duration-300 hover:shadow-elevated select-none ${getEventColor(event.event_type)}`}
+                className={`flex-shrink-0 w-64 overflow-hidden border-2 select-none pointer-events-auto ${
+                  isDragging ? '' : 'snap-start transition-all duration-300 hover:shadow-elevated'
+                } ${getEventColor(event.event_type)}`}
+                style={{
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none',
+                  WebkitTouchCallout: 'none',
+                  pointerEvents: 'auto'
+                }}
+                onDragStart={(e) => {
+                  e.preventDefault();
+                  return false;
+                }}
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -332,12 +341,16 @@ export function UpcomingEvents() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7 rounded-lg"
-                        onMouseDown={(e) => e.stopPropagation()}
+                        className="h-7 w-7 rounded-lg pointer-events-auto"
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSelectedEvent(eventWithDetails);
                         }}
+                        style={{ userSelect: 'auto' }}
                       >
                         <Eye className="w-4 h-4" />
                       </Button>

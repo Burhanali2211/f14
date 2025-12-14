@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { 
-  ChevronLeft, Type, Eye, Volume2, Palette, 
+  ChevronLeft, Type, Eye, Palette, 
   Accessibility, RotateCcw, Download, Trash2, Bell, BellOff
 } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -220,62 +220,6 @@ export default function SettingsPage() {
                   checked={settings.compactMode}
                   onCheckedChange={(v) => updateSetting('compactMode', v)}
                 />
-              </div>
-            </div>
-          </section>
-
-          {/* Audio Section */}
-          <section className="bg-card rounded-2xl p-6 border border-border">
-            <h2 className="font-semibold text-foreground flex items-center gap-2 mb-6">
-              <Volume2 className="w-5 h-5 text-primary" />
-              Audio
-            </h2>
-            
-            <div className="space-y-6">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>Playback Speed</Label>
-                  <span className="text-sm text-muted-foreground">{settings.playbackSpeed}x</span>
-                </div>
-                <Slider
-                  value={[settings.playbackSpeed]}
-                  min={0.5}
-                  max={2}
-                  step={0.25}
-                  onValueChange={([v]) => updateSetting('playbackSpeed', v)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Auto-Play Next</Label>
-                  <p className="text-xs text-muted-foreground">Play next piece automatically</p>
-                </div>
-                <Switch
-                  checked={settings.autoPlayNext}
-                  onCheckedChange={(v) => updateSetting('autoPlayNext', v)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="space-y-2">
-                <Label>Repeat Mode</Label>
-                <Select
-                  value={settings.repeatMode}
-                  onValueChange={(v) => updateSetting('repeatMode', v as any)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No Repeat</SelectItem>
-                    <SelectItem value="one">Repeat Current</SelectItem>
-                    <SelectItem value="all">Repeat All</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </section>

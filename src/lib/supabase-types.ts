@@ -108,3 +108,13 @@ export interface Artiste {
   created_at: string;
   updated_at: string;
 }
+
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  created_by: string | null;
+  sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+}

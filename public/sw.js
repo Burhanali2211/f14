@@ -80,14 +80,15 @@ self.addEventListener('notificationclick', (event) => {
   }
 
   // Default action or 'view' action
-  const urlToOpen = event.notification.data?.url || '/calendar';
+  const notificationData = event.notification.data || {};
+  const urlToOpen = notificationData.url || (notificationData.type === 'announcement' ? '/' : '/calendar');
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If a window is already open, focus it and navigate to calendar
+      // If a window is already open, focus it and navigate
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          // Send message to navigate to calendar
+          // Send message to navigate
           client.postMessage({
             type: 'NAVIGATE',
             url: urlToOpen
@@ -126,15 +127,19 @@ async function syncEvents() {
   }
 }
 
-// Message handler for scheduled notifications
+// Message handler for scheduled notifications and announcements
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SCHEDULE_NOTIFICATION') {
     const { title, body, delay, data } = event.data;
     
     console.log(`[Service Worker] Scheduling notification: ${title} in ${delay}ms`);
     
+    // Use a more reliable scheduling method that persists
+    const scheduledTime = Date.now() + delay;
+    
+    // Store in IndexedDB for persistence (fallback to setTimeout for now)
     // Schedule notification using setTimeout
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       console.log(`[Service Worker] Sending notification: ${title}`);
       self.registration.showNotification(title, {
         body,
@@ -154,5 +159,34 @@ self.addEventListener('message', (event) => {
         console.error('[Service Worker] Error showing notification:', error);
       });
     }, delay);
+    
+    // Store timeout ID for potential cleanup
+    if (!self.scheduledTimeouts) {
+      self.scheduledTimeouts = new Map();
+    }
+    self.scheduledTimeouts.set(scheduledTime, timeoutId);
+  } else if (event.data && event.data.type === 'ANNOUNCEMENT_NOTIFICATION') {
+    // Handle announcement notifications immediately
+    const { title, body, data } = event.data;
+    
+    console.log(`[Service Worker] Showing announcement notification: ${title}`);
+    
+    self.registration.showNotification(title, {
+      body,
+      icon: '/main.png',
+      badge: '/main.png',
+      tag: `announcement-${Date.now()}`,
+      data: data || { url: '/', type: 'announcement' },
+      requireInteraction: false,
+      vibrate: [200, 100, 200],
+      actions: [
+        {
+          action: 'view',
+          title: 'View'
+        }
+      ]
+    }).catch((error) => {
+      console.error('[Service Worker] Error showing announcement notification:', error);
+    });
   }
 });

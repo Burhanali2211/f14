@@ -34,6 +34,7 @@ import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
+import { ReciterCombobox } from '@/components/ReciterCombobox';
 
 export default function AddPiecePage() {
   const navigate = useNavigate();
@@ -75,7 +76,6 @@ export default function AddPiecePage() {
     reciter: '',
     language: 'Kashmiri',
     text_content: '',
-    audio_url: '',
     video_url: '',
     image_url: '',
   });
@@ -204,7 +204,6 @@ export default function AddPiecePage() {
         reciter: piece.reciter || '',
         language: piece.language,
         text_content: piece.text_content,
-        audio_url: piece.audio_url || '',
         video_url: piece.video_url || '',
           image_url: piece.image_url || '',
         });
@@ -776,7 +775,6 @@ export default function AddPiecePage() {
       reciter: pieceForm.reciter || null,
       language: pieceForm.language,
       text_content: pieceForm.text_content,
-      audio_url: pieceForm.audio_url || null,
       video_url: pieceForm.video_url || null,
       image_url: pieceForm.image_url || null,
     };
@@ -911,10 +909,10 @@ export default function AddPiecePage() {
             </div>
             <div>
               <Label htmlFor="piece-reciter">Reciter (optional)</Label>
-              <Input
+              <ReciterCombobox
                 id="piece-reciter"
                 value={pieceForm.reciter}
-                onChange={(e) => setPieceForm(f => ({ ...f, reciter: e.target.value }))}
+                onChange={(value) => setPieceForm(f => ({ ...f, reciter: value }))}
                 placeholder="e.g., Maher Zain"
                 className="mt-2"
               />
@@ -1103,16 +1101,6 @@ export default function AddPiecePage() {
             </div>
           </div>
           
-          <div>
-            <Label htmlFor="piece-audio">Audio URL (optional)</Label>
-            <Input
-              id="piece-audio"
-              value={pieceForm.audio_url}
-              onChange={(e) => setPieceForm(f => ({ ...f, audio_url: e.target.value }))}
-              placeholder="https://..."
-              className="mt-2"
-            />
-          </div>
           <div>
             <Label htmlFor="piece-video">Video URL (optional)</Label>
             <Input

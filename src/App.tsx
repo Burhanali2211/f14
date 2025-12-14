@@ -25,6 +25,7 @@ import AddPiecePage from "./pages/AddPiecePage";
 import FavoritesPage from "./pages/FavoritesPage";
 import SettingsPage from "./pages/SettingsPage";
 import CalendarPage from "./pages/CalendarPage";
+import AnnouncementsPage from "./pages/AnnouncementsPage";
 import NotFound from "./pages/NotFound";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { ScrollToTop } from "@/components/ScrollToTop";
@@ -44,11 +45,43 @@ function ServiceWorkerHandler() {
 
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
+      const handleMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'NAVIGATE') {
           navigate(event.data.url);
+        } else if (event.data && event.data.type === 'ANNOUNCEMENT_NOTIFICATION') {
+          // Handle announcement notification from service worker
+          const { title, body, data } = event.data;
+          
+          // Show notification if permission is granted
+          if (Notification.permission === 'granted') {
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then((registration) => {
+                registration.showNotification(title, {
+                  body,
+                  icon: '/main.png',
+                  badge: '/main.png',
+                  tag: `announcement-${Date.now()}`,
+                  data: data || { url: '/', type: 'announcement' },
+                  requireInteraction: false,
+                  vibrate: [200, 100, 200],
+                  actions: [
+                    {
+                      action: 'view',
+                      title: 'View'
+                    }
+                  ]
+                });
+              });
+            }
+          }
         }
-      });
+      };
+
+      navigator.serviceWorker.addEventListener('message', handleMessage);
+      
+      return () => {
+        navigator.serviceWorker.removeEventListener('message', handleMessage);
+      };
     }
   }, [navigate]);
 
@@ -85,6 +118,7 @@ const App = () => (
                       <Route path="/auth" element={<AuthPage />} />
                       <Route path="/admin" element={<AdminPage />} />
                       <Route path="/admin/site-settings" element={<SiteSettingsPage />} />
+                      <Route path="/admin/announcements" element={<AnnouncementsPage />} />
                       <Route path="/admin/piece/new" element={<AddPiecePage />} />
                       <Route path="/admin/piece/:id/edit" element={<AddPiecePage />} />
                       <Route path="/uploader" element={<UploaderPage />} />

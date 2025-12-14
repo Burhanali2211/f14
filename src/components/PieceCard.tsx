@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Play, Eye, Volume2, Video, ArrowUpRight } from 'lucide-react';
+import { Play, Eye, Video, ArrowUpRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder } from '@/lib/utils';
 import type { Piece } from '@/lib/supabase-types';
@@ -11,7 +11,6 @@ interface PieceCardProps {
 }
 
 export function PieceCard({ piece, index = 0, compact = false }: PieceCardProps) {
-  const hasAudio = !!piece.audio_url;
   const hasVideo = !!piece.video_url;
   const hasImage = !!piece.image_url;
   const isRTL = getTextDirection(piece.title) === 'rtl';
@@ -67,11 +66,6 @@ export function PieceCard({ piece, index = 0, compact = false }: PieceCardProps)
             {/* Footer */}
             <div className={`flex items-center justify-between pt-3 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
               <div className={`flex items-center gap-2 md:gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                {hasAudio && (
-                  <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all duration-300 group-hover:scale-110" title="Has Audio">
-                    <Volume2 className="w-4 h-4 text-primary group-hover:text-primary-foreground" />
-                  </div>
-                )}
                 {hasVideo && (
                   <div className="w-8 h-8 md:w-9 md:h-9 rounded-lg bg-accent/10 flex items-center justify-center group-hover:bg-accent transition-all duration-300 group-hover:scale-110" title="Has Video">
                     <Video className="w-4 h-4 text-accent group-hover:text-accent-foreground" />
@@ -144,17 +138,12 @@ export function PieceCard({ piece, index = 0, compact = false }: PieceCardProps)
             
             {/* Media indicators */}
             <div className="flex flex-col gap-2 flex-shrink-0">
-              {hasAudio && (
-                <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all duration-300 group-hover:scale-110" title="Has Audio">
-                  <Volume2 className="w-4 h-4 md:w-5 md:h-5 text-primary group-hover:text-primary-foreground" />
-                </div>
-              )}
               {hasVideo && (
                 <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-accent/10 flex items-center justify-center group-hover:bg-accent transition-all duration-300 group-hover:scale-110" title="Has Video">
                   <Video className="w-4 h-4 md:w-5 md:h-5 text-accent group-hover:text-accent-foreground" />
                 </div>
               )}
-              {!hasAudio && !hasVideo && !hasImage && (
+              {!hasVideo && !hasImage && (
                 <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl bg-secondary flex items-center justify-center group-hover:bg-primary transition-all duration-300 group-hover:scale-110">
                   <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground group-hover:text-primary-foreground" />
                 </div>

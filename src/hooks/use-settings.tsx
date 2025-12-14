@@ -12,11 +12,6 @@ export interface AppSettings {
   highlightCurrentVerse: boolean;
   autoScrollWhilePlaying: boolean;
   
-  // Audio settings
-  playbackSpeed: number;
-  autoPlayNext: boolean;
-  repeatMode: 'none' | 'one' | 'all';
-  
   // Appearance
   readerBackground: 'default' | 'sepia' | 'dark' | 'paper';
   compactMode: boolean;
@@ -35,9 +30,6 @@ const defaultSettings: AppSettings = {
   showVerseNumbers: true,
   highlightCurrentVerse: true,
   autoScrollWhilePlaying: true,
-  playbackSpeed: 1,
-  autoPlayNext: false,
-  repeatMode: 'none',
   readerBackground: 'default',
   compactMode: false,
   animationsEnabled: true,

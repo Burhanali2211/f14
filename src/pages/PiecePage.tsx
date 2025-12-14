@@ -8,7 +8,6 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { ReaderToolbar } from '@/components/ReaderToolbar';
 import { SettingsPanel } from '@/components/SettingsPanel';
-import { EnhancedAudioPlayer } from '@/components/EnhancedAudioPlayer';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { FullscreenImageViewer } from '@/components/FullscreenImageViewer';
 import { RecitationLayout } from '@/components/RecitationLayout';
@@ -386,31 +385,6 @@ export default function PiecePage() {
             </div>
           )}
         </header>
-
-        {/* Audio Player */}
-        {piece.audio_url && (
-          <div className="mb-8">
-            {isOffline ? (
-              <div className="bg-card rounded-2xl p-6 text-center text-muted-foreground border border-dashed border-border">
-                <p>Audio unavailable offline</p>
-              </div>
-            ) : (
-              <EnhancedAudioPlayer 
-                src={piece.audio_url} 
-                title="Audio Recitation"
-                onTimeUpdate={(time) => {
-                  // Could sync with verse highlighting here
-                }}
-                onEnded={() => {
-                  // Handle auto-play next
-                  if (settings.autoPlayNext && siblingPieces.next) {
-                    navigate(`/piece/${siblingPieces.next.id}`);
-                  }
-                }}
-              />
-            )}
-          </div>
-        )}
 
         {/* Video Player */}
         {piece.video_url && (

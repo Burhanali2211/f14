@@ -29,6 +29,7 @@ import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { getKarbalaPlaceholder } from '@/lib/utils';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
+import { ReciterCombobox } from '@/components/ReciterCombobox';
 
 export default function UploaderPage() {
   const navigate = useNavigate();
@@ -56,7 +57,6 @@ export default function UploaderPage() {
     reciter: '',
     language: 'Urdu',
     text_content: '',
-    audio_url: '',
     video_url: '',
     image_url: '',
   });
@@ -406,7 +406,6 @@ export default function UploaderPage() {
         reciter: piece.reciter || '',
         language: piece.language,
         text_content: piece.text_content,
-        audio_url: piece.audio_url || '',
         video_url: piece.video_url || '',
         image_url: piece.image_url || '',
       });
@@ -419,7 +418,6 @@ export default function UploaderPage() {
         reciter: '',
         language: 'Kashmiri',
         text_content: '',
-        audio_url: '',
         video_url: '',
         image_url: '',
       });
@@ -461,7 +459,6 @@ export default function UploaderPage() {
       reciter: pieceForm.reciter || null,
       language: pieceForm.language,
       text_content: pieceForm.text_content,
-      audio_url: pieceForm.audio_url || null,
       video_url: pieceForm.video_url || null,
       image_url: pieceForm.image_url || null,
     };
@@ -683,10 +680,10 @@ export default function UploaderPage() {
               </div>
               <div>
                 <Label htmlFor="piece-reciter">Reciter (optional)</Label>
-                <Input
+                <ReciterCombobox
                   id="piece-reciter"
                   value={pieceForm.reciter}
-                  onChange={(e) => setPieceForm(f => ({ ...f, reciter: e.target.value }))}
+                  onChange={(value) => setPieceForm(f => ({ ...f, reciter: value }))}
                   placeholder="e.g., Maher Zain"
                 />
               </div>
@@ -811,15 +808,6 @@ export default function UploaderPage() {
               />
             </div>
             
-            <div>
-              <Label htmlFor="piece-audio">Audio URL (optional)</Label>
-              <Input
-                id="piece-audio"
-                value={pieceForm.audio_url}
-                onChange={(e) => setPieceForm(f => ({ ...f, audio_url: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
             <div>
               <Label htmlFor="piece-video">Video URL (optional)</Label>
               <Input
