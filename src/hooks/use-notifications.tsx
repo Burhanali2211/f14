@@ -161,6 +161,9 @@ class NotificationService {
       return false;
     }
 
+    // Subscribe to push notifications
+    await this.subscribeToPushNotifications();
+
     // Start periodic check
     this.startPeriodicCheck();
 
@@ -178,12 +181,118 @@ class NotificationService {
     return true;
   }
 
+  private async subscribeToPushNotifications(): Promise<void> {
+    try {
+      if (!this.serviceWorkerRegistration) {
+        logger.warn('Service worker not available for push subscription');
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Check if we already have a subscription
+      let subscription = await this.serviceWorkerRegistration.pushManager.getSubscription();
+      
+      if (!subscription) {
+        // Create new subscription
+        // Note: For production, you need VAPID keys. For now, we'll use a placeholder
+        // In production, get VAPID public key from your backend
+        const applicationServerKey = this.urlBase64ToUint8Array(
+          'BEl62iUYgUivxIkv69yViEuiBIa40HI2vO0g8bWnQz8' // Placeholder - replace with your VAPID public key
+        );
+        
+        try {
+          subscription = await this.serviceWorkerRegistration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: applicationServerKey
+          });
+        } catch (pushError: any) {
+          // If push subscription fails (e.g., no VAPID key), continue without it
+          logger.warn('Push subscription failed (this is okay for now):', pushError.message);
+          return;
+        }
+      }
+
+      if (subscription) {
+        // Store subscription in database
+        const subscriptionData = {
+          endpoint: subscription.endpoint,
+          p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
+          auth: this.arrayBufferToBase64(subscription.getKey('auth')!)
+        };
+
+        const { error: subError } = await supabase
+          .from('push_subscriptions')
+          .upsert({
+            user_id: user.id,
+            endpoint: subscriptionData.endpoint,
+            p256dh: subscriptionData.p256dh,
+            auth: subscriptionData.auth,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,endpoint'
+          });
+
+        if (subError) {
+          logger.error('Error storing push subscription:', subError);
+        } else {
+          logger.info('Push subscription stored successfully');
+        }
+      }
+    } catch (error) {
+      logger.error('Error subscribing to push notifications:', error);
+      // Don't fail if push subscription doesn't work - notifications can still work via service worker
+    }
+  }
+
+  private urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/\-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  }
+
   async disableNotifications(): Promise<void> {
     // Clear all scheduled notifications
     this.clearAllScheduledNotifications();
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+
+    // Unsubscribe from push notifications
+    if (this.serviceWorkerRegistration) {
+      try {
+        const subscription = await this.serviceWorkerRegistration.pushManager.getSubscription();
+        if (subscription) {
+          await subscription.unsubscribe();
+          // Remove from database
+          await supabase
+            .from('push_subscriptions')
+            .delete()
+            .eq('user_id', user.id);
+        }
+      } catch (error) {
+        logger.error('Error unsubscribing from push:', error);
+      }
+    }
 
     await supabase
       .from('profiles')

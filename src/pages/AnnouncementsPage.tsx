@@ -167,14 +167,14 @@ export default function AnnouncementsPage() {
   const sendNotificationToAllUsers = async (title: string, message: string) => {
     try {
       // Get all users with notifications enabled
-      const { data: users, error } = await supabase
+      const { data: users, error: usersError } = await supabase
         .from('profiles')
         .select('id, notifications_enabled, notification_permission_granted')
         .eq('notifications_enabled', true)
         .eq('notification_permission_granted', true);
 
-      if (error) {
-        logger.error('Error fetching users for notifications:', error);
+      if (usersError) {
+        logger.error('Error fetching users for notifications:', usersError);
         return;
       }
 
@@ -189,16 +189,45 @@ export default function AnnouncementsPage() {
 
       logger.info(`Sending notifications to ${users.length} users`);
 
-      // Broadcast notification via service worker
-      // The service worker will handle broadcasting to all active clients
-      let sentCount = 0;
-      
+      // Method 1: Use Supabase Realtime to broadcast to all active clients
+      // This will trigger notifications for users who are currently online
+      try {
+        const channel = supabase.channel('announcements');
+        
+        // Subscribe to the channel first
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            // Send broadcast after subscription is confirmed
+            channel.send({
+              type: 'broadcast',
+              event: 'new_announcement',
+              payload: {
+                title,
+                message,
+                timestamp: new Date().toISOString()
+              }
+            }).then(() => {
+              logger.info('Announcement broadcast via Supabase Realtime');
+              // Unsubscribe after sending
+              setTimeout(() => {
+                supabase.removeChannel(channel);
+              }, 1000);
+            }).catch((realtimeError) => {
+              logger.warn('Realtime broadcast error:', realtimeError);
+              supabase.removeChannel(channel);
+            });
+          }
+        });
+      } catch (realtimeErr) {
+        logger.warn('Realtime not available:', realtimeErr);
+      }
+
+      // Method 2: Broadcast via service worker to active clients
       if ('serviceWorker' in navigator) {
         try {
           const registration = await navigator.serviceWorker.ready;
           
           // Send message to service worker to broadcast to all clients
-          // The service worker has access to clients.matchAll()
           if (registration.active) {
             registration.active.postMessage({
               type: 'BROADCAST_ANNOUNCEMENT',
@@ -212,8 +241,7 @@ export default function AnnouncementsPage() {
             logger.info('Broadcast message sent to service worker');
           }
 
-          // Show notification directly via service worker registration
-          // This will show the notification to the current user and can be seen by others
+          // Show notification for current user
           if (Notification.permission === 'granted') {
             try {
               await registration.showNotification(title, {
@@ -234,56 +262,32 @@ export default function AnnouncementsPage() {
                   }
                 ]
               });
-              sentCount++;
-              logger.info('Notification shown via service worker registration');
+              logger.info('Notification shown to current user');
             } catch (notifError) {
               logger.error('Error showing notification:', notifError);
             }
           }
-          
-          logger.info(`Notification sent successfully`);
-          
-          // Note: The service worker will broadcast to all active clients.
-          // For offline users, you would need:
-          // 1. Web Push API with subscription tokens stored in database
-          // 2. A backend service (Supabase Edge Function) to send push notifications
-          // 3. Or use a service like Firebase Cloud Messaging
-          
         } catch (swError) {
           logger.error('Error with service worker notification:', swError);
-          // Fallback: try direct notification if permission is granted
-          if (Notification.permission === 'granted') {
-            try {
-              new Notification(title, {
-                body: message,
-                icon: '/main.png',
-                tag: `announcement-${Date.now()}`,
-              });
-              sentCount++;
-              logger.info('Fallback notification sent');
-            } catch (notifError) {
-              logger.error('Error with fallback notification:', notifError);
-            }
-          }
         }
-      } else {
-        // Fallback if service worker is not available
-        if (Notification.permission === 'granted') {
-          try {
-            new Notification(title, {
-              body: message,
-              icon: '/main.png',
-              tag: `announcement-${Date.now()}`,
-            });
-            sentCount++;
-            logger.info('Direct notification sent (no service worker)');
-          } catch (notifError) {
-            logger.error('Error with direct notification:', notifError);
-          }
-        }
+      }
+
+      // Method 3: For future implementation - Web Push to all subscriptions
+      // This would require a backend service with VAPID keys
+      // For now, we'll log that subscriptions exist for future use
+      const { data: subscriptions } = await supabase
+        .from('push_subscriptions')
+        .select('id, user_id, endpoint')
+        .in('user_id', users.map(u => u.id));
+
+      if (subscriptions && subscriptions.length > 0) {
+        logger.info(`Found ${subscriptions.length} push subscriptions (for future Web Push implementation)`);
+        // TODO: Implement Web Push sending via Supabase Edge Function
+        // This requires VAPID keys and a backend service
       }
       
       logger.info(`Notification broadcast completed`);
+      
     } catch (error) {
       logger.error('Error sending notifications:', error);
       throw error;

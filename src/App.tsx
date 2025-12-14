@@ -12,6 +12,8 @@ import { ReadingProgressProvider } from "@/hooks/use-reading-progress";
 import { FavoritesProvider } from "@/hooks/use-favorites";
 import { UserRoleProvider } from "@/hooks/use-user-role";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 import Index from "./pages/Index";
 import CategoryPage from "./pages/CategoryPage";
 import PiecePage from "./pages/PiecePage";
@@ -39,11 +41,12 @@ const queryClient = new QueryClient({
   },
 });
 
-// Component to handle service worker messages
+// Component to handle service worker messages and Supabase Realtime announcements
 function ServiceWorkerHandler() {
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Handle service worker messages
     if ('serviceWorker' in navigator) {
       const handleMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'NAVIGATE') {
@@ -84,6 +87,54 @@ function ServiceWorkerHandler() {
       };
     }
   }, [navigate]);
+
+  // Listen for Supabase Realtime announcements
+  useEffect(() => {
+    const channel = supabase.channel('announcements');
+    
+    channel
+      .on('broadcast', { event: 'new_announcement' }, (payload) => {
+        const { title, message } = payload.payload;
+        
+        // Show notification to all users who are online and have permission
+        if (Notification.permission === 'granted') {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.ready.then((registration) => {
+              registration.showNotification(title, {
+                body: message,
+                icon: '/main.png',
+                badge: '/main.png',
+                tag: `announcement-${Date.now()}`,
+                data: {
+                  url: '/',
+                  type: 'announcement'
+                },
+                requireInteraction: false,
+                vibrate: [200, 100, 200],
+                actions: [
+                  {
+                    action: 'view',
+                    title: 'View'
+                  }
+                ]
+              });
+            });
+          } else {
+            // Fallback if service worker is not available
+            new Notification(title, {
+              body: message,
+              icon: '/main.png',
+              tag: `announcement-${Date.now()}`,
+            });
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   return null;
 }
