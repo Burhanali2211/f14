@@ -85,10 +85,6 @@ export default function AdminPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedImams, setSelectedImams] = useState<string[]>([]);
 
-  // Category Dialog
-  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [categoryForm, setCategoryForm] = useState({ name: '', slug: '', description: '' });
 
   // Piece Dialog
   const [pieceDialogOpen, setPieceDialogOpen] = useState(false);
@@ -523,57 +519,14 @@ export default function AdminPage() {
   };
 
   // Category functions
-  const openCategoryDialog = (category?: Category) => {
+  const openCategoryForm = (category?: Category) => {
     if (category) {
-      setEditingCategory(category);
-      setCategoryForm({
-        name: category.name,
-        slug: category.slug,
-        description: category.description || '',
-      });
+      navigate(`/admin/category/${category.id}/edit`);
     } else {
-      setEditingCategory(null);
-      setCategoryForm({ name: '', slug: '', description: '' });
+      navigate('/admin/category/new');
     }
-    setCategoryDialogOpen(true);
   };
 
-  const saveCategory = async () => {
-    if (!categoryForm.name || !categoryForm.slug) {
-      toast({ title: 'Error', description: 'Name and slug are required', variant: 'destructive' });
-      return;
-    }
-
-    const data = {
-      name: categoryForm.name,
-      slug: categoryForm.slug.toLowerCase().replace(/\s+/g, '-'),
-      description: categoryForm.description || null,
-    };
-
-    if (editingCategory) {
-      const { error } = await supabase
-        .from('categories')
-        .update(data)
-        .eq('id', editingCategory.id);
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
-      }
-      toast({ title: 'Success', description: 'Category updated' });
-    } else {
-      const { error } = await supabase.from('categories').insert([data]);
-
-      if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
-      }
-      toast({ title: 'Success', description: 'Category created' });
-    }
-
-    setCategoryDialogOpen(false);
-    fetchData();
-  };
 
   // Imam functions
   const openImamDialog = (imam?: Imam) => {
@@ -1211,47 +1164,107 @@ export default function AdminPage() {
 
         <Tabs defaultValue="pieces" className="space-y-6">
           <div className="-mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6">
-            <TabsList className="bg-card w-full flex flex-wrap gap-1.5 sm:gap-2 h-auto py-2 sm:py-3 justify-start">
-              <TabsTrigger value="pieces" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap flex-1 sm:flex-initial min-w-[120px] sm:min-w-0">
-                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+            {/* Mobile: Horizontal scrollable tabs with native scrolling */}
+            <div 
+              className="block sm:hidden overflow-x-auto -mx-3 px-3 scroll-smooth" 
+              style={{ 
+                scrollbarWidth: 'none', 
+                msOverflowStyle: 'none',
+                WebkitOverflowScrolling: 'touch'
+              }}
+            >
+              <style>{`
+                .overflow-x-auto::-webkit-scrollbar {
+                  display: none;
+                }
+              `}</style>
+              <TabsList className="bg-card w-max flex gap-2.5 h-auto py-3 px-2">
+                <TabsTrigger value="pieces" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 flex-shrink-0 min-h-[44px] touch-manipulation">
+                  <FileText className="w-4 h-4 flex-shrink-0" />
+                  <span>Recitations</span>
+                  <span className="text-muted-foreground"> ({pieces.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="categories" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 flex-shrink-0 min-h-[44px] touch-manipulation">
+                  <FolderOpen className="w-4 h-4 flex-shrink-0" />
+                  <span>Categories</span>
+                  <span className="text-muted-foreground"> ({categories.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="imams" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 flex-shrink-0 min-h-[44px] touch-manipulation">
+                  <Users className="w-4 h-4 flex-shrink-0" />
+                  <span>Ahlulbayt</span>
+                  <span className="text-muted-foreground"> ({imams.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="artistes" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 flex-shrink-0 min-h-[44px] touch-manipulation">
+                  <Mic className="w-4 h-4 flex-shrink-0" />
+                  <span>Artistes</span>
+                  <span className="text-muted-foreground"> ({artistes.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="events" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 flex-shrink-0 min-h-[44px] touch-manipulation">
+                  <Calendar className="w-4 h-4 flex-shrink-0" />
+                  <span>Events</span>
+                  <span className="text-muted-foreground"> ({events.length})</span>
+                </TabsTrigger>
+                <TabsTrigger value="users" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 flex-shrink-0 min-h-[44px] touch-manipulation">
+                  <UserCog className="w-4 h-4 flex-shrink-0" />
+                  <span>Users</span>
+                  <span className="text-muted-foreground"> ({userProfiles.length})</span>
+                </TabsTrigger>
+                <Link to="/admin/announcements" className="flex-shrink-0">
+                  <Button variant="ghost" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 min-h-[44px] touch-manipulation">
+                    <Bell className="w-4 h-4 flex-shrink-0" />
+                    <span>Announcements</span>
+                  </Button>
+                </Link>
+                <Link to="/admin/site-settings" className="flex-shrink-0">
+                  <Button variant="ghost" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 min-h-[44px] touch-manipulation">
+                    <Settings className="w-4 h-4 flex-shrink-0" />
+                    <span>Settings</span>
+                  </Button>
+                </Link>
+              </TabsList>
+            </div>
+            {/* Desktop: Normal tabs with wrap */}
+            <TabsList className="hidden sm:flex bg-card w-full flex flex-wrap gap-2 h-auto py-3 justify-start">
+              <TabsTrigger value="pieces" className="gap-2 px-4 text-sm whitespace-nowrap">
+                <FileText className="w-4 h-4 flex-shrink-0" />
                 <span>Recitations</span>
                 <span className="hidden md:inline"> ({pieces.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="categories" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap flex-1 sm:flex-initial min-w-[120px] sm:min-w-0">
-                <FolderOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <TabsTrigger value="categories" className="gap-2 px-4 text-sm whitespace-nowrap">
+                <FolderOpen className="w-4 h-4 flex-shrink-0" />
                 <span>Categories</span>
                 <span className="hidden md:inline"> ({categories.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="imams" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap flex-1 sm:flex-initial min-w-[120px] sm:min-w-0">
-                <Users className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <TabsTrigger value="imams" className="gap-2 px-4 text-sm whitespace-nowrap">
+                <Users className="w-4 h-4 flex-shrink-0" />
                 <span>Ahlulbayt</span>
                 <span className="hidden md:inline"> ({imams.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="artistes" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap flex-1 sm:flex-initial min-w-[120px] sm:min-w-0">
-                <Mic className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <TabsTrigger value="artistes" className="gap-2 px-4 text-sm whitespace-nowrap">
+                <Mic className="w-4 h-4 flex-shrink-0" />
                 <span>Artistes</span>
                 <span className="hidden md:inline"> ({artistes.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="events" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap flex-1 sm:flex-initial min-w-[120px] sm:min-w-0">
-                <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <TabsTrigger value="events" className="gap-2 px-4 text-sm whitespace-nowrap">
+                <Calendar className="w-4 h-4 flex-shrink-0" />
                 <span>Events</span>
                 <span className="hidden md:inline"> ({events.length})</span>
               </TabsTrigger>
-              <TabsTrigger value="users" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap flex-1 sm:flex-initial min-w-[120px] sm:min-w-0">
-                <UserCog className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+              <TabsTrigger value="users" className="gap-2 px-4 text-sm whitespace-nowrap">
+                <UserCog className="w-4 h-4 flex-shrink-0" />
                 <span>Users</span>
                 <span className="hidden md:inline"> ({userProfiles.length})</span>
               </TabsTrigger>
               <Link to="/admin/announcements">
-                <Button variant="ghost" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap h-9 sm:h-10">
-                  <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <Button variant="ghost" className="gap-2 px-4 text-sm whitespace-nowrap h-10">
+                  <Bell className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Announcements</span>
                   <span className="sm:hidden">Announce</span>
                 </Button>
               </Link>
               <Link to="/admin/site-settings">
-                <Button variant="ghost" className="gap-1.5 sm:gap-2 px-3 sm:px-4 text-xs sm:text-sm whitespace-nowrap h-9 sm:h-10">
-                  <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <Button variant="ghost" className="gap-2 px-4 text-sm whitespace-nowrap h-10">
+                  <Settings className="w-4 h-4 flex-shrink-0" />
                   <span className="hidden sm:inline">Site Settings</span>
                   <span className="sm:hidden">Settings</span>
                 </Button>
@@ -1329,7 +1342,7 @@ export default function AdminPage() {
           {/* Categories Tab */}
           <TabsContent value="categories" className="space-y-4">
             <div className="flex justify-end">
-              <Button onClick={() => openCategoryDialog()} className="w-full sm:w-auto">
+              <Button onClick={() => openCategoryForm()} className="w-full sm:w-auto">
                 <Plus className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Add Category</span>
                 <span className="sm:hidden">Add</span>
@@ -1350,7 +1363,7 @@ export default function AdminPage() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => openCategoryDialog(category)}
+                      onClick={() => openCategoryForm(category)}
                       className="h-9 w-9 sm:h-10 sm:w-10"
                       title="Edit"
                     >
@@ -1688,47 +1701,6 @@ export default function AdminPage() {
         onChange={onImageSelect}
       />
 
-      {/* Category Dialog */}
-      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="cat-name">Name</Label>
-              <Input
-                id="cat-name"
-                value={categoryForm.name}
-                onChange={(e) => setCategoryForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g., Naat"
-              />
-            </div>
-            <div>
-              <Label htmlFor="cat-slug">Slug</Label>
-              <Input
-                id="cat-slug"
-                value={categoryForm.slug}
-                onChange={(e) => setCategoryForm(f => ({ ...f, slug: e.target.value }))}
-                placeholder="e.g., naat"
-              />
-            </div>
-            <div>
-              <Label htmlFor="cat-desc">Description</Label>
-              <Textarea
-                id="cat-desc"
-                value={categoryForm.description}
-                onChange={(e) => setCategoryForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="Brief description..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancel</Button>
-            <Button onClick={saveCategory}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Holy Personality Dialog */}
       <Dialog open={imamDialogOpen} onOpenChange={setImamDialogOpen}>

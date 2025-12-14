@@ -24,6 +24,7 @@ import AdminPage from "./pages/AdminPage";
 import SiteSettingsPage from "./pages/SiteSettingsPage";
 import UploaderPage from "./pages/UploaderPage";
 import AddPiecePage from "./pages/AddPiecePage";
+import CategoryFormPage from "./pages/CategoryFormPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import SettingsPage from "./pages/SettingsPage";
 import CalendarPage from "./pages/CalendarPage";
@@ -504,6 +505,8 @@ const App = () => (
                       <Route path="/admin" element={<AdminPage />} />
                       <Route path="/admin/site-settings" element={<SiteSettingsPage />} />
                       <Route path="/admin/announcements" element={<AnnouncementsPage />} />
+                      <Route path="/admin/category/new" element={<CategoryFormPage />} />
+                      <Route path="/admin/category/:id/edit" element={<CategoryFormPage />} />
                       <Route path="/admin/piece/new" element={<AddPiecePage />} />
                       <Route path="/admin/piece/:id/edit" element={<AddPiecePage />} />
                       <Route path="/uploader" element={<UploaderPage />} />

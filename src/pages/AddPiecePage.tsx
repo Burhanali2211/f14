@@ -33,6 +33,7 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
+import { getCurrentUser } from '@/lib/auth-utils';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
 
@@ -109,8 +110,8 @@ export default function AddPiecePage() {
   const fetchData = async () => {
     setLoading(true);
     
-    // Fetch user permissions
-    const { data: { user } } = await supabase.auth.getUser();
+    // Fetch user permissions - use custom auth system
+    const user = getCurrentUser();
     if (!user) {
       setLoading(false);
       return;
@@ -140,6 +141,13 @@ export default function AddPiecePage() {
         ? supabase.from('imams').select('*').order('order_index, name')
         : supabase.from('imams').select('*').in('id', imamIds.length > 0 ? imamIds : ['00000000-0000-0000-0000-000000000000']).order('order_index, name'),
     ]);
+
+    if (catRes.error) {
+      logger.error('Error fetching categories:', catRes.error);
+    }
+    if (imamRes.error) {
+      logger.error('Error fetching imams:', imamRes.error);
+    }
 
     if (catRes.data) {
       setCategories(catRes.data as Category[]);

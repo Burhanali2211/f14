@@ -16,6 +16,12 @@ export type Database = {
     Tables: {
       categories: {
         Row: {
+          bg_image_blur: number | null
+          bg_image_opacity: number | null
+          bg_image_position: string | null
+          bg_image_scale: number | null
+          bg_image_size: string | null
+          bg_image_url: string | null
           created_at: string | null
           description: string | null
           icon: string | null
@@ -24,6 +30,12 @@ export type Database = {
           slug: string
         }
         Insert: {
+          bg_image_blur?: number | null
+          bg_image_opacity?: number | null
+          bg_image_position?: string | null
+          bg_image_scale?: number | null
+          bg_image_size?: string | null
+          bg_image_url?: string | null
           created_at?: string | null
           description?: string | null
           icon?: string | null
@@ -32,6 +44,12 @@ export type Database = {
           slug: string
         }
         Update: {
+          bg_image_blur?: number | null
+          bg_image_opacity?: number | null
+          bg_image_position?: string | null
+          bg_image_scale?: number | null
+          bg_image_size?: string | null
+          bg_image_url?: string | null
           created_at?: string | null
           description?: string | null
           icon?: string | null

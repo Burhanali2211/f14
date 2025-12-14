@@ -29,6 +29,12 @@ export interface Category {
   slug: string;
   description: string | null;
   icon: string;
+  bg_image_url: string | null;
+  bg_image_position: string | null;
+  bg_image_size: string | null;
+  bg_image_opacity: number | null;
+  bg_image_blur: number | null;
+  bg_image_scale: number | null;
   created_at: string;
 }
 

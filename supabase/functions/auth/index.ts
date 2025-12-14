@@ -2,43 +2,20 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  const allowedOrigins = [
-    'http://localhost:8080',
-    'http://localhost:5173',
-    'http://localhost:3000',
-  ];
-  
   const requestOrigin = origin || '';
   
-  // More permissive CORS for mobile devices and various deployment scenarios
-  // Allow localhost, IP addresses, and common deployment platforms
-  const isAllowed = 
-    !requestOrigin || // No origin (same-origin request)
-    allowedOrigins.some(allowed => requestOrigin === allowed) ||
-    requestOrigin.includes('supabase.co') ||
-    requestOrigin.includes('netlify.app') ||
-    requestOrigin.includes('vercel.app') ||
-    requestOrigin.includes('localhost') ||
-    requestOrigin.includes('127.0.0.1') ||
-    /^https?:\/\/(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(requestOrigin) || // Private network IPs
-    /^https?:\/\/\d+\.\d+\.\d+\.\d+(:\d+)?$/.test(requestOrigin) || // Any IP address format
-    requestOrigin.startsWith('http://') || // Allow HTTP for local development
-    requestOrigin.startsWith('https://'); // Allow HTTPS
-  
+  // Allow ALL origins for maximum compatibility
   // CRITICAL: When Access-Control-Allow-Credentials is 'true',
   // Access-Control-Allow-Origin cannot be '*'. It must be a specific origin.
-  // Use the request origin if present, otherwise fall back to first allowed origin
+  // So we use the request origin if present
   let corsOrigin: string;
-  if (!requestOrigin) {
-    // No origin means same-origin request, use first allowed origin as fallback
-    corsOrigin = allowedOrigins[0] || 'http://localhost:8080';
-  } else if (isAllowed) {
-    // Use the request origin if it's allowed
+  if (requestOrigin) {
+    // Use the request origin - this allows any origin to work
     corsOrigin = requestOrigin;
   } else {
-    // If not explicitly allowed but we have an origin, use it anyway for permissive CORS
-    // This handles edge cases while maintaining credentials support
-    corsOrigin = requestOrigin;
+    // No origin means same-origin request or direct API call
+    // Use a default origin that works with credentials
+    corsOrigin = 'http://localhost:8080';
   }
   
   return {

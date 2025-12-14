@@ -138,7 +138,7 @@ export function UpcomingEvents() {
           <div 
             className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide snap-x snap-mandatory cursor-grab"
             style={{ 
-              touchAction: 'pan-x',
+              touchAction: 'pan-x pan-y',
               WebkitOverflowScrolling: 'touch',
               scrollBehavior: 'smooth',
               scrollPaddingLeft: '1rem',
@@ -149,6 +149,18 @@ export function UpcomingEvents() {
               contain: 'layout style paint',
               userSelect: 'none',
               WebkitUserSelect: 'none'
+            }}
+            onWheel={(e) => {
+              // Detect scroll direction
+              const deltaY = Math.abs(e.deltaY);
+              const deltaX = Math.abs(e.deltaX);
+              
+              // If user is scrolling primarily vertically, allow page to scroll
+              if (deltaY > deltaX) {
+                return; // Allow page scroll
+              }
+              
+              // For horizontal scrolling, let the browser handle it naturally
             }}
           >
             {[...Array(4)].map((_, i) => (
@@ -195,7 +207,7 @@ export function UpcomingEvents() {
             userSelect: 'none',
             MozUserSelect: 'none',
             msUserSelect: 'none',
-            touchAction: 'pan-x',
+            touchAction: 'pan-x pan-y',
             WebkitOverflowScrolling: 'touch',
             scrollBehavior: isDragging ? 'auto' : 'smooth',
             scrollPaddingLeft: '1rem',
@@ -204,6 +216,32 @@ export function UpcomingEvents() {
             paddingRight: '1rem',
             maxWidth: '100%',
             contain: 'layout style paint'
+          }}
+          onWheel={(e) => {
+            // Detect scroll direction
+            const deltaY = Math.abs(e.deltaY);
+            const deltaX = Math.abs(e.deltaX);
+            
+            // If user is scrolling primarily vertically, allow page to scroll
+            if (deltaY > deltaX) {
+              const container = scrollContainerRef.current;
+              
+              // Check if horizontal container is at scroll boundaries
+              if (container) {
+                const isAtLeft = container.scrollLeft <= 1;
+                const isAtRight = container.scrollLeft >= container.scrollWidth - container.clientWidth - 1;
+                
+                // If at boundaries or clearly vertical scroll, don't interfere
+                if (isAtLeft || isAtRight || deltaY > deltaX * 2) {
+                  return; // Allow page scroll
+                }
+              } else {
+                return; // Allow page scroll if container not ready
+              }
+            }
+            
+            // For horizontal scrolling, let the browser handle it naturally
+            // The container will scroll horizontally, and if it can't, the event will bubble
           }}
           onMouseDown={(e) => {
             // Don't start drag if clicking on a button or link

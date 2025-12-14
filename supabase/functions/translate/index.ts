@@ -14,20 +14,15 @@ const getAllowedOrigins = (): string[] => {
 };
 
 const getCorsHeaders = (origin: string | null): Record<string, string> => {
-  const allowedOrigins = getAllowedOrigins();
   const requestOrigin = origin || '';
   
-  const isAllowed = allowedOrigins.some(allowed => 
-    requestOrigin === allowed || 
-    requestOrigin.includes('supabase.co') ||
-    requestOrigin.includes('netlify.app') ||
-    requestOrigin.includes('vercel.app')
-  );
+  // Allow ALL origins - use request origin if present, otherwise use wildcard
+  const corsOrigin = requestOrigin || '*';
   
   return {
-    'Access-Control-Allow-Origin': isAllowed ? requestOrigin : allowedOrigins[0] || '*',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
     'Access-Control-Max-Age': '86400',
   };
 };

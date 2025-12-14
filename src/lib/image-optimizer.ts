@@ -117,6 +117,88 @@ export function validateImageFile(file: File): { valid: boolean; error?: string 
 }
 
 /**
+ * Optimizes an image file for category background images
+ * Returns a Promise that resolves to an optimized Blob
+ * Category backgrounds are larger than artist thumbnails but still optimized for fast loading
+ */
+export async function optimizeCategoryBgImage(
+  file: File,
+  options: OptimizeImageOptions = {}
+): Promise<Blob> {
+  const categoryDefaults: Required<OptimizeImageOptions> = {
+    maxWidth: 800, // Larger size for category backgrounds
+    maxHeight: 800,
+    quality: 0.75, // Slightly lower quality for faster loading
+    format: 'webp', // Best compression for web
+  };
+  const opts = { ...categoryDefaults, ...options };
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        // Calculate new dimensions maintaining aspect ratio
+        let { width, height } = img;
+        const maxWidth = opts.maxWidth;
+        const maxHeight = opts.maxHeight;
+        
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+        
+        // Create canvas and draw resized image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        if (!ctx) {
+          reject(new Error('Could not get canvas context'));
+          return;
+        }
+        
+        // Use high-quality image rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert to blob with specified format and quality
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to create optimized image'));
+            }
+          },
+          `image/${opts.format}`,
+          opts.quality
+        );
+      };
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+      };
+      
+      if (e.target?.result) {
+        img.src = e.target.result as string;
+      }
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+    
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
  * Gets file size in human-readable format
  */
 export function formatFileSize(bytes: number): string {

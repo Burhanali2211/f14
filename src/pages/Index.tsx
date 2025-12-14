@@ -402,8 +402,25 @@ export default function Index() {
       if (catRes.error) {
         logger.error('Error fetching categories:', catRes.error);
       } else if (catRes.data) {
-        setCategories(catRes.data as Category[]);
-        setStats(prev => ({ ...prev, categories: catRes.data!.length }));
+        const categoriesData = catRes.data as Category[];
+        // Debug: Log all categories and their image URLs
+        logger.debug('Fetched categories:', categoriesData.map(c => ({ 
+          name: c.name, 
+          bg_image_url: c.bg_image_url || 'NO IMAGE',
+          bg_image_position: c.bg_image_position,
+          bg_image_opacity: c.bg_image_opacity 
+        })));
+        const categoriesWithImages = categoriesData.filter(c => c.bg_image_url);
+        if (categoriesWithImages.length > 0) {
+          console.log('✅ Categories with images found:', categoriesWithImages.length);
+          categoriesWithImages.forEach(c => {
+            console.log(`  - ${c.name}: ${c.bg_image_url}`);
+          });
+        } else {
+          console.warn('⚠️ No categories have bg_image_url set');
+        }
+        setCategories(categoriesData);
+        setStats(prev => ({ ...prev, categories: categoriesData.length }));
       }
 
       if (recentRes.error) {

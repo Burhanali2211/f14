@@ -42,19 +42,91 @@ export function CategoryCard({ category, index = 0 }: CategoryCardProps) {
   const gradient = gradientMap[category.icon] || gradientMap.book;
   const iconColor = iconColorMap[category.icon] || iconColorMap.book;
   
+  // Get image display settings with defaults
+  const imagePosition = category.bg_image_position || 'center';
+  const imageSize = category.bg_image_size || 'cover';
+  const imageOpacity = category.bg_image_opacity ?? 0.3;
+  const imageBlur = category.bg_image_blur ?? 8;
+  const imageScale = category.bg_image_scale ?? 1.1;
+  
+  // Convert position to object-position values
+  const positionMap: Record<string, string> = {
+    'center': 'center',
+    'top': 'center top',
+    'bottom': 'center bottom',
+    'left': 'left center',
+    'right': 'right center',
+    'top-left': 'left top',
+    'top-right': 'right top',
+    'bottom-left': 'left bottom',
+    'bottom-right': 'right bottom',
+  };
+  const objectPosition = positionMap[imagePosition] || 'center';
+  
+  // Debug: Log category data
+  console.log('CategoryCard render:', {
+    name: category.name,
+    hasImage: !!category.bg_image_url,
+    imageUrl: category.bg_image_url || 'NO IMAGE',
+    opacity: imageOpacity,
+    blur: imageBlur,
+  });
+  
   return (
     <Link
       to={`/category/${category.slug}`}
       className="group relative overflow-hidden rounded-2xl bg-card p-5 shadow-soft transition-all duration-500 hover:shadow-elevated hover:-translate-y-2 animate-slide-up opacity-0"
       style={{ animationDelay: `${index * 0.08}s` }}
     >
-      {/* Gradient background on hover */}
-      <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      {/* Background image with configurable settings - only shown if bg_image_url exists */}
+      {category.bg_image_url && (
+        <div className="absolute inset-0 overflow-hidden rounded-2xl z-0">
+          <img
+            src={category.bg_image_url}
+            alt={category.name}
+            className="absolute inset-0 w-full h-full transition-opacity duration-500 z-0"
+            style={{
+              objectFit: imageSize as 'cover' | 'contain' | 'fill',
+              objectPosition: objectPosition,
+              transform: `scale(${imageScale})`,
+              filter: `blur(${imageBlur}px)`,
+              opacity: imageOpacity,
+              zIndex: 0,
+            }}
+            loading="lazy"
+            onError={(e) => {
+              console.error('❌ CategoryCard: Image failed to load', {
+                category: category.name,
+                url: category.bg_image_url,
+                error: e
+              });
+              // Don't hide - show error indicator instead
+              const target = e.target as HTMLImageElement;
+              target.style.border = '2px solid red';
+            }}
+            onLoad={() => {
+              console.log('✅ CategoryCard: Image loaded successfully', {
+                category: category.name,
+                url: category.bg_image_url,
+                opacity: imageOpacity,
+                blur: imageBlur
+              });
+            }}
+          />
+          {/* Overlay to blend with gradient */}
+          <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-50 group-hover:opacity-60 transition-opacity duration-500 z-[1]`} />
+        </div>
+      )}
+      
+      {/* Gradient background on hover - only if no bg_image_url */}
+      {!category.bg_image_url && (
+        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+      )}
       
       {/* Decorative corner accent */}
       <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/10 to-transparent rounded-bl-[80px] opacity-60" />
       
-      <div className="relative z-10">
+      <div className="relative z-10" style={{ zIndex: 10 }}>
         {/* Icon container */}
         <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
           <Icon className={`w-7 h-7 ${iconColor}`} />

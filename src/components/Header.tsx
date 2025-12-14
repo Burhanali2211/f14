@@ -294,15 +294,23 @@ export function Header() {
             </Button>
           </div>
         </div>
+      </div>
 
-        {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <nav className="lg:hidden py-3 sm:py-4 border-t border-border/50 animate-slide-down safe-area-inset-bottom">
-            <div className="flex flex-col gap-1">
+      {/* Mobile Navigation - Outside container for proper positioning */}
+      {isMenuOpen && (
+        <>
+          {/* Overlay */}
+          <div 
+            className="lg:hidden fixed inset-0 bg-black/50 z-[60] animate-in fade-in-0"
+            onClick={closeMenu}
+          />
+          {/* Sidebar from right */}
+          <nav className="lg:hidden fixed top-0 right-0 h-screen w-3/4 max-w-sm bg-background border-l border-border/50 shadow-xl z-[70] animate-slide-right safe-area-inset-right overflow-y-auto">
+            <div className="flex flex-col gap-3 p-6 pt-24">
               <Link 
                 to="/" 
                 onClick={closeMenu} 
-                className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                   isActive('/') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
@@ -312,7 +320,7 @@ export function Header() {
               <Link 
                 to="/favorites" 
                 onClick={closeMenu} 
-                className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                   isActive('/favorites') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
@@ -322,7 +330,7 @@ export function Header() {
               <Link 
                 to="/calendar" 
                 onClick={closeMenu}
-                className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                   isActive('/calendar') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
@@ -332,7 +340,7 @@ export function Header() {
               <Link 
                 to="/settings" 
                 onClick={closeMenu} 
-                className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                   isActive('/settings') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
@@ -344,7 +352,7 @@ export function Header() {
                   <Link 
                     to="/profile" 
                     onClick={closeMenu} 
-                    className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                       isActive('/profile') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                     }`}
                   >
@@ -355,7 +363,7 @@ export function Header() {
                     <Link 
                       to="/admin" 
                       onClick={closeMenu} 
-                      className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                         isActive('/admin') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                       }`}
                     >
@@ -367,7 +375,7 @@ export function Header() {
                     <Link 
                       to="/uploader" 
                       onClick={closeMenu} 
-                      className={`flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl text-sm sm:text-base transition-colors ${
+                      className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
                         isActive('/uploader') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                       }`}
                     >
@@ -378,7 +386,7 @@ export function Header() {
                   <Button 
                     variant="ghost" 
                     onClick={() => { handleLogout(); closeMenu(); }} 
-                    className="justify-start px-4 py-2.5 sm:py-3 text-destructive hover:text-destructive hover:bg-destructive/10 text-sm sm:text-base"
+                    className="justify-start px-4 py-3 text-destructive hover:text-destructive hover:bg-destructive/10 text-base font-medium mt-2"
                   >
                     <LogOut className="w-5 h-5 mr-3 flex-shrink-0" />
                     <span>Logout</span>
@@ -388,7 +396,7 @@ export function Header() {
                 <Link 
                   to="/auth" 
                   onClick={closeMenu} 
-                  className="flex items-center gap-3 px-4 py-2.5 sm:py-3 rounded-xl bg-primary text-primary-foreground text-sm sm:text-base transition-opacity hover:opacity-90"
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-primary text-primary-foreground text-base font-medium transition-opacity hover:opacity-90 mt-2"
                 >
                   <LogIn className="w-5 h-5 flex-shrink-0" />
                   <span>Login</span>
@@ -396,8 +404,8 @@ export function Header() {
               )}
             </div>
           </nav>
-        )}
-      </div>
+        </>
+      )}
     </header>
   );
 }

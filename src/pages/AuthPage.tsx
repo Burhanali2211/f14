@@ -559,7 +559,7 @@ export default function AuthPage() {
                   className="w-4 h-4 rounded border-input text-primary dark:text-emerald focus:ring-2 focus:ring-primary/25 dark:focus:ring-emerald/25 cursor-pointer"
                 />
                 <Label htmlFor="rememberMe" className="text-xs text-foreground dark:text-foreground cursor-pointer">
-                  Remember me (auto-fill password next time)
+                  Remember me
                 </Label>
               </div>
             )}
