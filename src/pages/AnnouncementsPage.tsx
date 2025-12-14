@@ -68,7 +68,7 @@ export default function AnnouncementsPage() {
     title: '',
     message: '',
     eventType: 'general' as EventType | 'general',
-    imamId: '',
+    imamId: 'none',
     eventDate: '',
     hijriDate: '',
   });
@@ -146,7 +146,7 @@ export default function AnnouncementsPage() {
   const handleCreateAnnouncement = async () => {
     // Auto-generate title if event type is not general and imam is selected
     let finalTitle = announcementForm.title.trim();
-    if (!finalTitle && announcementForm.eventType !== 'general' && announcementForm.imamId) {
+    if (!finalTitle && announcementForm.eventType !== 'general' && announcementForm.imamId && announcementForm.imamId !== 'none') {
       const selectedImam = imams.find(i => i.id === announcementForm.imamId);
       if (selectedImam) {
         switch (announcementForm.eventType) {
@@ -180,7 +180,9 @@ export default function AnnouncementsPage() {
       if (!user) throw new Error('Not authenticated');
 
       // Get imam name if imam_id is selected
-      const selectedImam = imams.find(i => i.id === announcementForm.imamId);
+      const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none' 
+        ? imams.find(i => i.id === announcementForm.imamId)
+        : null;
       const imamName = selectedImam?.name || '';
 
       // Create announcement with sent_at timestamp set immediately
@@ -194,7 +196,7 @@ export default function AnnouncementsPage() {
           created_by: user.id,
           sent_at: sentAt, // Set sent_at during INSERT so Realtime event includes it
           event_type: announcementForm.eventType === 'general' ? null : announcementForm.eventType,
-          imam_id: announcementForm.imamId || null,
+          imam_id: (announcementForm.imamId && announcementForm.imamId !== 'none') ? announcementForm.imamId : null,
           event_date: announcementForm.eventDate || null,
           hijri_date: announcementForm.hijriDate || null,
           template_data: {
@@ -494,40 +496,15 @@ export default function AnnouncementsPage() {
                     setAnnouncementForm({ ...announcementForm, eventType: value as EventType | 'general' })
                   }
                 >
-                  <SelectTrigger id="event-type">
-                    <SelectValue />
+                  <SelectTrigger id="event-type" className="w-full">
+                    <SelectValue placeholder="Select event type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="general">
-                      <div className="flex items-center gap-2">
-                        <Info className="w-4 h-4" />
-                        <span>General Announcement</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="birthday">
-                      <div className="flex items-center gap-2">
-                        <Cake className="w-4 h-4" />
-                        <span>Birthday / Birth Anniversary</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="martyrdom">
-                      <div className="flex items-center gap-2">
-                        <Flame className="w-4 h-4" />
-                        <span>Martyrdom</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="death">
-                      <div className="flex items-center gap-2">
-                        <Heart className="w-4 h-4" />
-                        <span>Death / Passing</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="other">
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4" />
-                        <span>Other Event</span>
-                      </div>
-                    </SelectItem>
+                    <SelectItem value="general">General Announcement</SelectItem>
+                    <SelectItem value="birthday">Birthday / Birth Anniversary</SelectItem>
+                    <SelectItem value="martyrdom">Martyrdom</SelectItem>
+                    <SelectItem value="death">Death / Passing</SelectItem>
+                    <SelectItem value="other">Other Event</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -537,16 +514,16 @@ export default function AnnouncementsPage() {
                   <div className="space-y-2">
                     <Label htmlFor="imam">Imam / Personality (Optional)</Label>
                     <Select
-                      value={announcementForm.imamId}
+                      value={announcementForm.imamId || undefined}
                       onValueChange={(value) =>
-                        setAnnouncementForm({ ...announcementForm, imamId: value })
+                        setAnnouncementForm({ ...announcementForm, imamId: value === 'none' ? '' : value })
                       }
                     >
-                      <SelectTrigger id="imam">
+                      <SelectTrigger id="imam" className="w-full">
                         <SelectValue placeholder="Select an imam or personality" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="none">None</SelectItem>
                         {imams.map((imam) => (
                           <SelectItem key={imam.id} value={imam.id}>
                             {imam.name}
@@ -626,7 +603,7 @@ export default function AnnouncementsPage() {
                     title: '', 
                     message: '', 
                     eventType: 'general',
-                    imamId: '',
+                    imamId: 'none',
                     eventDate: '',
                     hijriDate: '',
                   });
