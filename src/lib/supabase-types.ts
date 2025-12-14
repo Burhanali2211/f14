@@ -117,4 +117,9 @@ export interface Announcement {
   sent_at: string | null;
   created_at: string;
   updated_at: string;
+  event_type?: EventType | 'general' | null;
+  imam_id?: string | null;
+  event_date?: string | null;
+  hijri_date?: string | null;
+  template_data?: any;
 }

@@ -46,38 +46,14 @@ function ServiceWorkerHandler() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Handle service worker messages
+    // Handle service worker messages (only for navigation, not announcements)
+    // Announcements are handled via Realtime database listeners
     if ('serviceWorker' in navigator) {
       const handleMessage = (event: MessageEvent) => {
         if (event.data && event.data.type === 'NAVIGATE') {
           navigate(event.data.url);
-        } else if (event.data && event.data.type === 'ANNOUNCEMENT_NOTIFICATION') {
-          // Handle announcement notification from service worker
-          const { title, body, data } = event.data;
-          
-          // Show notification if permission is granted
-          if (Notification.permission === 'granted') {
-            if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.ready.then((registration) => {
-                registration.showNotification(title, {
-                  body,
-                  icon: '/main.png',
-                  badge: '/main.png',
-                  tag: `announcement-${Date.now()}`,
-                  data: data || { url: '/', type: 'announcement' },
-                  requireInteraction: false,
-                  vibrate: [200, 100, 200],
-                  actions: [
-                    {
-                      action: 'view',
-                      title: 'View'
-                    }
-                  ]
-                });
-              });
-            }
-          }
         }
+        // Removed ANNOUNCEMENT_NOTIFICATION handler - using Realtime instead
       };
 
       navigator.serviceWorker.addEventListener('message', handleMessage);
@@ -90,7 +66,11 @@ function ServiceWorkerHandler() {
 
   // Listen for Supabase Realtime announcements via database changes
   useEffect(() => {
-    // Method 1: Listen to database changes (INSERT events on announcements table)
+    // Track shown notifications to prevent duplicates
+    const shownNotificationIds = new Set<string>();
+    
+    // Listen to database changes (INSERT events on announcements table)
+    // This is the PRIMARY method - it works for all devices
     const announcementsChannel = supabase
       .channel('announcements-db-changes')
       .on(
@@ -107,34 +87,61 @@ function ServiceWorkerHandler() {
             message: string; 
             sent_at: string | null;
             created_at: string;
+            event_type?: string | null;
+            imam_id?: string | null;
+            event_date?: string | null;
+            hijri_date?: string | null;
+            template_data?: any;
           };
           
           logger.info('New announcement detected via database Realtime:', {
             id: announcement.id,
             title: announcement.title,
+            eventType: announcement.event_type,
             hasSentAt: !!announcement.sent_at
           });
+          
+          // Deduplication: Check if we've already shown this notification
+          if (shownNotificationIds.has(announcement.id)) {
+            logger.info('Notification already shown for announcement:', announcement.id);
+            return;
+          }
           
           // Only show notification if sent_at is set (means it's a real announcement, not a draft)
           // Also check if notification permission is granted
           if (announcement.sent_at && Notification.permission === 'granted') {
             logger.info('Showing notification for announcement:', announcement.title);
             
+            // Mark as shown immediately to prevent duplicates
+            shownNotificationIds.add(announcement.id);
+            
+            // Clean up old IDs after 1 minute to prevent memory leak
+            setTimeout(() => {
+              shownNotificationIds.delete(announcement.id);
+            }, 60000);
+            
+            // Get notification template based on event type
+            const { getNotificationTemplate } = await import('@/lib/notification-templates');
+            const template = getNotificationTemplate({
+              title: announcement.title,
+              message: announcement.message,
+              eventType: (announcement.event_type as any) || 'general',
+              imamName: announcement.template_data?.imamName || '',
+              eventDate: announcement.event_date || '',
+              hijriDate: announcement.hijri_date || '',
+            }, announcement.id);
+            
             if ('serviceWorker' in navigator) {
               try {
                 const registration = await navigator.serviceWorker.ready;
-                await registration.showNotification(announcement.title, {
-                  body: announcement.message,
-                  icon: '/main.png',
-                  badge: '/main.png',
-                  tag: `announcement-${announcement.id}`,
-                  data: {
-                    url: '/',
-                    type: 'announcement',
-                    announcementId: announcement.id
-                  },
-                  requireInteraction: false,
-                  vibrate: [200, 100, 200],
+                await registration.showNotification(template.title, {
+                  body: template.body,
+                  icon: template.icon,
+                  badge: template.badge,
+                  tag: template.tag,
+                  data: template.data,
+                  requireInteraction: template.requireInteraction,
+                  vibrate: template.vibrate,
                   actions: [
                     {
                       action: 'view',
@@ -142,22 +149,22 @@ function ServiceWorkerHandler() {
                     }
                   ]
                 });
-                logger.info('Notification shown successfully via service worker');
+                logger.info('Notification shown successfully via service worker with template');
               } catch (error) {
                 logger.error('Error showing notification via service worker:', error);
                 // Fallback
-                new Notification(announcement.title, {
-                  body: announcement.message,
-                  icon: '/main.png',
-                  tag: `announcement-${announcement.id}`,
+                new Notification(template.title, {
+                  body: template.body,
+                  icon: template.icon,
+                  tag: template.tag,
                 });
               }
             } else {
               // Fallback if service worker is not available
-              new Notification(announcement.title, {
-                body: announcement.message,
-                icon: '/main.png',
-                tag: `announcement-${announcement.id}`,
+              new Notification(template.title, {
+                body: template.body,
+                icon: template.icon,
+                tag: template.tag,
               });
             }
           } else {
@@ -170,53 +177,8 @@ function ServiceWorkerHandler() {
       )
       .subscribe();
 
-    // Method 2: Also listen to broadcast events (fallback)
-    const broadcastChannel = supabase.channel('announcements-broadcast');
-    
-    broadcastChannel
-      .on('broadcast', { event: 'new_announcement' }, (payload) => {
-        const { title, message } = payload.payload;
-        
-        logger.info('New announcement received via broadcast:', { title, message });
-        
-        // Show notification to all users who are online and have permission
-        if (Notification.permission === 'granted') {
-          if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.ready.then((registration) => {
-              registration.showNotification(title, {
-                body: message,
-                icon: '/main.png',
-                badge: '/main.png',
-                tag: `announcement-${Date.now()}`,
-                data: {
-                  url: '/',
-                  type: 'announcement'
-                },
-                requireInteraction: false,
-                vibrate: [200, 100, 200],
-                actions: [
-                  {
-                    action: 'view',
-                    title: 'View'
-                  }
-                ]
-              });
-            });
-          } else {
-            // Fallback if service worker is not available
-            new Notification(title, {
-              body: message,
-              icon: '/main.png',
-              tag: `announcement-${Date.now()}`,
-            });
-          }
-        }
-      })
-      .subscribe();
-
     return () => {
       supabase.removeChannel(announcementsChannel);
-      supabase.removeChannel(broadcastChannel);
     };
   }, []);
 
