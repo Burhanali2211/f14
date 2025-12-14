@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, Mail, Lock, Loader2, Home, UserPlus, LogIn, User, Phone, MapPin, Navigation } from 'lucide-react';
+import { BookOpen, Mail, Lock, Loader2, Home, UserPlus, LogIn, User, Phone, MapPin, Navigation, Eye, EyeOff, CheckCircle2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +28,13 @@ const signupSchema = z.object({
   }),
 });
 
+// LocalStorage keys for auto-save
+const STORAGE_KEYS = {
+  EMAIL: 'auth_email',
+  PASSWORD: 'auth_password',
+  REMEMBER_ME: 'auth_remember_me',
+};
+
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [fullName, setFullName] = useState('');
@@ -37,8 +44,49 @@ export default function AuthPage() {
   const [address, setAddress] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchingLocation, setFetchingLocation] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [savedIndicator, setSavedIndicator] = useState(false);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+
+  // Load saved credentials on mount
+  useEffect(() => {
+    const savedEmail = localStorage.getItem(STORAGE_KEYS.EMAIL);
+    const savedPassword = localStorage.getItem(STORAGE_KEYS.PASSWORD);
+    const savedRememberMe = localStorage.getItem(STORAGE_KEYS.REMEMBER_ME) === 'true';
+    
+    if (savedEmail) {
+      setEmail(savedEmail);
+    }
+    if (savedPassword && savedRememberMe) {
+      setPassword(savedPassword);
+    }
+    setRememberMe(savedRememberMe);
+  }, []);
+
+  // Auto-save email and password with debounce
+  useEffect(() => {
+    if (!email && !password) return;
+    
+    const timeoutId = setTimeout(() => {
+      if (email) {
+        localStorage.setItem(STORAGE_KEYS.EMAIL, email);
+      }
+      if (password && rememberMe) {
+        localStorage.setItem(STORAGE_KEYS.PASSWORD, password);
+      } else if (!rememberMe) {
+        localStorage.removeItem(STORAGE_KEYS.PASSWORD);
+      }
+      localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, rememberMe.toString());
+      
+      // Show saved indicator
+      setSavedIndicator(true);
+      setTimeout(() => setSavedIndicator(false), 2000);
+    }, 500); // Debounce for 500ms
+
+    return () => clearTimeout(timeoutId);
+  }, [email, password, rememberMe]);
 
   const fetchLocation = async () => {
     if (!navigator.geolocation) {
@@ -188,6 +236,16 @@ export default function AuthPage() {
 
         logger.debug('Auth: Login successful, navigating');
         
+        // Save credentials if remember me is checked
+        if (rememberMe) {
+          localStorage.setItem(STORAGE_KEYS.EMAIL, email);
+          localStorage.setItem(STORAGE_KEYS.PASSWORD, password);
+          localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.PASSWORD);
+          localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'false');
+        }
+        
         toast({
           title: 'Welcome back!',
           description: 'You have successfully logged in.',
@@ -218,6 +276,16 @@ export default function AuthPage() {
         }
 
         logger.debug('Auth: Signup successful');
+        
+        // Save credentials if remember me is checked
+        if (rememberMe) {
+          localStorage.setItem(STORAGE_KEYS.EMAIL, email);
+          localStorage.setItem(STORAGE_KEYS.PASSWORD, password);
+          localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'true');
+        } else {
+          localStorage.removeItem(STORAGE_KEYS.PASSWORD);
+          localStorage.setItem(STORAGE_KEYS.REMEMBER_ME, 'false');
+        }
         
         toast({
           title: 'Account created!',
@@ -257,11 +325,27 @@ export default function AuthPage() {
 
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 md:p-6 safe-area-inset relative">
-      {/* Immersive Full-Screen Background - Better Colors */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/6 via-background to-primary/4 dark:from-emerald/8 dark:via-background dark:to-emerald/6" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/8 via-transparent to-transparent dark:from-emerald/12 dark:via-transparent dark:to-transparent" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-primary/6 via-transparent to-transparent dark:from-emerald/10 dark:via-transparent dark:to-transparent" />
+    <div className="min-h-screen flex items-center justify-center p-4 md:p-6 safe-area-inset relative overflow-hidden">
+      {/* Enhanced Immersive Full-Screen Background */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-background to-primary/6 dark:from-emerald/10 dark:via-background dark:to-emerald/8" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/12 via-transparent to-transparent dark:from-emerald/15 dark:via-transparent dark:to-transparent" />
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent dark:from-emerald/12 dark:via-transparent dark:to-transparent" />
+      
+      {/* Animated floating particles effect */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="absolute w-2 h-2 bg-primary/20 dark:bg-emerald/20 rounded-full animate-float"
+            style={{
+              left: `${20 + i * 15}%`,
+              top: `${10 + i * 12}%`,
+              animationDelay: `${i * 0.5}s`,
+              animationDuration: `${3 + i * 0.5}s`,
+            }}
+          />
+        ))}
+      </div>
       
       {/* Content Container - Compact Layout */}
       <div className="w-full max-w-md relative z-10">
@@ -280,24 +364,27 @@ export default function AuthPage() {
             </Button>
           </div>
 
-          {/* Logo with Gradient - Smaller */}
-          <div className="flex justify-center mb-4">
-              <div className="relative">
-                <div className="w-16 h-16 md:w-18 md:h-18 rounded-xl bg-gradient-to-br from-primary via-primary/90 to-primary dark:from-emerald dark:via-emerald/90 dark:to-emerald flex items-center justify-center shadow-md dark:shadow-emerald/30 transform rotate-3 hover:rotate-0 transition-transform duration-300">
-                <BookOpen className="w-8 h-8 md:w-9 md:h-9 text-primary-foreground" />
+          {/* Enhanced Logo with Gradient */}
+          <div className="flex justify-center mb-6">
+            <div className="relative group">
+              <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-primary via-primary/90 to-accent dark:from-emerald dark:via-emerald/90 dark:to-primary flex items-center justify-center shadow-xl dark:shadow-emerald/40 transform rotate-3 group-hover:rotate-0 transition-all duration-500 group-hover:scale-110">
+                <BookOpen className="w-10 h-10 md:w-12 md:h-12 text-primary-foreground" />
               </div>
-              <div className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-primary dark:bg-emerald rounded-full animate-pulse-slow shadow-sm" />
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-primary dark:bg-emerald rounded-full animate-pulse shadow-lg">
+                <Sparkles className="w-3 h-3 text-primary-foreground m-1" />
+              </div>
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-xl" />
             </div>
           </div>
 
-          <div className="text-center mb-5 space-y-1">
-            <h1 className="font-display text-2xl md:text-3xl font-bold bg-gradient-to-r from-primary via-primary/90 to-accent bg-clip-text text-transparent dark:from-accent dark:via-accent/90 dark:to-primary">
+          <div className="text-center mb-6 space-y-2">
+            <h1 className="font-display text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary via-primary/90 to-accent bg-clip-text text-transparent dark:from-accent dark:via-accent/90 dark:to-primary animate-fade-in">
               {isLogin ? 'Welcome Back' : 'Create Account'}
             </h1>
-            <p className="text-muted-foreground text-xs md:text-sm">
+            <p className="text-muted-foreground text-sm md:text-base">
               {isLogin 
-                ? 'Sign in to continue' 
-                : 'Join us to get started'}
+                ? 'Sign in to continue your journey' 
+                : 'Join us and start your spiritual journey'}
             </p>
           </div>
 
@@ -316,7 +403,7 @@ export default function AuthPage() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="pl-10 h-10 text-sm bg-white dark:bg-card border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-lg shadow-sm dark:shadow-none"
+                    className="pl-10 h-11 text-sm bg-white/90 dark:bg-card/90 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-sm dark:shadow-none"
                     autoComplete="name"
                     required
                   />
@@ -325,9 +412,17 @@ export default function AuthPage() {
             )}
 
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="text-xs font-semibold text-foreground dark:text-foreground">Email</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email" className="text-xs font-semibold text-foreground dark:text-foreground">Email</Label>
+                {savedIndicator && email && (
+                  <div className="flex items-center gap-1 text-xs text-primary dark:text-emerald animate-fade-in">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>Saved</span>
+                  </div>
+                )}
+              </div>
               <div className="relative group">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground group-focus-within:text-primary dark:group-focus-within:text-accent transition-colors">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground group-focus-within:text-primary dark:group-focus-within:text-accent transition-colors z-10">
                   <Mail className="w-4 h-4" />
                 </div>
                 <Input
@@ -336,7 +431,7 @@ export default function AuthPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your.email@example.com"
-                  className="pl-10 h-10 text-sm bg-white dark:bg-card border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-lg shadow-sm dark:shadow-none"
+                  className="pl-10 pr-3 h-11 text-sm bg-white/90 dark:bg-card/90 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-sm dark:shadow-none"
                   autoComplete="email"
                   required
                 />
@@ -345,13 +440,18 @@ export default function AuthPage() {
 
             {!isLogin && (
               <>
-                {/* Phone and Address Side by Side on Desktop */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="phoneNumber" className="text-xs font-semibold text-foreground dark:text-foreground">Phone <span className="text-muted-foreground font-normal">(Optional)</span></Label>
+                {/* Phone and Address Side by Side on Desktop - Enhanced Design */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+                  {/* Phone Number Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="phoneNumber" className="text-sm font-semibold text-foreground dark:text-foreground flex items-center gap-1.5">
+                      <Phone className="w-4 h-4 text-primary dark:text-emerald" />
+                      Phone Number
+                      <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                    </Label>
                     <div className="relative group">
-                      <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground/80 group-focus-within:text-primary dark:group-focus-within:text-emerald transition-colors">
-                        <Phone className="w-4 h-4" />
+                      <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground dark:text-muted-foreground/80 group-focus-within:text-primary dark:group-focus-within:text-emerald transition-colors z-10">
+                        <Phone className="w-5 h-5" />
                       </div>
                       <Input
                         id="phoneNumber"
@@ -359,26 +459,31 @@ export default function AuthPage() {
                         value={phoneNumber}
                         onChange={(e) => setPhoneNumber(e.target.value)}
                         placeholder="+1 (555) 123-4567"
-                        className="pl-10 h-10 text-sm bg-white dark:bg-card border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-lg shadow-sm dark:shadow-none"
+                        className="pl-12 pr-4 h-12 text-base bg-white/95 dark:bg-card/95 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-md dark:shadow-none"
                         autoComplete="tel"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label htmlFor="address" className="text-xs font-semibold text-foreground dark:text-foreground">Address <span className="text-muted-foreground font-normal">(Optional)</span></Label>
-                    <div className="relative flex gap-2">
+                  {/* Address Field */}
+                  <div className="space-y-2">
+                    <Label htmlFor="address" className="text-sm font-semibold text-foreground dark:text-foreground flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-primary dark:text-emerald" />
+                      Address
+                      <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
+                    </Label>
+                    <div className="relative flex gap-3">
                       <div className="relative flex-1 group">
-                        <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground/80 group-focus-within:text-primary dark:group-focus-within:text-emerald transition-colors">
-                          <MapPin className="w-4 h-4" />
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground dark:text-muted-foreground/80 group-focus-within:text-primary dark:group-focus-within:text-emerald transition-colors z-10">
+                          <MapPin className="w-5 h-5" />
                         </div>
                         <Input
                           id="address"
                           type="text"
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}
-                          placeholder="Enter address"
-                          className="pl-10 pr-2 h-10 text-sm bg-white dark:bg-card border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-lg shadow-sm dark:shadow-none"
+                          placeholder="Enter your address"
+                          className="pl-12 pr-4 h-12 text-base bg-white/95 dark:bg-card/95 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-md dark:shadow-none"
                           autoComplete="street-address"
                         />
                       </div>
@@ -388,21 +493,21 @@ export default function AuthPage() {
                         size="icon"
                         onClick={fetchLocation}
                         disabled={fetchingLocation}
-                        className="h-10 w-10 flex-shrink-0 border-2 border-input dark:border-border/60 hover:border-primary/70 dark:hover:border-emerald/60 hover:bg-primary/10 dark:hover:bg-emerald/10 transition-all duration-200 rounded-lg shadow-sm dark:shadow-none"
+                        className="h-12 w-12 flex-shrink-0 border-2 border-input dark:border-border/60 hover:border-primary/70 dark:hover:border-emerald/60 hover:bg-primary/10 dark:hover:bg-emerald/10 transition-all duration-200 rounded-xl shadow-md dark:shadow-none hover:scale-105 active:scale-95"
                         title="Use my current location"
                       >
                         {fetchingLocation ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
-                          <Navigation className="w-4 h-4" />
+                          <Navigation className="w-5 h-5" />
                         )}
                       </Button>
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center gap-1.5 -mt-2">
-                  <MapPin className="w-3 h-3" />
-                  Click location icon to auto-fill address
+                <p className="text-xs text-muted-foreground dark:text-muted-foreground flex items-center gap-2 mt-1 ml-1">
+                  <MapPin className="w-3.5 h-3.5 text-primary/60 dark:text-emerald/60" />
+                  <span>Click the location icon to auto-fill your address</span>
                 </p>
               </>
             )}
@@ -410,19 +515,31 @@ export default function AuthPage() {
             <div className="space-y-1.5">
               <Label htmlFor="password" className="text-xs font-semibold text-foreground dark:text-foreground">Password</Label>
               <div className="relative group">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground group-focus-within:text-primary dark:group-focus-within:text-accent transition-colors">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground group-focus-within:text-primary dark:group-focus-within:text-accent transition-colors z-10">
                   <Lock className="w-4 h-4" />
                 </div>
                 <Input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-10 h-10 text-sm bg-white dark:bg-card border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-lg shadow-sm dark:shadow-none"
+                  className="pl-10 pr-10 h-11 text-sm bg-white/90 dark:bg-card/90 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-sm dark:shadow-none"
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground dark:text-muted-foreground hover:text-primary dark:hover:text-accent transition-colors focus:outline-none rounded hover:bg-muted/50 p-0.5"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
               </div>
               {!isLogin && (
                 <p className="text-xs text-muted-foreground dark:text-muted-foreground">
@@ -431,10 +548,26 @@ export default function AuthPage() {
               )}
             </div>
 
+            {/* Remember Me Checkbox */}
+            {isLogin && (
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="rememberMe"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-input text-primary dark:text-emerald focus:ring-2 focus:ring-primary/25 dark:focus:ring-emerald/25 cursor-pointer"
+                />
+                <Label htmlFor="rememberMe" className="text-xs text-foreground dark:text-foreground cursor-pointer">
+                  Remember me (auto-fill password next time)
+                </Label>
+              </div>
+            )}
+
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-11 text-sm font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 dark:from-accent dark:to-primary dark:hover:from-accent/90 dark:hover:to-primary/90 shadow-md dark:shadow-accent/30 mt-4 rounded-lg transition-all duration-300"
+              className="w-full h-12 text-sm font-semibold bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 dark:from-accent dark:to-primary dark:hover:from-accent/90 dark:hover:to-primary/90 shadow-lg dark:shadow-accent/40 mt-6 rounded-xl transition-all duration-300 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
               size="lg"
             >
               {loading ? (
@@ -478,7 +611,6 @@ export default function AuthPage() {
               type="button"
               onClick={() => {
                 setIsLogin(!isLogin);
-                setEmailSent(false);
                 if (isLogin) {
                   // Clear form when switching to signup
                   setFullName('');
@@ -486,7 +618,7 @@ export default function AuthPage() {
                   setAddress('');
                 }
               }}
-              className="text-sm font-semibold text-primary hover:text-primary/80 dark:text-emerald dark:hover:text-emerald/80 underline underline-offset-4 transition-colors duration-200"
+              className="text-sm font-semibold text-primary hover:text-primary/80 dark:text-emerald dark:hover:text-emerald/80 underline underline-offset-4 transition-colors duration-200 hover:scale-105 active:scale-95"
             >
               {isLogin 
                 ? 'Create a new account' 

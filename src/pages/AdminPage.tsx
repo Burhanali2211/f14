@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Edit2, Trash2, FolderOpen, FileText, Loader2, ChevronLeft, Upload, Image as ImageIcon, Users, Languages, Maximize2, ZoomIn, ZoomOut, X as XIcon, Scissors, UserCog, Shield, Key, Settings, Mic, Calendar, Bell } from 'lucide-react';
+import { Plus, Edit2, Trash2, FolderOpen, FileText, Loader2, ChevronLeft, Upload, Image as ImageIcon, Users, Languages, Maximize2, ZoomIn, ZoomOut, X as XIcon, Scissors, UserCog, Shield, Key, Settings, Mic, Calendar, Bell, Eye, EyeOff } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -70,6 +70,7 @@ export default function AdminPage() {
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserProfile | null>(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [userForm, setUserForm] = useState({ 
     email: '',
     password: '',
@@ -2101,13 +2102,28 @@ export default function AdminPage() {
               <Label htmlFor="user-password">
                 Password {isAddingUser ? <span className="text-destructive">*</span> : <span className="text-muted-foreground text-xs">(leave blank to keep current)</span>}
               </Label>
-              <Input 
-                id="user-password"
-                type="password"
-                value={userForm.password} 
-                onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                placeholder={isAddingUser ? "At least 6 characters" : "Enter new password"}
-              />
+              <div className="relative">
+                <Input 
+                  id="user-password"
+                  type={showPassword ? "text" : "password"}
+                  value={userForm.password} 
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  placeholder={isAddingUser ? "At least 6 characters" : "Enter new password"}
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground hover:text-foreground transition-colors focus:outline-none"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
             <div>
               <Label htmlFor="user-name">Full Name</Label>
