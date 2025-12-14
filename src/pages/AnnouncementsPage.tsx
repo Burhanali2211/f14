@@ -35,8 +35,9 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
-import { safeQuery } from '@/lib/db-utils';
+import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import { ensureAuthenticated } from '@/lib/session-utils';
 import type { EventType, Imam } from '@/lib/supabase-types';
 import { getNotificationTemplate } from '@/lib/notification-templates';
 
@@ -219,8 +220,11 @@ export default function AnnouncementsPage() {
 
     setSending(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+      // Ensure user is authenticated before proceeding
+      const user = await ensureAuthenticated();
+      if (!user) {
+        throw new Error('Not authenticated. Please refresh the page and try again.');
+      }
 
       // Get imam name if imam_id is selected
       const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none' 
@@ -231,27 +235,35 @@ export default function AnnouncementsPage() {
       // Create announcement with sent_at timestamp set immediately
       // This ensures the Realtime INSERT event includes sent_at, so all listeners will receive it
       const sentAt = new Date().toISOString();
-      const { data: announcement, error: createError } = await supabase
-        .from('announcements')
-        .insert({
-          title: finalTitle,
-          message: announcementForm.message.trim(),
-          created_by: user.id,
-          sent_at: sentAt, // Set sent_at during INSERT so Realtime event includes it
-          event_type: announcementForm.eventType === 'general' ? null : announcementForm.eventType,
-          imam_id: (announcementForm.imamId && announcementForm.imamId !== 'none') ? announcementForm.imamId : null,
-          event_date: announcementForm.eventDate || null,
-          hijri_date: announcementForm.hijriDate || null,
-          thumbnail_url: announcementForm.thumbnailUrl || null,
-          template_data: {
-            imamName,
-            eventType: announcementForm.eventType,
-          }
-        })
-        .select()
-        .single();
+      const { data: announcement, error: createError } = await authenticatedQuery(async () => {
+        return await supabase
+          .from('announcements')
+          .insert({
+            title: finalTitle,
+            message: announcementForm.message.trim(),
+            created_by: user.id,
+            sent_at: sentAt, // Set sent_at during INSERT so Realtime event includes it
+            event_type: announcementForm.eventType === 'general' ? null : announcementForm.eventType,
+            imam_id: (announcementForm.imamId && announcementForm.imamId !== 'none') ? announcementForm.imamId : null,
+            event_date: announcementForm.eventDate || null,
+            hijri_date: announcementForm.hijriDate || null,
+            thumbnail_url: announcementForm.thumbnailUrl || null,
+            template_data: {
+              imamName,
+              eventType: announcementForm.eventType,
+            }
+          })
+          .select()
+          .single();
+      });
 
-      if (createError) throw createError;
+      if (createError) {
+        throw createError;
+      }
+
+      if (!announcement) {
+        throw new Error('Failed to create announcement');
+      }
 
       // Send notifications using template
       await sendNotificationToAllUsers(announcement);
@@ -422,12 +434,27 @@ export default function AnnouncementsPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const { error } = await supabase
-        .from('announcements')
-        .delete()
-        .eq('id', id);
+      // Ensure user is authenticated before proceeding
+      const user = await ensureAuthenticated();
+      if (!user) {
+        toast({
+          title: 'Error',
+          description: 'Not authenticated. Please refresh the page and try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
 
-      if (error) throw error;
+      const { error } = await authenticatedQuery(async () => {
+        return await supabase
+          .from('announcements')
+          .delete()
+          .eq('id', id);
+      });
+
+      if (error) {
+        throw error;
+      }
 
       toast({
         title: 'Success',
@@ -439,7 +466,7 @@ export default function AnnouncementsPage() {
       logger.error('Error deleting announcement:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete announcement',
+        description: error instanceof Error ? error.message : 'Failed to delete announcement',
         variant: 'destructive',
       });
     } finally {

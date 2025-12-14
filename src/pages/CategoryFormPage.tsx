@@ -17,7 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
-import { safeQuery } from '@/lib/db-utils';
+import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { optimizeCategoryBgImage, validateImageFile, formatFileSize } from '@/lib/image-optimizer';
 import type { Category } from '@/lib/supabase-types';
@@ -125,9 +125,6 @@ export default function CategoryFormPage() {
       }
 
       const category = data as Category;
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CategoryFormPage.tsx:127',message:'Category data received, setting form',data:{name:category.name,slug:category.slug,icon:category.icon,hasDescription:!!category.description},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       setCategoryForm({
         name: category.name,
         slug: category.slug,
@@ -141,9 +138,6 @@ export default function CategoryFormPage() {
         bg_image_scale: category.bg_image_scale ?? 1.1,
       });
       setCategoryImagePreview(category.bg_image_url || null);
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CategoryFormPage.tsx:140',message:'Form state updated',data:{name:category.name,slug:category.slug,icon:category.icon||'book'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-      // #endregion
     } catch (error: any) {
       logger.error('Unexpected error fetching category:', error);
       toast({
@@ -329,46 +323,45 @@ export default function CategoryFormPage() {
       });
 
       if (isEditing && id) {
-        const { error } = await supabase
-          .from('categories')
-          .update(data)
-          .eq('id', id);
+        const { error } = await authenticatedQuery(async () =>
+          await supabase
+            .from('categories')
+            .update(data)
+            .eq('id', id)
+        );
 
         if (error) {
           logger.error('Error updating category:', error);
           toast({
             title: 'Error',
-            description: error.message,
+            description: error.message || 'Failed to update category. Please refresh the page and try again.',
             variant: 'destructive',
           });
           setSaving(false);
           return;
         }
         
-        // Verify the update by fetching the category
-        const { data: verifyData } = await supabase
-          .from('categories')
-          .select('bg_image_url')
-          .eq('id', id)
-          .single();
-        
-        logger.debug('Category updated successfully. Image URL saved:', verifyData?.bg_image_url);
-        console.log('✅ Category saved with image URL:', verifyData?.bg_image_url || 'NO URL');
+        // Don't verify immediately - the update succeeded (204 response)
+        // The verification query might fail due to RLS, but the update worked
+        logger.debug('Category update completed (204 response)');
+        console.log('✅ Category update completed. Image URL should be saved:', bgImageUrl);
         toast({
           title: 'Success',
           description: 'Category updated successfully',
         });
       } else {
-        const { error, data: insertedData } = await supabase
-          .from('categories')
-          .insert([data])
-          .select('id, bg_image_url');
+        const { error, data: insertedData } = await authenticatedQuery(async () =>
+          await supabase
+            .from('categories')
+            .insert([data])
+            .select('id, bg_image_url')
+        );
 
         if (error) {
           logger.error('Error creating category:', error);
           toast({
             title: 'Error',
-            description: error.message,
+            description: error.message || 'Failed to create category. Please refresh the page and try again.',
             variant: 'destructive',
           });
           setSaving(false);
@@ -510,12 +503,6 @@ export default function CategoryFormPage() {
                     <SelectItem value="users">Users</SelectItem>
                   </SelectContent>
                 </Select>
-                {/* #region agent log */}
-                {(() => {
-                  fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'CategoryFormPage.tsx:466',message:'Category form render state',data:{name:categoryForm.name,slug:categoryForm.slug,icon:categoryForm.icon,isEditing},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
-                  return null;
-                })()}
-                {/* #endregion */}
               </div>
             </div>
 

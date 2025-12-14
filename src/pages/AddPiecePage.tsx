@@ -30,7 +30,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
-import { safeQuery } from '@/lib/db-utils';
+import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/auth-utils';
@@ -788,7 +788,7 @@ export default function AddPiecePage() {
     };
 
     if (isEditing && id) {
-      const { error } = await safeQuery(async () =>
+      const { error } = await authenticatedQuery(async () =>
         await supabase
           .from('pieces')
           .update(data)
@@ -796,17 +796,25 @@ export default function AddPiecePage() {
       );
 
       if (error) {
-        toast({ title: 'Error', description: error.message || 'Failed to update recitation', variant: 'destructive' });
+        toast({ 
+          title: 'Error', 
+          description: error.message || 'Failed to update recitation. Please refresh the page and try again.', 
+          variant: 'destructive' 
+        });
         return;
       }
       toast({ title: 'Success', description: 'Recitation updated' });
     } else {
-      const { error } = await safeQuery(async () =>
+      const { error } = await authenticatedQuery(async () =>
         await supabase.from('pieces').insert([data])
       );
 
       if (error) {
-        toast({ title: 'Error', description: error.message || 'Failed to create recitation', variant: 'destructive' });
+        toast({ 
+          title: 'Error', 
+          description: error.message || 'Failed to create recitation. Please refresh the page and try again.', 
+          variant: 'destructive' 
+        });
         return;
       }
       toast({ title: 'Success', description: 'Recitation created' });

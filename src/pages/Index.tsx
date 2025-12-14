@@ -404,17 +404,16 @@ export default function Index() {
       } else if (catRes.data) {
         const categoriesData = catRes.data as Category[];
         // Debug: Log all categories and their image URLs
-        logger.debug('Fetched categories:', categoriesData.map(c => ({ 
-          name: c.name, 
-          bg_image_url: c.bg_image_url || 'NO IMAGE',
-          bg_image_position: c.bg_image_position,
-          bg_image_opacity: c.bg_image_opacity 
-        })));
         const categoriesWithImages = categoriesData.filter(c => c.bg_image_url);
         if (categoriesWithImages.length > 0) {
           console.log('✅ Categories with images found:', categoriesWithImages.length);
           categoriesWithImages.forEach(c => {
-            console.log(`  - ${c.name}: ${c.bg_image_url}`);
+            console.log(`  🖼️ ${c.name}:`, {
+              url: c.bg_image_url,
+              opacity: c.bg_image_opacity ?? 0.3,
+              blur: c.bg_image_blur ?? 8,
+              position: c.bg_image_position ?? 'center'
+            });
           });
         } else {
           console.warn('⚠️ No categories have bg_image_url set');

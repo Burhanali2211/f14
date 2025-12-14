@@ -38,7 +38,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
-import { safeQuery } from '@/lib/db-utils';
+import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getKarbalaPlaceholder } from '@/lib/utils';
@@ -565,21 +565,25 @@ export default function AdminPage() {
     };
 
     if (editingImam) {
-      const { error } = await (supabase as any)
-        .from('imams')
-        .update(data)
-        .eq('id', editingImam.id);
+      const { error } = await authenticatedQuery(async () =>
+        await (supabase as any)
+          .from('imams')
+          .update(data)
+          .eq('id', editingImam.id)
+      );
 
       if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        toast({ title: 'Error', description: error.message || 'Failed to update. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
       toast({ title: 'Success', description: 'Holy Personality updated' });
     } else {
-      const { error } = await (supabase as any).from('imams').insert([data]);
+      const { error } = await authenticatedQuery(async () =>
+        await (supabase as any).from('imams').insert([data])
+      );
 
       if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        toast({ title: 'Error', description: error.message || 'Failed to create. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
       toast({ title: 'Success', description: 'Holy Personality created' });
@@ -637,7 +641,7 @@ export default function AdminPage() {
     };
 
     if (editingPiece) {
-      const { error } = await safeQuery(async () =>
+      const { error } = await authenticatedQuery(async () =>
         await supabase
           .from('pieces')
           .update(data)
@@ -645,17 +649,17 @@ export default function AdminPage() {
       );
 
       if (error) {
-        toast({ title: 'Error', description: error.message || 'Failed to update recitation', variant: 'destructive' });
+        toast({ title: 'Error', description: error.message || 'Failed to update recitation. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
       toast({ title: 'Success', description: 'Recitation updated' });
     } else {
-      const { error } = await safeQuery(async () =>
+      const { error } = await authenticatedQuery(async () =>
         await supabase.from('pieces').insert([data])
       );
 
       if (error) {
-        toast({ title: 'Error', description: error.message || 'Failed to create recitation', variant: 'destructive' });
+        toast({ title: 'Error', description: error.message || 'Failed to create recitation. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
       toast({ title: 'Success', description: 'Recitation created' });
@@ -809,12 +813,16 @@ export default function AdminPage() {
     };
     const table = tableMap[deleteDialog.type] || 'categories';
     
-    const { error } = await safeQuery(async () =>
+    const { error } = await authenticatedQuery(async () =>
       await (supabase as any).from(table).delete().eq('id', deleteDialog.id)
     );
 
     if (error) {
-      toast({ title: 'Error', description: error.message || 'Failed to delete', variant: 'destructive' });
+      toast({ 
+        title: 'Error', 
+        description: error.message || 'Failed to delete. Please refresh the page and try again.', 
+        variant: 'destructive' 
+      });
     } else {
       toast({ title: 'Success', description: `${deleteDialog.type} deleted` });
       fetchData();
@@ -886,7 +894,7 @@ export default function AdminPage() {
         
         const passwordHash = await hashPassword(userForm.password);
 
-        const { data: newUser, error } = await safeQuery(async () => {
+        const { data: newUser, error } = await authenticatedQuery(async () => {
           return await (supabase as any)
             .from('users')
             .insert({
@@ -961,7 +969,7 @@ export default function AdminPage() {
         updateData.password_hash = await hashPassword(userForm.password);
       }
 
-      const { error } = await safeQuery(async () =>
+      const { error } = await authenticatedQuery(async () =>
         await (supabase as any)
           .from('users')
           .update(updateData)
@@ -1014,10 +1022,21 @@ export default function AdminPage() {
     if (!selectedUser) return;
 
     // Delete existing permissions
-    await supabase
-      .from('uploader_permissions')
-      .delete()
-      .eq('user_id', selectedUser.id);
+    const { error: deleteError } = await authenticatedQuery(async () =>
+      await supabase
+        .from('uploader_permissions')
+        .delete()
+        .eq('user_id', selectedUser.id)
+    );
+
+    if (deleteError) {
+      toast({ 
+        title: 'Error', 
+        description: deleteError.message || 'Failed to update permissions. Please refresh the page and try again.', 
+        variant: 'destructive' 
+      });
+      return;
+    }
 
     // Create new permissions
     const newPermissions: { user_id: string; category_id?: string; imam_id?: string }[] = [];
@@ -1031,12 +1050,18 @@ export default function AdminPage() {
     });
 
     if (newPermissions.length > 0) {
-      const { error } = await supabase
-        .from('uploader_permissions')
-        .insert(newPermissions);
+      const { error } = await authenticatedQuery(async () =>
+        await supabase
+          .from('uploader_permissions')
+          .insert(newPermissions)
+      );
 
       if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        toast({ 
+          title: 'Error', 
+          description: error.message || 'Failed to save permissions. Please refresh the page and try again.', 
+          variant: 'destructive' 
+        });
         return;
       }
     }
@@ -1111,21 +1136,25 @@ export default function AdminPage() {
     };
 
     if (editingEvent) {
-      const { error } = await (supabase as any)
-        .from('ahlul_bait_events')
-        .update(data)
-        .eq('id', editingEvent.id);
+      const { error } = await authenticatedQuery(async () =>
+        await (supabase as any)
+          .from('ahlul_bait_events')
+          .update(data)
+          .eq('id', editingEvent.id)
+      );
 
       if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        toast({ title: 'Error', description: error.message || 'Failed to update. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
       toast({ title: 'Success', description: 'Event updated' });
     } else {
-      const { error } = await (supabase as any).from('ahlul_bait_events').insert([data]);
+      const { error } = await authenticatedQuery(async () =>
+        await (supabase as any).from('ahlul_bait_events').insert([data])
+      );
 
       if (error) {
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        toast({ title: 'Error', description: error.message || 'Failed to create. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
       toast({ title: 'Success', description: 'Event created' });

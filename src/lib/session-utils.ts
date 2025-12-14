@@ -57,3 +57,71 @@ export async function ensureSessionReady(): Promise<boolean> {
   }
 }
 
+/**
+ * Ensure user is authenticated before performing database operations
+ * This function refreshes the session if needed and validates authentication
+ * @returns The authenticated user or null if not authenticated
+ */
+export async function ensureAuthenticated(): Promise<{ id: string; email?: string } | null> {
+  try {
+    // First, ensure session is ready
+    await ensureSessionReady();
+    
+    // Try to get the current user
+    let { data: { user }, error: getUserError } = await supabase.auth.getUser();
+    
+    // If getUser fails or user is null, try refreshing the session
+    if (getUserError || !user) {
+      logger.debug('User not found, attempting to refresh session...');
+      
+      // Try to refresh the session token explicitly
+      const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        logger.debug('Session refresh failed, trying getSession...', refreshError);
+        // If refresh fails, try getting the current session
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          logger.error('Error getting session for refresh:', sessionError);
+          return null;
+        }
+        
+        if (!session) {
+          logger.warn('No session found after refresh attempt');
+          return null;
+        }
+      }
+      
+      // Try getting user again after session refresh
+      const { data: { user: refreshedUser }, error: refreshedError } = await supabase.auth.getUser();
+      
+      if (refreshedError) {
+        logger.error('Error getting user after session refresh:', refreshedError);
+        return null;
+      }
+      
+      if (!refreshedUser) {
+        logger.warn('User still not found after session refresh');
+        return null;
+      }
+      
+      user = refreshedUser;
+    } else {
+      // Even if user exists, refresh the session to ensure token is valid
+      try {
+        await supabase.auth.refreshSession();
+      } catch (refreshErr) {
+        // Ignore refresh errors if user already exists - session might be valid
+        logger.debug('Session refresh skipped (user already authenticated)', refreshErr);
+      }
+    }
+    
+    logger.debug('User authenticated', { userId: user.id });
+    return user;
+  } catch (error) {
+    logger.error('Error ensuring authentication:', error);
+    return null;
+  }
+}
+

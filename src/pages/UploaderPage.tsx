@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
-import { safeQuery } from '@/lib/db-utils';
+import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { getKarbalaPlaceholder } from '@/lib/utils';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
@@ -464,7 +464,7 @@ export default function UploaderPage() {
     };
 
     if (editingPiece) {
-      const { error } = await safeQuery(async () =>
+      const { error } = await authenticatedQuery(async () =>
         await supabase
           .from('pieces')
           .update(data)
@@ -472,17 +472,25 @@ export default function UploaderPage() {
       );
 
       if (error) {
-        toast({ title: 'Error', description: error.message || 'Failed to update recitation', variant: 'destructive' });
+        toast({ 
+          title: 'Error', 
+          description: error.message || 'Failed to update recitation. Please refresh the page and try again.', 
+          variant: 'destructive' 
+        });
         return;
       }
       toast({ title: 'Success', description: 'Recitation updated' });
     } else {
-      const { error } = await safeQuery(async () =>
+      const { error } = await authenticatedQuery(async () =>
         await supabase.from('pieces').insert([data])
       );
 
       if (error) {
-        toast({ title: 'Error', description: error.message || 'Failed to create recitation', variant: 'destructive' });
+        toast({ 
+          title: 'Error', 
+          description: error.message || 'Failed to create recitation. Please refresh the page and try again.', 
+          variant: 'destructive' 
+        });
         return;
       }
       toast({ title: 'Success', description: 'Recitation created' });

@@ -1,4 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
+import { ensureAuthenticated } from './session-utils';
+import { logger } from './logger';
 import type { PostgrestError } from '@supabase/supabase-js';
 
 export interface QueryOptions {
@@ -132,4 +134,85 @@ export async function safeQuery<T>(
 ): Promise<{ data: T | null; error: PostgrestError | null }> {
   // Execute query with retry logic (no session validation - that's handled elsewhere)
   return executeQuery(queryFn, options);
+}
+
+/**
+ * Execute an authenticated database operation with automatic session refresh on auth errors
+ * Use this for operations that require authentication (insert, update, delete)
+ */
+export async function authenticatedQuery<T>(
+  queryFn: () => Promise<{ data: T | null; error: PostgrestError | null }>,
+  options: QueryOptions = {}
+): Promise<{ data: T | null; error: PostgrestError | null }> {
+  // First, ensure user is authenticated and session is refreshed
+  const user = await ensureAuthenticated();
+  if (!user) {
+    return {
+      data: null,
+      error: {
+        message: 'Not authenticated. Please refresh the page and try again.',
+        details: 'Authentication required',
+        hint: 'Please log in again',
+        code: 'PGRST301'
+      } as PostgrestError
+    };
+  }
+
+  // Explicitly refresh the Supabase session to ensure token is valid
+  try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session) {
+      logger.warn('No valid Supabase session found, attempting refresh...');
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        logger.error('Failed to refresh Supabase session:', refreshError);
+      }
+    }
+  } catch (refreshErr) {
+    logger.debug('Session refresh check completed', refreshErr);
+  }
+
+  // Execute the query
+  const result = await executeQuery(queryFn, options);
+
+  // If we get an authentication error, try refreshing session and retry once
+  if (result.error && (
+    result.error.message?.toLowerCase().includes('not authenticated') ||
+    result.error.message?.toLowerCase().includes('jwt') ||
+    result.error.message?.toLowerCase().includes('invalid') ||
+    result.error.code === 'PGRST301' ||
+    result.error.code === '42501' // Insufficient privilege
+  )) {
+    logger.warn('Authentication error detected, attempting session refresh...', {
+      error: result.error.message,
+      code: result.error.code
+    });
+    
+    // Try to refresh authentication and Supabase session
+    const refreshedUser = await ensureAuthenticated();
+    if (!refreshedUser) {
+      return {
+        data: null,
+        error: {
+          message: 'Session expired. Please refresh the page and try again.',
+          details: 'Session refresh failed',
+          hint: 'Please log in again',
+          code: 'PGRST301'
+        } as PostgrestError
+      };
+    }
+
+    // Explicitly refresh Supabase session before retry
+    try {
+      await supabase.auth.refreshSession();
+    } catch (refreshErr) {
+      logger.debug('Session refresh before retry:', refreshErr);
+    }
+
+    // Retry the query once with refreshed session
+    logger.debug('Retrying query with refreshed session...');
+    return executeQuery(queryFn, options);
+  }
+
+  return result;
 }
