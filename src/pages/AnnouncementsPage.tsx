@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, Plus, Trash2, Send, Loader2, ChevronLeft, Cake, Flame, Heart, Info } from 'lucide-react';
+import { Bell, Plus, Trash2, Send, Loader2, ChevronLeft, Cake, Flame, Heart, Info, Image, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -53,6 +53,7 @@ interface Announcement {
   event_date?: string | null;
   hijri_date?: string | null;
   template_data?: any;
+  thumbnail_url?: string | null;
 }
 
 export default function AnnouncementsPage() {
@@ -71,10 +72,14 @@ export default function AnnouncementsPage() {
     imamId: 'none',
     eventDate: '',
     hijriDate: '',
+    thumbnailUrl: '',
   });
+  const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
 
   useEffect(() => {
-    checkAuth();
+    if (!roleLoading) {
+      checkAuth();
+    }
   }, [currentRole, roleLoading]);
 
   useEffect(() => {
@@ -199,6 +204,7 @@ export default function AnnouncementsPage() {
           imam_id: (announcementForm.imamId && announcementForm.imamId !== 'none') ? announcementForm.imamId : null,
           event_date: announcementForm.eventDate || null,
           hijri_date: announcementForm.hijriDate || null,
+          thumbnail_url: announcementForm.thumbnailUrl || null,
           template_data: {
             imamName,
             eventType: announcementForm.eventType,
@@ -222,9 +228,10 @@ export default function AnnouncementsPage() {
         title: '', 
         message: '', 
         eventType: 'general',
-        imamId: '',
+        imamId: 'none',
         eventDate: '',
         hijriDate: '',
+        thumbnailUrl: '',
       });
       fetchAnnouncements();
     } catch (error) {
@@ -236,6 +243,88 @@ export default function AnnouncementsPage() {
       });
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleThumbnailUpload = async (file: File) => {
+    if (!file) return;
+    
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: 'Error',
+        description: 'Invalid file type. Please upload an image (JPEG, PNG, WebP, or GIF)',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    // Validate file size (max 5MB for thumbnails)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      toast({
+        title: 'Error',
+        description: 'File too large. Maximum size is 5MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
+    setUploadingThumbnail(true);
+    try {
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
+      const fileName = `announcements/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      
+      logger.debug('Uploading thumbnail:', { fileName, size: file.size, type: file.type });
+      
+      const { data, error } = await supabase.storage
+        .from('piece-images')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type,
+        });
+      
+      if (error) {
+        logger.error('Thumbnail upload error:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to upload thumbnail. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      if (!data?.path) {
+        logger.error('Upload succeeded but no path returned');
+        toast({
+          title: 'Error',
+          description: 'Upload succeeded but failed to get image URL',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('piece-images')
+        .getPublicUrl(data.path);
+      
+      logger.debug('Thumbnail uploaded successfully:', publicUrl);
+      setAnnouncementForm(prev => ({ ...prev, thumbnailUrl: publicUrl }));
+      toast({
+        title: 'Success',
+        description: 'Thumbnail uploaded successfully',
+      });
+    } catch (error: any) {
+      logger.error('Unexpected error during thumbnail upload:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'An unexpected error occurred during upload',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingThumbnail(false);
     }
   };
 
@@ -320,7 +409,8 @@ export default function AnnouncementsPage() {
     }
   };
 
-  if (loading || roleLoading) {
+  // Show loading state while role is being determined
+  if (roleLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
@@ -418,6 +508,13 @@ export default function AnnouncementsPage() {
                   className="p-4 sm:p-6 bg-card rounded-lg shadow-soft"
                 >
                   <div className="flex items-start justify-between gap-4">
+                    {announcement.thumbnail_url && (
+                      <img
+                        src={announcement.thumbnail_url}
+                        alt={announcement.title}
+                        className="w-24 h-24 sm:w-32 sm:h-32 object-cover rounded-lg border border-border flex-shrink-0"
+                      />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2 flex-wrap">
                         <h3 className="font-semibold text-lg text-foreground">
@@ -593,6 +690,70 @@ export default function AnnouncementsPage() {
                   This message will be included in the notification. Event date and hijri date will be automatically appended if provided.
                 </p>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="thumbnail">Thumbnail Image (Optional)</Label>
+                <div className="space-y-3">
+                  {announcementForm.thumbnailUrl ? (
+                    <div className="relative">
+                      <img
+                        src={announcementForm.thumbnailUrl}
+                        alt="Thumbnail preview"
+                        className="w-full h-48 object-cover rounded-lg border border-border"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 right-2"
+                        onClick={() => setAnnouncementForm(prev => ({ ...prev, thumbnailUrl: '' }))}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                      <input
+                        type="file"
+                        id="thumbnail"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleThumbnailUpload(file);
+                          }
+                        }}
+                        disabled={uploadingThumbnail}
+                      />
+                      <label
+                        htmlFor="thumbnail"
+                        className="cursor-pointer flex flex-col items-center gap-2"
+                      >
+                        {uploadingThumbnail ? (
+                          <>
+                            <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">Uploading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Image className="w-8 h-8 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              Click to upload thumbnail image
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              JPEG, PNG, WebP, or GIF (max 5MB)
+                            </span>
+                          </>
+                        )}
+                      </label>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Add a thumbnail image to make notifications more visually appealing. This image will be displayed in push notifications on mobile and desktop devices.
+                </p>
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -606,6 +767,7 @@ export default function AnnouncementsPage() {
                     imamId: 'none',
                     eventDate: '',
                     hijriDate: '',
+                    thumbnailUrl: '',
                   });
                 }}
                 disabled={sending}

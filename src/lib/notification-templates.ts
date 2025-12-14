@@ -25,6 +25,7 @@ export interface AnnouncementData {
   eventDate?: string;
   hijriDate?: string;
   additionalInfo?: string;
+  thumbnailUrl?: string | null;
 }
 
 /**
@@ -38,22 +39,23 @@ export function getNotificationTemplate(
   const imamName = announcement.imamName || '';
   const eventDate = announcement.eventDate || '';
   const hijriDate = announcement.hijriDate || '';
+  const thumbnailUrl = announcement.thumbnailUrl;
 
   switch (eventType) {
     case 'birthday':
-      return getBirthdayTemplate(announcement, announcementId, imamName, eventDate, hijriDate);
+      return getBirthdayTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
     
     case 'martyrdom':
-      return getMartyrdomTemplate(announcement, announcementId, imamName, eventDate, hijriDate);
+      return getMartyrdomTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
     
     case 'death':
-      return getDeathTemplate(announcement, announcementId, imamName, eventDate, hijriDate);
+      return getDeathTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
     
     case 'other':
-      return getOtherEventTemplate(announcement, announcementId, imamName, eventDate, hijriDate);
+      return getOtherEventTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
     
     default:
-      return getGeneralTemplate(announcement, announcementId);
+      return getGeneralTemplate(announcement, announcementId, thumbnailUrl);
   }
 }
 
@@ -62,27 +64,29 @@ function getBirthdayTemplate(
   id: string,
   imamName: string,
   eventDate: string,
-  hijriDate: string
+  hijriDate: string,
+  thumbnailUrl?: string | null
 ): NotificationTemplate {
   const title = imamName 
-    ? `🎂 Birth Anniversary: ${imamName}`
+    ? `Birth Anniversary: ${imamName}`
     : announcement.title || 'Birth Anniversary';
   
   let body = announcement.message;
   if (imamName && eventDate) {
     body = `${imamName}'s birth anniversary is approaching.\n\n${announcement.message}`;
     if (hijriDate) {
-      body += `\n\n📅 ${eventDate} (${hijriDate})`;
+      body += `\n\nDate: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
-      body += `\n\n📅 ${eventDate}`;
+      body += `\n\nDate: ${eventDate}`;
     }
   }
 
   return {
     title,
     body,
-    icon: '/main.png',
+    icon: thumbnailUrl || '/main.png',
     badge: '/main.png',
+    image: thumbnailUrl || undefined,
     tag: `birthday-${id}`,
     vibrate: [200, 100, 200, 100, 200],
     requireInteraction: false,
@@ -103,27 +107,29 @@ function getMartyrdomTemplate(
   id: string,
   imamName: string,
   eventDate: string,
-  hijriDate: string
+  hijriDate: string,
+  thumbnailUrl?: string | null
 ): NotificationTemplate {
   const title = imamName
-    ? `🕯️ Martyrdom: ${imamName}`
+    ? `Martyrdom: ${imamName}`
     : announcement.title || 'Martyrdom Commemoration';
   
   let body = announcement.message;
   if (imamName && eventDate) {
     body = `Commemorating the martyrdom of ${imamName}.\n\n${announcement.message}`;
     if (hijriDate) {
-      body += `\n\n📅 ${eventDate} (${hijriDate})`;
+      body += `\n\nDate: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
-      body += `\n\n📅 ${eventDate}`;
+      body += `\n\nDate: ${eventDate}`;
     }
   }
 
   return {
     title,
     body,
-    icon: '/main.png',
+    icon: thumbnailUrl || '/main.png',
     badge: '/main.png',
+    image: thumbnailUrl || undefined,
     tag: `martyrdom-${id}`,
     vibrate: [300, 200, 300],
     requireInteraction: false,
@@ -144,27 +150,29 @@ function getDeathTemplate(
   id: string,
   imamName: string,
   eventDate: string,
-  hijriDate: string
+  hijriDate: string,
+  thumbnailUrl?: string | null
 ): NotificationTemplate {
   const title = imamName
-    ? `💙 Passing: ${imamName}`
+    ? `Passing: ${imamName}`
     : announcement.title || 'Commemoration';
   
   let body = announcement.message;
   if (imamName && eventDate) {
     body = `Commemorating the passing of ${imamName}.\n\n${announcement.message}`;
     if (hijriDate) {
-      body += `\n\n📅 ${eventDate} (${hijriDate})`;
+      body += `\n\nDate: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
-      body += `\n\n📅 ${eventDate}`;
+      body += `\n\nDate: ${eventDate}`;
     }
   }
 
   return {
     title,
     body,
-    icon: '/main.png',
+    icon: thumbnailUrl || '/main.png',
     badge: '/main.png',
+    image: thumbnailUrl || undefined,
     tag: `death-${id}`,
     vibrate: [200, 100, 200],
     requireInteraction: false,
@@ -185,7 +193,8 @@ function getOtherEventTemplate(
   id: string,
   imamName: string,
   eventDate: string,
-  hijriDate: string
+  hijriDate: string,
+  thumbnailUrl?: string | null
 ): NotificationTemplate {
   const title = announcement.title || 'Important Event';
   
@@ -195,17 +204,18 @@ function getOtherEventTemplate(
   }
   if (eventDate) {
     if (hijriDate) {
-      body += `\n\n📅 ${eventDate} (${hijriDate})`;
+      body += `\n\nDate: ${eventDate} (${hijriDate})`;
     } else {
-      body += `\n\n📅 ${eventDate}`;
+      body += `\n\nDate: ${eventDate}`;
     }
   }
 
   return {
     title,
     body,
-    icon: '/main.png',
+    icon: thumbnailUrl || '/main.png',
     badge: '/main.png',
+    image: thumbnailUrl || undefined,
     tag: `event-${id}`,
     vibrate: [200, 100, 200],
     requireInteraction: false,
@@ -223,13 +233,15 @@ function getOtherEventTemplate(
 
 function getGeneralTemplate(
   announcement: AnnouncementData,
-  id: string
+  id: string,
+  thumbnailUrl?: string | null
 ): NotificationTemplate {
   return {
     title: announcement.title || 'Announcement',
     body: announcement.message,
-    icon: '/main.png',
+    icon: thumbnailUrl || '/main.png',
     badge: '/main.png',
+    image: thumbnailUrl || undefined,
     tag: `announcement-${id}`,
     vibrate: [200, 100, 200],
     requireInteraction: false,

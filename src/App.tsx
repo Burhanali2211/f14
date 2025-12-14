@@ -69,8 +69,11 @@ function ServiceWorkerHandler() {
     // Track shown notifications to prevent duplicates
     const shownNotificationIds = new Set<string>();
     
+    logger.info('Setting up Realtime subscription for announcements');
+    
     // Listen to database changes (INSERT events on announcements table)
     // This is the PRIMARY method - it works for all devices
+    // All devices use the SAME channel name to receive the same events
     const announcementsChannel = supabase
       .channel('announcements-db-changes')
       .on(
@@ -98,7 +101,9 @@ function ServiceWorkerHandler() {
             id: announcement.id,
             title: announcement.title,
             eventType: announcement.event_type,
-            hasSentAt: !!announcement.sent_at
+            hasSentAt: !!announcement.sent_at,
+            device: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
+            timestamp: new Date().toISOString()
           });
           
           // Deduplication: Check if we've already shown this notification
@@ -129,6 +134,7 @@ function ServiceWorkerHandler() {
               imamName: announcement.template_data?.imamName || '',
               eventDate: announcement.event_date || '',
               hijriDate: announcement.hijri_date || '',
+              thumbnailUrl: announcement.thumbnail_url || null,
             }, announcement.id);
             
             if ('serviceWorker' in navigator) {
@@ -138,6 +144,7 @@ function ServiceWorkerHandler() {
                   body: template.body,
                   icon: template.icon,
                   badge: template.badge,
+                  image: template.image,
                   tag: template.tag,
                   data: template.data,
                   requireInteraction: template.requireInteraction,
@@ -156,6 +163,7 @@ function ServiceWorkerHandler() {
                 new Notification(template.title, {
                   body: template.body,
                   icon: template.icon,
+                  image: template.image,
                   tag: template.tag,
                 });
               }
@@ -164,6 +172,7 @@ function ServiceWorkerHandler() {
               new Notification(template.title, {
                 body: template.body,
                 icon: template.icon,
+                image: template.image,
                 tag: template.tag,
               });
             }
@@ -175,9 +184,238 @@ function ServiceWorkerHandler() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        logger.info('Realtime subscription status:', status);
+        
+        if (status === 'SUBSCRIBED') {
+          logger.info('Successfully subscribed to announcements channel');
+        } else if (status === 'CHANNEL_ERROR') {
+          logger.error('Realtime channel error - attempting to resubscribe');
+          // Attempt to resubscribe after a delay
+          setTimeout(() => {
+            logger.info('Resubscribing to channel after error...');
+            announcementsChannel.subscribe();
+          }, 2000);
+        } else if (status === 'TIMED_OUT') {
+          logger.warn('Realtime subscription timed out - attempting to resubscribe');
+          setTimeout(() => {
+            logger.info('Resubscribing to channel after timeout...');
+            announcementsChannel.subscribe();
+          }, 2000);
+        } else if (status === 'CLOSED') {
+          logger.warn('Realtime channel closed - attempting to resubscribe');
+          setTimeout(() => {
+            logger.info('Resubscribing to channel after close...');
+            announcementsChannel.subscribe();
+          }, 2000);
+        } else {
+          logger.info('Realtime subscription status:', status);
+        }
+      });
+
+    // Handle visibility change to ensure subscription is active when page becomes visible
+    // This is especially important for mobile devices
+    const handleVisibilityChange = async () => {
+      if (!document.hidden) {
+        logger.info('Page became visible - checking Realtime subscription and missed announcements');
+        
+        // Resubscribe to ensure connection is active
+        announcementsChannel.subscribe();
+        
+        // Check for any announcements we might have missed while in background
+        try {
+          const { data: recentAnnouncements } = await supabase
+            .from('announcements')
+            .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data')
+            .not('sent_at', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(5); // Check last 5 announcements
+          
+          if (recentAnnouncements && recentAnnouncements.length > 0) {
+            // Check each announcement to see if we missed it
+            for (const announcement of recentAnnouncements) {
+              if (!shownNotificationIds.has(announcement.id) && 
+                  announcement.sent_at && 
+                  Notification.permission === 'granted') {
+                
+                // Only show if it was sent in the last 5 minutes (to avoid showing old announcements)
+                const sentTime = new Date(announcement.sent_at).getTime();
+                const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+                
+                if (sentTime > fiveMinutesAgo) {
+                  logger.info('Found missed announcement while in background:', announcement.title);
+                  
+                  shownNotificationIds.add(announcement.id);
+                  setTimeout(() => {
+                    shownNotificationIds.delete(announcement.id);
+                  }, 60000);
+
+                  const { getNotificationTemplate } = await import('@/lib/notification-templates');
+                  const template = getNotificationTemplate({
+                    title: announcement.title,
+                    message: announcement.message,
+                    eventType: (announcement.event_type as any) || 'general',
+                    imamName: announcement.template_data?.imamName || '',
+                    eventDate: announcement.event_date || '',
+                    hijriDate: announcement.hijri_date || '',
+                    thumbnailUrl: announcement.thumbnail_url || null,
+                  }, announcement.id);
+
+                  if ('serviceWorker' in navigator) {
+                    try {
+                      const registration = await navigator.serviceWorker.ready;
+                      await registration.showNotification(template.title, {
+                        body: template.body,
+                        icon: template.icon,
+                        badge: template.badge,
+                        image: template.image,
+                        tag: template.tag,
+                        data: template.data,
+                        requireInteraction: template.requireInteraction,
+                        vibrate: template.vibrate,
+                        actions: [
+                          {
+                            action: 'view',
+                            title: 'View'
+                          }
+                        ]
+                      });
+                    } catch (error) {
+                      logger.error('Error showing missed notification:', error);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          logger.error('Error checking for missed announcements:', error);
+        }
+      } else {
+        logger.info('Page became hidden');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Periodic health check to ensure subscription is active
+    const healthCheckInterval = setInterval(() => {
+      const state = announcementsChannel.state;
+      const isConnected = state === 'joined';
+      
+      logger.info('Realtime channel health check:', {
+        state,
+        isConnected,
+        userAgent: navigator.userAgent,
+        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      });
+      
+      if (!isConnected && state !== 'joining') {
+        logger.warn('Realtime channel not active, resubscribing...', { state });
+        announcementsChannel.subscribe();
+      }
+    }, 30000); // Check every 30 seconds
+
+    // Fallback: Poll for new announcements if Realtime fails (especially for mobile)
+    // This ensures notifications are received even if Realtime connection is lost
+    let lastAnnouncementId: string | null = null;
+    let realtimeConnected = false;
+    
+    // Track Realtime connection status
+    announcementsChannel.on('system', {}, (payload) => {
+      if (payload.status === 'ok') {
+        realtimeConnected = true;
+        logger.info('Realtime connected');
+      } else if (payload.status === 'error') {
+        realtimeConnected = false;
+        logger.warn('Realtime connection error');
+      }
+    });
+
+    const pollInterval = setInterval(async () => {
+      // Only poll if Realtime is not connected (as a fallback)
+      const channelState = announcementsChannel.state;
+      const shouldPoll = channelState !== 'joined' && channelState !== 'joining';
+      
+      if (!shouldPoll) {
+        // Realtime is working, skip polling
+        return;
+      }
+
+      try {
+        logger.info('Realtime not connected, using polling fallback');
+        
+        // Get the most recent announcement
+        const { data, error } = await supabase
+          .from('announcements')
+          .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data')
+          .not('sent_at', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (error || !data) return;
+
+        // If this is a new announcement we haven't seen, show notification
+        if (data.id !== lastAnnouncementId && !shownNotificationIds.has(data.id)) {
+          lastAnnouncementId = data.id;
+          
+          // Only show if notification permission is granted
+          if (data.sent_at && Notification.permission === 'granted') {
+            logger.info('New announcement detected via polling fallback:', data.title);
+            
+            // Mark as shown
+            shownNotificationIds.add(data.id);
+            setTimeout(() => {
+              shownNotificationIds.delete(data.id);
+            }, 60000);
+
+            // Get notification template
+            const { getNotificationTemplate } = await import('@/lib/notification-templates');
+            const template = getNotificationTemplate({
+              title: data.title,
+              message: data.message,
+              eventType: (data.event_type as any) || 'general',
+              imamName: data.template_data?.imamName || '',
+              eventDate: data.event_date || '',
+              hijriDate: data.hijri_date || '',
+              thumbnailUrl: data.thumbnail_url || null,
+            }, data.id);
+
+            if ('serviceWorker' in navigator) {
+              try {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.showNotification(template.title, {
+                  body: template.body,
+                  icon: template.icon,
+                  badge: template.badge,
+                  image: template.image,
+                  tag: template.tag,
+                  data: template.data,
+                  requireInteraction: template.requireInteraction,
+                  vibrate: template.vibrate,
+                  actions: [
+                    {
+                      action: 'view',
+                      title: 'View'
+                    }
+                  ]
+                });
+              } catch (error) {
+                logger.error('Error showing notification via polling:', error);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        logger.error('Error polling for announcements:', error);
+      }
+    }, 15000); // Poll every 15 seconds as fallback (only when Realtime is down)
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(healthCheckInterval);
+      clearInterval(pollInterval);
       supabase.removeChannel(announcementsChannel);
     };
   }, []);

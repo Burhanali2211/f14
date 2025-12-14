@@ -45,5 +45,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     params: {
       eventsPerSecond: 10,
     },
+    // Improve Realtime connection reliability
+    heartbeatIntervalMs: 30000, // 30 seconds
+    reconnectAfterMs: (tries: number) => {
+      // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
+      return Math.min(1000 * Math.pow(2, tries), 30000);
+    },
   },
 });
