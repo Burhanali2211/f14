@@ -88,13 +88,96 @@ function ServiceWorkerHandler() {
     }
   }, [navigate]);
 
-  // Listen for Supabase Realtime announcements
+  // Listen for Supabase Realtime announcements via database changes
   useEffect(() => {
-    const channel = supabase.channel('announcements');
+    // Method 1: Listen to database changes (INSERT events on announcements table)
+    const announcementsChannel = supabase
+      .channel('announcements-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'announcements',
+        },
+        async (payload) => {
+          const announcement = payload.new as { 
+            id: string;
+            title: string; 
+            message: string; 
+            sent_at: string | null;
+            created_at: string;
+          };
+          
+          logger.info('New announcement detected via database Realtime:', {
+            id: announcement.id,
+            title: announcement.title,
+            hasSentAt: !!announcement.sent_at
+          });
+          
+          // Only show notification if sent_at is set (means it's a real announcement, not a draft)
+          // Also check if notification permission is granted
+          if (announcement.sent_at && Notification.permission === 'granted') {
+            logger.info('Showing notification for announcement:', announcement.title);
+            
+            if ('serviceWorker' in navigator) {
+              try {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.showNotification(announcement.title, {
+                  body: announcement.message,
+                  icon: '/main.png',
+                  badge: '/main.png',
+                  tag: `announcement-${announcement.id}`,
+                  data: {
+                    url: '/',
+                    type: 'announcement',
+                    announcementId: announcement.id
+                  },
+                  requireInteraction: false,
+                  vibrate: [200, 100, 200],
+                  actions: [
+                    {
+                      action: 'view',
+                      title: 'View'
+                    }
+                  ]
+                });
+                logger.info('Notification shown successfully via service worker');
+              } catch (error) {
+                logger.error('Error showing notification via service worker:', error);
+                // Fallback
+                new Notification(announcement.title, {
+                  body: announcement.message,
+                  icon: '/main.png',
+                  tag: `announcement-${announcement.id}`,
+                });
+              }
+            } else {
+              // Fallback if service worker is not available
+              new Notification(announcement.title, {
+                body: announcement.message,
+                icon: '/main.png',
+                tag: `announcement-${announcement.id}`,
+              });
+            }
+          } else {
+            logger.info('Skipping notification:', {
+              hasSentAt: !!announcement.sent_at,
+              hasPermission: Notification.permission === 'granted'
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    // Method 2: Also listen to broadcast events (fallback)
+    const broadcastChannel = supabase.channel('announcements-broadcast');
     
-    channel
+    broadcastChannel
       .on('broadcast', { event: 'new_announcement' }, (payload) => {
         const { title, message } = payload.payload;
+        
+        logger.info('New announcement received via broadcast:', { title, message });
         
         // Show notification to all users who are online and have permission
         if (Notification.permission === 'granted') {
@@ -132,7 +215,8 @@ function ServiceWorkerHandler() {
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(announcementsChannel);
+      supabase.removeChannel(broadcastChannel);
     };
   }, []);
 

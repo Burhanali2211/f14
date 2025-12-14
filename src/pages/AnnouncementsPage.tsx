@@ -122,27 +122,25 @@ export default function AnnouncementsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Create announcement
+      // Create announcement with sent_at timestamp set immediately
+      // This ensures the Realtime INSERT event includes sent_at, so all listeners will receive it
+      const sentAt = new Date().toISOString();
       const { data: announcement, error: createError } = await supabase
         .from('announcements')
         .insert({
           title: announcementForm.title.trim(),
           message: announcementForm.message.trim(),
           created_by: user.id,
+          sent_at: sentAt, // Set sent_at during INSERT so Realtime event includes it
         })
         .select()
         .single();
 
       if (createError) throw createError;
 
-      // Send notification to all users with notifications enabled
+      // Send additional notification methods (broadcast, service worker)
+      // The database Realtime listener will handle the main notification
       await sendNotificationToAllUsers(announcementForm.title, announcementForm.message);
-
-      // Update announcement with sent_at timestamp
-      await supabase
-        .from('announcements')
-        .update({ sent_at: new Date().toISOString() })
-        .eq('id', announcement.id);
 
       toast({
         title: 'Success',
@@ -189,16 +187,19 @@ export default function AnnouncementsPage() {
 
       logger.info(`Sending notifications to ${users.length} users`);
 
-      // Method 1: Use Supabase Realtime to broadcast to all active clients
-      // This will trigger notifications for users who are currently online
+      // Method 1: The database INSERT will trigger Realtime listeners on all clients
+      // All users who have the app open are listening to INSERT events on announcements table
+      // So we just need to insert the announcement - the Realtime will handle the rest
+      logger.info('Announcement will be broadcast via database Realtime listeners');
+      
+      // Method 2: Also send a broadcast message as a fallback
       try {
-        const channel = supabase.channel('announcements');
+        const broadcastChannel = supabase.channel('announcements-broadcast');
         
-        // Subscribe to the channel first
-        channel.subscribe((status) => {
+        // Subscribe and send broadcast
+        broadcastChannel.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            // Send broadcast after subscription is confirmed
-            channel.send({
+            broadcastChannel.send({
               type: 'broadcast',
               event: 'new_announcement',
               payload: {
@@ -207,19 +208,19 @@ export default function AnnouncementsPage() {
                 timestamp: new Date().toISOString()
               }
             }).then(() => {
-              logger.info('Announcement broadcast via Supabase Realtime');
-              // Unsubscribe after sending
+              logger.info('Announcement broadcast via Supabase Realtime broadcast');
+              // Keep channel open for a bit, then remove
               setTimeout(() => {
-                supabase.removeChannel(channel);
-              }, 1000);
+                supabase.removeChannel(broadcastChannel);
+              }, 2000);
             }).catch((realtimeError) => {
               logger.warn('Realtime broadcast error:', realtimeError);
-              supabase.removeChannel(channel);
+              supabase.removeChannel(broadcastChannel);
             });
           }
         });
       } catch (realtimeErr) {
-        logger.warn('Realtime not available:', realtimeErr);
+        logger.warn('Realtime broadcast not available:', realtimeErr);
       }
 
       // Method 2: Broadcast via service worker to active clients
