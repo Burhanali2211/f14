@@ -169,6 +169,7 @@ export async function signUp(
     let response: Response;
     try {
       // For mobile devices, use a more permissive fetch configuration
+      // Note: We don't use credentials since we use localStorage, not cookies
       const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
@@ -184,9 +185,8 @@ export async function signUp(
           phone_number: phoneNumber || null,
           address: address || null,
         }),
-        // Add credentials for CORS
-        credentials: 'include',
-        // Add mode for better CORS handling
+        // Don't use credentials - we use localStorage, not cookies
+        // This avoids CORS issues with credentials
         mode: 'cors',
         // Add cache control for mobile
         cache: 'no-cache',
@@ -391,6 +391,7 @@ export async function signIn(
     let response: Response;
     try {
       // For mobile devices, use a more permissive fetch configuration
+      // Note: We don't use credentials since we use localStorage, not cookies
       const fetchOptions: RequestInit = {
         method: 'POST',
         headers: {
@@ -403,9 +404,8 @@ export async function signIn(
           email,
           password,
         }),
-        // Add credentials for CORS
-        credentials: 'include',
-        // Add mode for better CORS handling
+        // Don't use credentials - we use localStorage, not cookies
+        // This avoids CORS issues with credentials
         mode: 'cors',
         // Add cache control for mobile
         cache: 'no-cache',
