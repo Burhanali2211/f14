@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 export type LayoutStyle = 'right' | 'center' | 'indent' | 'left' | 'header';
 
@@ -14,14 +14,26 @@ interface RecitationLayoutProps {
   title?: string;
   reciter?: string | null;
   poet?: string | null;
+  /**
+   * Whether to render the internal title/reciter header block.
+   * Keep this enabled for standalone layouts, disable when the page
+   * already renders its own rich header around the text content.
+   */
+  showHeader?: boolean;
   className?: string;
   fontSize?: number;
   lineHeight?: number;
+  letterSpacing?: number;
   fontFamily?: string;
   compactMode?: boolean;
   highlightCurrentVerse?: boolean;
   currentVerse?: number;
   showVerseNumbers?: boolean;
+  /**
+   * Optional callback for building an in-page outline / table of contents.
+   * Called once per header or major section with its index and text.
+   */
+  onSectionMeta?: (meta: { index: number; title: string; isHeader: boolean }) => void;
   onVerseRef?: (index: number, el: HTMLDivElement | null) => void;
 }
 
@@ -128,17 +140,23 @@ export function RecitationLayout({
   title,
   reciter,
   poet,
+  showHeader = true,
   className = '',
   fontSize = 18,
   lineHeight = 1.8,
+  letterSpacing = 0,
   fontFamily,
   compactMode = false,
   highlightCurrentVerse = false,
   currentVerse,
   showVerseNumbers = false,
+  onSectionMeta,
   onVerseRef,
 }: RecitationLayoutProps) {
   const sections = parseLayoutContent(textContent);
+  const sectionMetaRef = useRef<{ index: number; title: string; isHeader: boolean }[]>([]);
+  // Reset collected section metadata on each render; it will be repopulated below.
+  sectionMetaRef.current = [];
   
   const getAlignmentClass = (style: LayoutStyle) => {
     switch (style) {
@@ -163,6 +181,12 @@ export function RecitationLayout({
   };
   
   let verseIndex = 0;
+
+  useEffect(() => {
+    if (!onSectionMeta) return;
+    // After the layout has rendered, notify parent about discovered sections.
+    sectionMetaRef.current.forEach(onSectionMeta);
+  }, [textContent, onSectionMeta]);
   
   return (
     <div 
@@ -171,12 +195,18 @@ export function RecitationLayout({
         fontSize: `${fontSize}px`,
         lineHeight: lineHeight,
         fontFamily: fontFamily,
+        // Many Nastaliq / Arabic fonts ignore pure letter-spacing, so we
+        // also gently increase word-spacing to make the effect visible.
+        letterSpacing: `${letterSpacing ?? 0}em`,
+        wordSpacing: `${(letterSpacing ?? 0) * 2}em`,
       }}
       dir="rtl"
     >
-      {/* Header Section - Grid Layout (Left-Right) */}
-      {(title || reciter || poet) && sections.length > 0 && !sections[0]?.isHeader && (
-        <div className="mb-10 pb-6 border-b-2 border-black dark:border-white">
+      {/* Optional internal header block.
+          This is intended for standalone uses of RecitationLayout.
+          On full pages that already show title/reciter meta, pass showHeader={false}. */}
+      {showHeader && (title || reciter || poet) && sections.length > 0 && !sections[0]?.isHeader && (
+        <div className="mb-8 pb-4 border-b border-border/70">
           {/* First Row: Poet (Left) + Title (Right) */}
           <div className="grid grid-cols-2 gap-4 mb-3">
             <div className="text-left">
@@ -213,14 +243,14 @@ export function RecitationLayout({
         const prevSection = sections[sectionIndex - 1];
         const hasPrevBreak = prevSection?.isBreak || false;
         
-        // Skip empty break markers - render as single bold divider line
+        // Skip empty break markers - render as a subtle divider spacer
         if (section.isBreak && !section.content) {
           return (
             <div 
               key={`break-${sectionIndex}`}
               className={`${compactMode ? 'my-6' : 'my-10 md:my-12'}`}
             >
-              <div className="h-px border-t border-l border-r border-black dark:border-white"></div>
+              <div className="h-px bg-border/70 dark:bg-border/80"></div>
             </div>
           );
         }
@@ -241,12 +271,22 @@ export function RecitationLayout({
         
         // Determine if this is a couplet (2 lines) for grid layout
         const isCouplet = lines.length === 2;
+
+        // Collect headers and first lines of major sections for TOC/outline;
+        // actual callback to parent is fired in an effect after render.
+        if (!section.isBreak && lines[0]) {
+          sectionMetaRef.current.push({
+            index: currentVerseIndex,
+            title: lines[0].trim(),
+            isHeader: !!section.isHeader,
+          });
+        }
         
         return (
           <React.Fragment key={`section-${sectionIndex}`}>
-            {/* Horizontal divider line before section if previous was a break */}
+            {/* Divider line before section if previous was a break */}
             {hasPrevBreak && !section.isHeader && (
-              <div className={`${compactMode ? 'mb-6' : 'mb-8 md:mb-10'} h-px border-t border-l border-r border-black dark:border-white`}></div>
+              <div className={`${compactMode ? 'mb-6' : 'mb-8 md:mb-10'} h-px bg-border/70 dark:bg-border/80`}></div>
             )}
             
             <div
@@ -255,15 +295,16 @@ export function RecitationLayout({
                   onVerseRef(currentVerseIndex, el);
                 }
               }}
+              data-verse-index={!section.isBreak && !section.isHeader ? currentVerseIndex : undefined}
               className={`
                 ${getSpacingClass(section.isBreak || false, section.isHeader || false, hasNextBreak)}
-                ${section.isHeader ? 'px-4' : 'py-5 px-4 md:px-6 lg:px-8'}
-                rounded-xl
-                transition-all duration-300
+                ${section.isHeader ? 'px-2 md:px-4' : 'py-4 px-3 md:px-5 lg:px-6'}
+                rounded-lg
+                transition-colors duration-200
                 ${
                   isCurrentVerse
-                    ? 'bg-primary/10 border-l-4 border-primary'
-                    : 'hover:bg-muted/50'
+                    ? 'bg-primary/10 ring-1 ring-primary/40'
+                    : 'hover:bg-muted/40'
                 }
                 ${showVerseNumbers && !section.isHeader && !section.isBreak ? 'flex items-start gap-4' : ''}
               `}

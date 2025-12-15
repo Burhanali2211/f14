@@ -4,6 +4,7 @@ export interface AppSettings {
   // Reading settings
   fontSize: number;
   lineHeight: number;
+  letterSpacing: number;
   fontFamily: 'amiri' | 'noto-nastaliq' | 'scheherazade';
   textAlign: 'right' | 'center' | 'justify';
   
@@ -11,6 +12,7 @@ export interface AppSettings {
   showVerseNumbers: boolean;
   highlightCurrentVerse: boolean;
   autoScrollWhilePlaying: boolean;
+  rememberReadingPosition: boolean;
   
   // Appearance
   readerBackground: 'default' | 'sepia' | 'dark' | 'paper';
@@ -25,11 +27,14 @@ export interface AppSettings {
 const defaultSettings: AppSettings = {
   fontSize: 24,
   lineHeight: 2.2,
+  letterSpacing: 0,
   fontFamily: 'noto-nastaliq',
   textAlign: 'right',
   showVerseNumbers: true,
   highlightCurrentVerse: true,
   autoScrollWhilePlaying: true,
+   // default to not auto-jumping users back down the page
+  rememberReadingPosition: false,
   readerBackground: 'default',
   compactMode: false,
   animationsEnabled: true,

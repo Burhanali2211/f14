@@ -62,9 +62,6 @@ export default function UploaderPage() {
   });
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UploaderPage.tsx:63',message:'checkAuth effect triggered',data:{role,roleLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     checkAuth();
   }, [role, roleLoading]);
 
@@ -75,20 +72,11 @@ export default function UploaderPage() {
   }, [role]);
 
   const checkAuth = async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UploaderPage.tsx:73',message:'checkAuth called',data:{role,roleLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     if (roleLoading) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UploaderPage.tsx:75',message:'role still loading, waiting',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       return;
     }
     
     if (role !== 'uploader' && role !== 'admin') {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UploaderPage.tsx:82',message:'redirecting to home - not uploader/admin',data:{role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
       toast({
         title: 'Access Denied',
         description: 'You need uploader permissions to access this page.',

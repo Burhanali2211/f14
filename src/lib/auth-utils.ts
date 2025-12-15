@@ -242,26 +242,39 @@ export async function signUp(
 
     const data = await response.json();
 
-    // New normalized shape from edge function
-    const success = !!data?.success;
-    const user = data?.data?.user as User | null | undefined;
-    const rawError = data?.error;
+    // Support both new normalized shape and legacy shape for robustness
+    let success = false;
+    let user: User | null = null;
+    let errorMessage: string | undefined;
 
-    if (!response.ok || !success || !user) {
-      let errorMessage = 'Failed to create user';
-      if (rawError?.message) {
+    if (typeof data?.success === 'boolean') {
+      // New edge function format
+      success = !!data.success;
+      user = (data?.data?.user as User) ?? null;
+      const rawError = data?.error;
+      if (!success && rawError?.message) {
         errorMessage = rawError.message;
-      } else if (typeof data?.error === 'string') {
+      }
+    } else {
+      // Legacy format: { user?, error? }
+      user = (data?.user as User) ?? null;
+      if (!user && typeof data?.error === 'string') {
         errorMessage = data.error;
-      } else if (response.statusText) {
-        errorMessage = response.statusText;
+      }
+    }
+
+    if (!response.ok || !user) {
+      if (!errorMessage) {
+        errorMessage =
+          typeof data?.error === 'string'
+            ? data.error
+            : response.statusText || 'Failed to create user';
       }
 
-      logger.error('Signup failed:', { 
-        status: response.status, 
+      logger.error('Signup failed:', {
+        status: response.status,
         error: errorMessage,
-        rawError,
-        responseHeaders: Object.fromEntries(response.headers.entries())
+        responseHeaders: Object.fromEntries(response.headers.entries()),
       });
 
       return { success: false, user: null, error: errorMessage };
@@ -472,25 +485,38 @@ export async function signIn(
 
     const data = await response.json();
 
-    const success = !!data?.success;
-    const user = data?.data?.user as User | null | undefined;
-    const rawError = data?.error;
+    let success = false;
+    let user: User | null = null;
+    let errorMessage: string | undefined;
 
-    if (!response.ok || !success || !user) {
-      let errorMessage = 'Login failed';
-      if (rawError?.message) {
+    if (typeof data?.success === 'boolean') {
+      // New edge function format
+      success = !!data.success;
+      user = (data?.data?.user as User) ?? null;
+      const rawError = data?.error;
+      if (!success && rawError?.message) {
         errorMessage = rawError.message;
-      } else if (typeof data?.error === 'string') {
+      }
+    } else {
+      // Legacy format: { user?, error? }
+      user = (data?.user as User) ?? null;
+      if (!user && typeof data?.error === 'string') {
         errorMessage = data.error;
-      } else if (response.statusText) {
-        errorMessage = response.statusText;
+      }
+    }
+
+    if (!response.ok || !user) {
+      if (!errorMessage) {
+        errorMessage =
+          typeof data?.error === 'string'
+            ? data.error
+            : response.statusText || 'Login failed';
       }
 
-      logger.error('Login failed:', { 
-        status: response.status, 
+      logger.error('Login failed:', {
+        status: response.status,
         error: errorMessage,
-        rawError,
-        responseHeaders: Object.fromEntries(response.headers.entries())
+        responseHeaders: Object.fromEntries(response.headers.entries()),
       });
 
       return { success: false, user: null, error: errorMessage };

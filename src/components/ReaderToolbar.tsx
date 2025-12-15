@@ -91,7 +91,9 @@ export function ReaderToolbar({
   };
 
   const resetFontSize = () => {
+    // Keep toolbar reset in sync with defaultSettings in use-settings
     updateSetting('fontSize', 24);
+    updateSetting('lineHeight', 2.2);
   };
 
   return (

@@ -77,6 +77,24 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-0.5">
+                    <Label>Letter / Word Spacing</Label>
+                    <span className="text-xs text-muted-foreground">
+                      Current: {settings.letterSpacing.toFixed(2)}em
+                    </span>
+                  </div>
+                </div>
+                <Slider
+                  value={[settings.letterSpacing]}
+                  min={0}
+                  max={0.4}
+                  step={0.01}
+                  onValueChange={([v]) => updateSetting('letterSpacing', v)}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <Label>Line Height: {settings.lineHeight.toFixed(1)}</Label>
                 </div>
                 <Slider
@@ -166,6 +184,21 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 <Switch
                   checked={settings.autoScrollWhilePlaying}
                   onCheckedChange={(v) => updateSetting('autoScrollWhilePlaying', v)}
+                />
+              </div>
+
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Remember Reading Position</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Continue where you left off on this piece
+                  </p>
+                </div>
+                <Switch
+                  checked={settings.rememberReadingPosition}
+                  onCheckedChange={(v) => updateSetting('rememberReadingPosition', v)}
                 />
               </div>
 

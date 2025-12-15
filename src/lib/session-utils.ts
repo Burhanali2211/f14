@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from './logger';
+import { getCurrentUser } from './auth-utils';
 
 /**
  * Wait for session to be ready (restored from localStorage)
@@ -64,10 +65,18 @@ export async function ensureSessionReady(): Promise<boolean> {
  */
 export async function ensureAuthenticated(): Promise<{ id: string; email?: string } | null> {
   try {
+    // First, try custom auth session (primary auth system)
+    const customUser = getCurrentUser();
+    if (customUser) {
+      logger.debug('ensureAuthenticated: using custom auth user', { userId: customUser.id });
+      return { id: customUser.id, email: customUser.email || undefined };
+    }
+
+    // If no custom auth user, fall back to Supabase Auth (for compatibility)
     // First, ensure session is ready
     await ensureSessionReady();
     
-    // Try to get the current user
+    // Try to get the current Supabase Auth user
     let { data: { user }, error: getUserError } = await supabase.auth.getUser();
     
     // If getUser fails or user is null, try refreshing the session

@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
-  ChevronLeft, User, Globe, Bookmark, Eye, Calendar,
-  Clock, Hash, Tag, Users, Maximize2
+  ChevronLeft, User, Globe, Bookmark, Eye,
+  Clock, Users, Maximize2, ArrowUp, ListTree, Music2
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -38,6 +38,7 @@ export default function PiecePage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentVerse, setCurrentVerse] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [outline, setOutline] = useState<{ index: number; title: string; isHeader: boolean }[]>([]);
   
   const contentRef = useRef<HTMLDivElement>(null);
   const verseRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -63,8 +64,13 @@ export default function PiecePage() {
     }
   }, [id]);
 
-  // Restore reading progress - delayed to allow page to open at top first
+  // Restore reading progress - delayed to allow page to open at top first.
+  // This is optional and can be disabled via settings.rememberReadingPosition
   useEffect(() => {
+    if (!settings.rememberReadingPosition) {
+      return;
+    }
+
     if (piece && id) {
       const progress = getProgress(id);
       if (progress && progress.scrollPosition > 0) {
@@ -81,7 +87,7 @@ export default function PiecePage() {
         return () => clearTimeout(timeoutId);
       }
     }
-  }, [piece, id, getProgress]);
+  }, [piece, id, getProgress, settings.rememberReadingPosition]);
 
   // Save reading progress on scroll
   useEffect(() => {
@@ -98,6 +104,52 @@ export default function PiecePage() {
     window.addEventListener('scroll', throttledScroll);
     return () => window.removeEventListener('scroll', throttledScroll);
   }, [id, currentVerse]);
+
+  // Track which verse is currently in view using IntersectionObserver
+  useEffect(() => {
+    if (!contentRef.current) return;
+
+    const verseElements = Array.from(
+      contentRef.current.querySelectorAll<HTMLElement>('[data-verse-index]')
+    );
+
+    if (verseElements.length === 0) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the most visible verse in the viewport
+        let bestEntry: IntersectionObserverEntry | null = null;
+
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          if (!bestEntry || entry.intersectionRatio > bestEntry.intersectionRatio) {
+            bestEntry = entry;
+          }
+        }
+
+        if (bestEntry && bestEntry.target instanceof HTMLElement) {
+          const indexAttr = bestEntry.target.getAttribute('data-verse-index');
+          if (indexAttr !== null) {
+            const index = parseInt(indexAttr, 10);
+            if (!Number.isNaN(index)) {
+              setCurrentVerse((prev) => (prev !== index ? index : prev));
+            }
+          }
+        }
+      },
+      {
+        root: null,
+        rootMargin: '0px 0px -40% 0px', // bias slightly toward upper-middle of viewport
+        threshold: [0.25, 0.5, 0.75],
+      }
+    );
+
+    verseElements.forEach((el) => observer.observe(el));
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [piece?.id, settings.compactMode, settings.fontSize, settings.lineHeight]);
 
   const fetchPiece = async () => {
     try {
@@ -224,6 +276,19 @@ export default function PiecePage() {
     }
   };
 
+  const handleJumpToVerse = (index: number) => {
+    const target = verseRefs.current[index];
+    if (target) {
+      const rect = target.getBoundingClientRect();
+      const absoluteY = rect.top + window.scrollY;
+      const offset = 120; // account for sticky header + toolbar
+      window.scrollTo({
+        top: Math.max(absoluteY - offset, 0),
+        behavior: 'smooth',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -287,7 +352,7 @@ export default function PiecePage() {
         hasNext={!!siblingPieces.next}
       />
       
-      <main className="container py-8 max-w-4xl flex-1">
+      <main className="container py-8 max-w-5xl flex-1">
         {/* Breadcrumb */}
         <Link 
           to={category ? `/category/${category.slug}` : '/'}
@@ -386,15 +451,110 @@ export default function PiecePage() {
           )}
         </header>
 
-        {/* Video Player */}
-        {piece.video_url && (
-          <div className="mb-8">
-            {isOffline ? (
-              <div className="bg-card rounded-2xl p-6 text-center text-muted-foreground aspect-video flex items-center justify-center border border-dashed border-border">
-                <p>Video unavailable offline</p>
+        {/* Reader utilities: progress + quick outline (only when we have text) */}
+        {piece.text_content && piece.text_content.trim().length >= 10 && (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+            {/* Scroll progress */}
+            <div className="flex-1 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-card border border-border flex items-center justify-center">
+                <span className="text-xs font-medium">
+                  {Math.max(1, currentVerse + 1)}
+                </span>
               </div>
-            ) : (
-              <VideoPlayer src={piece.video_url} />
+              <div className="flex-1">
+                <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                  <span>Current verse</span>
+                  <button
+                    type="button"
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full border border-border/60 bg-card hover:bg-muted transition-colors"
+                  >
+                    <ArrowUp className="w-3 h-3" />
+                    Top
+                  </button>
+                </div>
+                <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-primary transition-all duration-300"
+                    style={{
+                      width: `${Math.min(100, ((currentVerse + 1) / Math.max(currentVerse + 2, 1)) * 100)}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Outline quick jump (if we have multiple sections discovered) */}
+            {outline.length > 1 && (
+              <div className="flex items-center gap-2">
+                <div className="hidden md:block text-xs text-muted-foreground">
+                  Quick jump
+                </div>
+                <div className="flex flex-wrap gap-2 justify-end">
+                  {outline.slice(0, 4).map((item, idx) => (
+                    <button
+                      key={`${item.index}-${idx}`}
+                      type="button"
+                      onClick={() => handleJumpToVerse(item.index)}
+                      className="inline-flex items-center max-w-[160px] gap-1 px-2.5 py-1.5 rounded-full bg-card border border-border/60 text-xs text-foreground hover:bg-muted transition-colors"
+                    >
+                      <ListTree className="w-3 h-3 text-muted-foreground" />
+                      <span className="truncate">
+                        {item.title}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Media Player(s) */}
+        {(piece.audio_url || piece.video_url) && (
+          <div className="mb-8 space-y-4">
+            {piece.audio_url && (
+              <div className="bg-card rounded-2xl p-4 border border-border/70 flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                      <Music2 className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-foreground">
+                        Audio recitation
+                      </span>
+                      {piece.reciter && (
+                        <span className="text-xs text-muted-foreground">
+                          {piece.reciter}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {settings.autoScrollWhilePlaying && (
+                    <span className="hidden sm:inline-flex items-center px-2 py-1 rounded-full bg-muted text-[11px] text-muted-foreground">
+                      Auto-scroll enabled
+                    </span>
+                  )}
+                </div>
+                <audio
+                  controls
+                  className="w-full mt-1"
+                  src={piece.audio_url || undefined}
+                />
+              </div>
+            )}
+
+            {piece.video_url && (
+              <div>
+                {isOffline ? (
+                  <div className="bg-card rounded-2xl p-6 text-center text-muted-foreground aspect-video flex items-center justify-center border border-dashed border-border">
+                    <p>Video unavailable offline</p>
+                  </div>
+                ) : (
+                  <VideoPlayer src={piece.video_url} />
+                )}
+              </div>
             )}
           </div>
         )}
@@ -431,7 +591,7 @@ export default function PiecePage() {
           /* Text Content - Reader View with Layout System */
           <article 
             ref={contentRef}
-            className={`rounded-2xl p-6 md:p-10 lg:p-12 shadow-card border border-border/50 ${getReaderBgClass()} ${
+            className={`rounded-2xl px-4 py-5 md:px-8 md:py-8 lg:px-10 lg:py-10 shadow-card border border-border/40 ${getReaderBgClass()} ${
               !settings.animationsEnabled ? '' : 'transition-all duration-300'
             }`}
           >
@@ -439,14 +599,25 @@ export default function PiecePage() {
               textContent={piece.text_content}
               title={piece.title}
               reciter={piece.reciter}
-              className=""
+              showHeader={false}
+              className="max-w-3xl mx-auto"
               fontSize={settings.fontSize}
               lineHeight={settings.lineHeight}
+              letterSpacing={settings.letterSpacing}
               fontFamily={getFontFamily()}
               compactMode={settings.compactMode}
               highlightCurrentVerse={settings.highlightCurrentVerse}
               currentVerse={currentVerse}
               showVerseNumbers={settings.showVerseNumbers}
+              onSectionMeta={(meta) => {
+                setOutline((prev) => {
+                  // Avoid duplicates for same index/title
+                  if (prev.some(p => p.index === meta.index && p.title === meta.title)) {
+                    return prev;
+                  }
+                  return [...prev, meta];
+                });
+              }}
               onVerseRef={(index, el) => {
                 verseRefs.current[index] = el;
               }}

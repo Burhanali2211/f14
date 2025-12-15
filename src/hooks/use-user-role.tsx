@@ -151,8 +151,20 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
 
 export function useUserRole() {
   const context = useContext(UserRoleContext);
-  if (context === undefined) {
-    throw new Error('useUserRole must be used within a UserRoleProvider');
+
+  // Gracefully handle cases where the hook is used outside the provider
+  // (e.g. during error boundaries, tests, or alternate render roots)
+  if (!context) {
+    return {
+      user: null,
+      profile: null,
+      role: 'user' as UserRole,
+      loading: true,
+      refresh: async () => {
+        // no-op fallback when provider is not available
+      },
+    };
   }
+
   return context;
 }
