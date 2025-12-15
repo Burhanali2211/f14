@@ -43,3 +43,4 @@ CREATE TRIGGER update_site_settings_updated_at
   EXECUTE FUNCTION public.update_site_settings_updated_at();
 
 
+

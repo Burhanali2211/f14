@@ -62,6 +62,14 @@ export interface User {
 }
 
 export interface AuthResponse {
+  success: boolean;
+  user: User | null;
+  error?: string;
+}
+
+// Normalized auth result used by UI layers
+export interface AuthResult {
+  success: boolean;
   user: User | null;
   error?: string;
 }
@@ -232,40 +240,35 @@ export async function signUp(
       throw fetchError;
     }
 
-    if (!response.ok) {
-      let errorMessage = 'Signup failed';
-      let errorData: any = null;
-      try {
-        errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-      } catch (e) {
-        // If response is not JSON, use status text
-        errorMessage = response.statusText || errorMessage;
+    const data = await response.json();
+
+    // New normalized shape from edge function
+    const success = !!data?.success;
+    const user = data?.data?.user as User | null | undefined;
+    const rawError = data?.error;
+
+    if (!response.ok || !success || !user) {
+      let errorMessage = 'Failed to create user';
+      if (rawError?.message) {
+        errorMessage = rawError.message;
+      } else if (typeof data?.error === 'string') {
+        errorMessage = data.error;
+      } else if (response.statusText) {
+        errorMessage = response.statusText;
       }
-      
+
       logger.error('Signup failed:', { 
         status: response.status, 
         error: errorMessage,
-        errorData,
+        rawError,
         responseHeaders: Object.fromEntries(response.headers.entries())
       });
-      
-      // Provide helpful error message for 401
-      if (response.status === 401) {
-        errorMessage = errorData?.error || errorMessage || 'Authentication failed. The Edge Function may still have JWT verification enabled. Please verify in Supabase Dashboard that JWT verification is disabled for the auth function.';
-      }
-      
-      return { user: null, error: errorMessage };
+
+      return { success: false, user: null, error: errorMessage };
     }
 
-    const data = await response.json();
-
-    if (data.user) {
-      saveSession(data.user);
-      return { user: data.user };
-    }
-
-    return { user: null, error: 'Failed to create user' };
+    saveSession(user);
+    return { success: true, user, error: undefined };
   } catch (error: any) {
     logger.error('Signup error:', error);
     
@@ -281,8 +284,24 @@ export async function signUp(
       }
     }
     
-    return { user: null, error: errorMessage };
+    return { success: false, user: null, error: errorMessage };
   }
+}
+
+// High-level signup helper with normalized result shape
+export async function register(
+  email: string,
+  password: string,
+  fullName: string,
+  phoneNumber?: string,
+  address?: string
+): Promise<AuthResult> {
+  const result = await signUp(email, password, fullName, phoneNumber, address);
+  return {
+    success: !!result.user && !result.error,
+    user: result.user,
+    error: result.error,
+  };
 }
 
 // Helper function to retry fetch with exponential backoff
@@ -451,40 +470,34 @@ export async function signIn(
       throw fetchError;
     }
 
-    if (!response.ok) {
+    const data = await response.json();
+
+    const success = !!data?.success;
+    const user = data?.data?.user as User | null | undefined;
+    const rawError = data?.error;
+
+    if (!response.ok || !success || !user) {
       let errorMessage = 'Login failed';
-      let errorData: any = null;
-      try {
-        errorData = await response.json();
-        errorMessage = errorData.error || errorMessage;
-      } catch (e) {
-        // If response is not JSON, use status text
-        errorMessage = response.statusText || errorMessage;
+      if (rawError?.message) {
+        errorMessage = rawError.message;
+      } else if (typeof data?.error === 'string') {
+        errorMessage = data.error;
+      } else if (response.statusText) {
+        errorMessage = response.statusText;
       }
-      
+
       logger.error('Login failed:', { 
         status: response.status, 
         error: errorMessage,
-        errorData,
+        rawError,
         responseHeaders: Object.fromEntries(response.headers.entries())
       });
-      
-      // Provide helpful error message for 401
-      if (response.status === 401) {
-        errorMessage = errorData?.error || errorMessage || 'Authentication failed. The Edge Function may still have JWT verification enabled. Please verify in Supabase Dashboard that JWT verification is disabled for the auth function.';
-      }
-      
-      return { user: null, error: errorMessage };
+
+      return { success: false, user: null, error: errorMessage };
     }
 
-    const data = await response.json();
-
-    if (data.user) {
-      saveSession(data.user);
-      return { user: data.user };
-    }
-
-    return { user: null, error: 'Invalid credentials' };
+    saveSession(user);
+    return { success: true, user, error: undefined };
   } catch (error: any) {
     logger.error('Login error:', error);
     
@@ -500,8 +513,21 @@ export async function signIn(
       }
     }
     
-    return { user: null, error: errorMessage };
+    return { success: false, user: null, error: errorMessage };
   }
+}
+
+// High-level login helper with normalized result shape
+export async function login(
+  email: string,
+  password: string
+): Promise<AuthResult> {
+  const result = await signIn(email, password);
+  return {
+    success: !!result.user && !result.error,
+    user: result.user,
+    error: result.error,
+  };
 }
 
 // Sign out user

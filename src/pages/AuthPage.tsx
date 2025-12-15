@@ -9,7 +9,7 @@ import { toast } from '@/hooks/use-toast';
 import { logger } from '@/lib/logger';
 import { z } from 'zod';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { signUp, signIn, saveSession } from '@/lib/auth-utils';
+import { login, register } from '@/lib/auth-utils';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -224,10 +224,10 @@ export default function AuthPage() {
       if (isLogin) {
         logger.debug('Auth: Attempting login for', email);
         
-        const result = await signIn(email, password);
+        const result = await login(email, password);
 
-        if (result.error) {
-          throw new Error(result.error);
+        if (!result.success || result.error) {
+          throw new Error(result.error || 'Failed to log in. Please try again.');
         }
 
         if (!result.user) {
@@ -256,7 +256,7 @@ export default function AuthPage() {
       } else {
         logger.debug('Auth: Attempting signup for', email);
         
-        const result = await signUp(
+        const result = await register(
           email,
           password,
           fullName,
@@ -264,11 +264,11 @@ export default function AuthPage() {
           address || undefined
         );
 
-        if (result.error) {
-          if (result.error.includes('already registered') || result.error.includes('Email already')) {
+        if (!result.success || result.error) {
+          if (result.error && (result.error.includes('already registered') || result.error.includes('Email already'))) {
             throw new Error('This email is already registered. Please sign in instead.');
           }
-          throw new Error(result.error);
+          throw new Error(result.error || 'Failed to create account. Please try again.');
         }
 
         if (!result.user) {

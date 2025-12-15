@@ -131,93 +131,22 @@ export default function AdminPage() {
 
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:108',message:'checkAuth effect triggered',data:{currentRole,roleLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
-    // Force refresh role from database when accessing admin page
-    if (currentUser && !roleLoading) {
-      refreshRole().then(() => {
-        checkAuth();
-      });
-    } else {
-      checkAuth();
-    }
-  }, [currentRole, roleLoading, currentUser]);
+    // Simple guard: wait for role to resolve, then gate access
+    if (roleLoading) return;
 
-  useEffect(() => {
-    if (currentRole === 'admin') {
-      fetchData();
-    }
-  }, [currentRole]);
-
-  const checkAuth = async () => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:118',message:'checkAuth called',data:{currentRole,roleLoading},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
-    if (roleLoading) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:120',message:'role still loading, waiting',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-      return;
-    }
-
-    // Check custom auth session first
     if (!currentUser) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:133',message:'redirecting to auth - no user',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
-      navigate('/auth');
-      return;
-    }
-
-    // Security: Refresh role from database to get latest role changes
-    // This ensures role changes in DB are immediately reflected
-    await refreshRole();
-    
-    // Get refreshed role - we need to check it after refresh completes
-    // Since refresh is async and updates state, we'll fetch directly from DB
-    // Security: Only fetch for the authenticated user's own ID
-    const { data: userData, error: roleError } = await safeQuery(async () => {
-      return await (supabase as any)
-        .from('users')
-        .select('role, is_active')
-        .eq('id', currentUser.id)
-        .eq('is_active', true) // Security: Only check active users
-        .single();
-    });
-
-    // Security: If we can't verify the role from DB, deny access
-    if (roleError || !userData) {
-      logger.error('AdminPage: Could not verify user role from database', { error: roleError });
       toast({
-        title: 'Access Denied',
-        description: 'Unable to verify permissions. Please try again.',
+        title: 'Login required',
+        description: 'Please log in as an admin to access the admin panel.',
         variant: 'destructive',
       });
-      navigate('/');
-      return;
-    }
-
-    // Security: Verify user ID matches (prevent ID manipulation)
-    const userDataTyped = userData as any;
-    if (userDataTyped?.id && userDataTyped.id !== currentUser.id) {
-      logger.error('AdminPage: User ID mismatch - potential security issue', {
-        sessionId: currentUser.id,
-        dbId: userDataTyped.id
-      });
       navigate('/auth');
       return;
     }
 
-    const actualRole = userDataTyped?.role || currentRole;
-
-    // Security: Strict role check - only 'admin' role allowed
-    if (actualRole !== 'admin') {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'AdminPage.tsx:125',message:'redirecting to home - not admin',data:{actualRole,currentRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
+    if (currentRole !== 'admin') {
       toast({
-        title: 'Access Denied',
+        title: 'Access denied',
         description: 'Only admins can access this page.',
         variant: 'destructive',
       });
@@ -226,7 +155,8 @@ export default function AdminPage() {
     }
 
     setUser(currentUser);
-  };
+    fetchData();
+  }, [currentUser, currentRole, roleLoading]);
 
   const fetchData = async () => {
     try {
