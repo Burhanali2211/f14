@@ -193,11 +193,31 @@ Deno.serve(async (req) => {
     );
   }
 
-  try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.error("Auth config error: missing SUPABASE_URL or SUPABASE_ANON_KEY", {
+      hasUrl: !!supabaseUrl,
+      hasAnonKey: !!supabaseAnonKey,
+    });
+
+    return jsonResponse(
+      500,
+      {
+        success: false,
+        data: null,
+        error: {
+          code: "AUTH_CONFIG_ERROR",
+          message:
+            "Authentication is temporarily unavailable due to server configuration. Please try again later.",
+        },
+      },
+      corsHeaders
     );
+  }
+
+  const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
     const body = await req.json();
     const validation = validateRequestBody(body);
@@ -279,6 +299,28 @@ Deno.serve(async (req) => {
       .single();
 
     if (findError || !userData) {
+      console.error("Auth login DB error:", {
+        code: findError?.code,
+        message: findError?.message,
+      });
+
+      // Table missing / configuration issue
+      if (findError?.code === "42P01") {
+        return jsonResponse(
+          500,
+          {
+            success: false,
+            data: null,
+            error: {
+              code: "AUTH_CONFIG_ERROR",
+              message:
+                "Authentication backend is not fully configured. Please contact support.",
+            },
+          },
+          corsHeaders
+        );
+      }
+
       return jsonResponse(
         401,
         {

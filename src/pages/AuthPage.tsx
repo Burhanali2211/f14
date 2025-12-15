@@ -227,6 +227,17 @@ export default function AuthPage() {
         const result = await login(email, password);
 
         if (!result.success || result.error) {
+          // Map specific backend error codes to friendly messages
+          if (result.errorCode === 'AUTH_INVALID_CREDENTIALS') {
+            throw new Error('Invalid email or password. Please try again.');
+          }
+
+          if (result.errorCode === 'AUTH_GATEWAY_401') {
+            throw new Error(
+              'Login is temporarily unavailable due to a server configuration issue. Please try again in a few minutes.'
+            );
+          }
+
           throw new Error(result.error || 'Failed to log in. Please try again.');
         }
 

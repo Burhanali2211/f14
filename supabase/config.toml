@@ -1,5 +1,8 @@
 project_id = "qsmllpflneqlpmwzhjou"
 
+[functions.auth]
+verify_jwt = true
+
 [functions.translate]
 verify_jwt = false
 

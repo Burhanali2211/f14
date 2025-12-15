@@ -34,6 +34,7 @@ import NotFound from "./pages/NotFound";
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { toast } from "@/hooks/use-toast";
+import { login as testLogin } from "@/lib/auth-utils";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -474,6 +475,41 @@ function ServiceWorkerHandler() {
   return null;
 }
 
+// Simple backend health check on app start focused on auth
+function BackendHealthCheck() {
+  useEffect(() => {
+    const run = async () => {
+      try {
+        // Try a very cheap auth call with obviously invalid credentials
+        const result = await testLogin("healthcheck@example.com", "invalid-password");
+
+        // If we get back a structured auth error, backend is reachable
+        if (!result.success && result.error) {
+          logger.info("Auth healthcheck: backend reachable", {
+            error: result.error,
+            errorCode: result.errorCode,
+          });
+        }
+      } catch (error: any) {
+        logger.error("Auth healthcheck failed", {
+          message: error?.message,
+        });
+
+        toast({
+          title: "Backend unreachable",
+          description:
+            "We are having trouble reaching the login server. You may not be able to sign in right now.",
+          variant: "destructive",
+        });
+      }
+    };
+
+    run();
+  }, []);
+
+  return null;
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -493,6 +529,7 @@ const App = () => (
                     }}
                   >
                     <ScrollToTop />
+                    <BackendHealthCheck />
                     <ServiceWorkerHandler />
                     <NotificationPermissionPrompt />
                     <Routes>

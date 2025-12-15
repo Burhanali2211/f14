@@ -30,23 +30,28 @@ async function testConnection(): Promise<boolean> {
 // Get the anon key (JWT token) for Edge Functions
 // The anon key is a JWT that works with verify_jwt: true
 const getAnonKey = (): string => {
-  // First, try to get the anon key from environment (JWT format)
   const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+
+  // Prefer explicit anon key when it looks like a JWT
   if (anonKey && anonKey.startsWith('eyJ')) {
     return anonKey;
   }
-  
-  // Fallback to publishable key (might be JWT or modern format)
-  const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-  
-  // If it's a JWT (starts with eyJ), use it directly
-  if (publishableKey.startsWith('eyJ')) {
+
+  // Fallback: allow legacy publishable key if it's a JWT
+  if (publishableKey && publishableKey.startsWith('eyJ')) {
     return publishableKey;
   }
-  
-  // If using modern publishable key, we need the legacy anon key
-  // Return the publishable key as fallback (might not work with verify_jwt: true)
-  return publishableKey;
+
+  // At this point we don't have a JWT-style key, which will fail with verify_jwt = true
+  const message =
+    'Missing JWT-style anon key for auth Edge Function. ' +
+    'Please set VITE_SUPABASE_ANON_KEY to your legacy anon JWT from Supabase.';
+  logger.error(message, {
+    hasAnonKey: !!anonKey,
+    hasPublishableKey: !!publishableKey,
+  });
+  throw new Error(message);
 };
 
 export interface User {
@@ -65,6 +70,7 @@ export interface AuthResponse {
   success: boolean;
   user: User | null;
   error?: string;
+  errorCode?: string;
 }
 
 // Normalized auth result used by UI layers
@@ -72,6 +78,7 @@ export interface AuthResult {
   success: boolean;
   user: User | null;
   error?: string;
+  errorCode?: string;
 }
 
 // Get session from localStorage
@@ -159,7 +166,11 @@ export async function signUp(
   try {
     // Use the anon key (JWT) for Edge Functions with verify_jwt: true
     const anonKey = getAnonKey();
-    logger.debug('Using anon key for signup:', { hasKey: !!anonKey, keyLength: anonKey.length, startsWithJWT: anonKey.startsWith('eyJ') });
+    logger.debug('Using anon key for signup:', {
+      hasKey: !!anonKey,
+      keyLength: anonKey.length,
+      startsWithJWT: anonKey.startsWith('eyJ'),
+    });
     
     // Add timeout and better error handling for mobile devices
     const controller = new AbortController();
@@ -246,14 +257,16 @@ export async function signUp(
     let success = false;
     let user: User | null = null;
     let errorMessage: string | undefined;
+    let errorCode: string | undefined;
 
     if (typeof data?.success === 'boolean') {
       // New edge function format
       success = !!data.success;
       user = (data?.data?.user as User) ?? null;
       const rawError = data?.error;
-      if (!success && rawError?.message) {
+      if (!success && rawError) {
         errorMessage = rawError.message;
+        errorCode = rawError.code;
       }
     } else {
       // Legacy format: { user?, error? }
@@ -274,14 +287,15 @@ export async function signUp(
       logger.error('Signup failed:', {
         status: response.status,
         error: errorMessage,
+        errorCode,
         responseHeaders: Object.fromEntries(response.headers.entries()),
       });
 
-      return { success: false, user: null, error: errorMessage };
+      return { success: false, user: null, error: errorMessage, errorCode };
     }
 
     saveSession(user);
-    return { success: true, user, error: undefined };
+    return { success: true, user, error: undefined, errorCode: undefined };
   } catch (error: any) {
     logger.error('Signup error:', error);
     
@@ -488,14 +502,16 @@ export async function signIn(
     let success = false;
     let user: User | null = null;
     let errorMessage: string | undefined;
+    let errorCode: string | undefined;
 
     if (typeof data?.success === 'boolean') {
       // New edge function format
       success = !!data.success;
       user = (data?.data?.user as User) ?? null;
       const rawError = data?.error;
-      if (!success && rawError?.message) {
+      if (!success && rawError) {
         errorMessage = rawError.message;
+        errorCode = rawError.code;
       }
     } else {
       // Legacy format: { user?, error? }
@@ -507,23 +523,33 @@ export async function signIn(
 
     if (!response.ok || !user) {
       if (!errorMessage) {
-        errorMessage =
-          typeof data?.error === 'string'
-            ? data.error
-            : response.statusText || 'Login failed';
+        if (typeof data?.error === 'string') {
+          errorMessage = data.error;
+        } else if (data?.error?.message) {
+          errorMessage = data.error.message;
+          errorCode = data.error.code;
+        } else {
+          errorMessage = response.statusText || 'Login failed';
+        }
+      }
+
+      // Distinguish gateway 401 (JWT/verify_jwt issues) from normal auth failures
+      if (response.status === 401 && !data?.success && !user && !errorCode) {
+        errorCode = 'AUTH_GATEWAY_401';
       }
 
       logger.error('Login failed:', {
         status: response.status,
         error: errorMessage,
+        errorCode,
         responseHeaders: Object.fromEntries(response.headers.entries()),
       });
 
-      return { success: false, user: null, error: errorMessage };
+      return { success: false, user: null, error: errorMessage, errorCode };
     }
 
     saveSession(user);
-    return { success: true, user, error: undefined };
+    return { success: true, user, error: undefined, errorCode: undefined };
   } catch (error: any) {
     logger.error('Login error:', error);
     
@@ -553,6 +579,7 @@ export async function login(
     success: !!result.user && !result.error,
     user: result.user,
     error: result.error,
+    errorCode: result.errorCode,
   };
 }
 
