@@ -238,7 +238,8 @@ export default function AuthPage() {
             );
           }
 
-          throw new Error(result.error || 'Failed to log in. Please try again.');
+          const errorMsg = typeof result.error === 'string' ? result.error : result.error?.message || 'Failed to log in. Please try again.';
+          throw new Error(errorMsg);
         }
 
         if (!result.user) {
@@ -276,10 +277,11 @@ export default function AuthPage() {
         );
 
         if (!result.success || result.error) {
-          if (result.error && (result.error.includes('already registered') || result.error.includes('Email already'))) {
+          const errorMsg = typeof result.error === 'string' ? result.error : result.error?.message || 'Failed to create account. Please try again.';
+          if (errorMsg && (errorMsg.includes('already registered') || errorMsg.includes('Email already'))) {
             throw new Error('This email is already registered. Please sign in instead.');
           }
-          throw new Error(result.error || 'Failed to create account. Please try again.');
+          throw new Error(errorMsg);
         }
 
         if (!result.user) {

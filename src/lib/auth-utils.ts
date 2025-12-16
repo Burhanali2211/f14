@@ -269,14 +269,19 @@ export async function signUp(
       user = (data?.data?.user as User) ?? null;
       const rawError = data?.error;
       if (!success && rawError) {
-        errorMessage = rawError.message;
-        errorCode = rawError.code;
+        errorMessage = typeof rawError === 'string' ? rawError : rawError?.message;
+        errorCode = typeof rawError === 'object' ? rawError?.code : undefined;
       }
     } else {
       // Legacy format: { user?, error? }
       user = (data?.user as User) ?? null;
-      if (!user && typeof data?.error === 'string') {
-        errorMessage = data.error;
+      if (!user) {
+        if (typeof data?.error === 'string') {
+          errorMessage = data.error;
+        } else if (data?.error && typeof data.error === 'object') {
+          errorMessage = data.error.message || data.error.error || 'Failed to create user';
+          errorCode = data.error.code;
+        }
       }
     }
 
@@ -289,7 +294,8 @@ export async function signUp(
         errorMessage =
           typeof data?.error === 'string'
             ? data.error
-            : response.statusText || 'Failed to create user';
+            : (data?.error && typeof data.error === 'object' ? data.error.message || data.error.error : undefined)
+            || response.statusText || 'Failed to create user';
       }
 
       logger.error('Signup failed:', {
@@ -518,14 +524,19 @@ export async function signIn(
       user = (data?.data?.user as User) ?? null;
       const rawError = data?.error;
       if (!success && rawError) {
-        errorMessage = rawError.message;
-        errorCode = rawError.code;
+        errorMessage = typeof rawError === 'string' ? rawError : rawError?.message;
+        errorCode = typeof rawError === 'object' ? rawError?.code : undefined;
       }
     } else {
       // Legacy format: { user?, error? }
       user = (data?.user as User) ?? null;
-      if (!user && typeof data?.error === 'string') {
-        errorMessage = data.error;
+      if (!user) {
+        if (typeof data?.error === 'string') {
+          errorMessage = data.error;
+        } else if (data?.error && typeof data.error === 'object') {
+          errorMessage = data.error.message || data.error.error || 'Login failed';
+          errorCode = data.error.code;
+        }
       }
     }
 
@@ -533,8 +544,8 @@ export async function signIn(
       if (!errorMessage) {
         if (typeof data?.error === 'string') {
           errorMessage = data.error;
-        } else if (data?.error?.message) {
-          errorMessage = data.error.message;
+        } else if (data?.error && typeof data.error === 'object') {
+          errorMessage = data.error.message || data.error.error;
           errorCode = data.error.code;
         } else {
           errorMessage = response.statusText || 'Login failed';
