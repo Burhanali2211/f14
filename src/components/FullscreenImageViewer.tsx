@@ -51,6 +51,10 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
   // Track previous rotation to detect changes
   const prevRotationRef = useRef(0);
   const isInitialLoadRef = useRef(true);
+  
+  // Track if we pushed a history state for back button handling
+  const historyStatePushedRef = useRef(false);
+  const isOpenRef = useRef(isOpen);
 
   // Calculate fit zoom and minimum zoom based on image dimensions and viewport
   const calculateFitZoom = useCallback((imgWidth: number, imgHeight: number, rotation: number) => {
@@ -172,6 +176,48 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+
+  // Update ref when isOpen changes
+  useEffect(() => {
+    isOpenRef.current = isOpen;
+  }, [isOpen]);
+
+  // Handle browser back button when image viewer is open
+  useEffect(() => {
+    if (isOpen) {
+      // Push a state to history when opening the viewer
+      // This allows us to intercept the back button
+      window.history.pushState({ imageViewerOpen: true }, '');
+      historyStatePushedRef.current = true;
+      
+      const handlePopState = () => {
+        // When back button is pressed and viewer is open, close the viewer instead
+        if (isOpenRef.current && historyStatePushedRef.current) {
+          // Close the viewer
+          onClose();
+          // Push the state back to prevent navigation away from the page
+          // Use requestAnimationFrame to ensure this happens after state updates
+          requestAnimationFrame(() => {
+            window.history.pushState({ imageViewerOpen: true }, '');
+            historyStatePushedRef.current = true;
+          });
+        }
+      };
+      
+      window.addEventListener('popstate', handlePopState);
+      
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
+    } else {
+      // When viewer closes normally, remove the history entry we added
+      // Only if we actually pushed a state
+      if (historyStatePushedRef.current && window.history.state?.imageViewerOpen) {
+        window.history.back();
+        historyStatePushedRef.current = false;
+      }
+    }
+  }, [isOpen, onClose]);
 
   // Disable body scrolling and prevent wheel events when image viewer is open
   useEffect(() => {

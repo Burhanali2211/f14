@@ -13,7 +13,7 @@ export function Toaster() {
             {...props}
             duration={Infinity}
           >
-            <div className="grid gap-1">
+            <div className="grid gap-0.5 w-full">
               {title && <ToastTitle>{title}</ToastTitle>}
               {description && <ToastDescription>{description}</ToastDescription>}
             </div>

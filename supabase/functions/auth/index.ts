@@ -277,10 +277,6 @@ Deno.serve(async (req) => {
         );
       }
 
-      // #region agent log
-      console.error("DEBUG: userData after insert:", JSON.stringify({ hasUserData: !!userData, userDataType: typeof userData, userDataKeys: userData ? Object.keys(userData) : [] }));
-      // #endregion
-
       if (!userData) {
         console.error("Auth signup: userData is null after insert");
         return jsonResponse(
@@ -300,10 +296,6 @@ Deno.serve(async (req) => {
       // Remove password_hash before returning
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password_hash, ...userWithoutPassword } = userData as any;
-
-      // #region agent log
-      console.error("DEBUG: Response payload:", JSON.stringify({ success: true, hasUser: !!userWithoutPassword, userKeys: Object.keys(userWithoutPassword) }));
-      // #endregion
 
       return jsonResponse(
         200,

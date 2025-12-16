@@ -253,10 +253,6 @@ export async function signUp(
 
     const data = await response.json();
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth-utils.ts:254',message:'Response received',data:{status:response.status,statusText:response.statusText,hasData:!!data,dataKeys:data?Object.keys(data):[],dataSuccess:data?.success,hasDataData:!!data?.data,hasDataDataUser:!!data?.data?.user},timestamp:Date.now(),sessionId:'debug-session',runId:'signup-debug',hypothesisId:'G'})}).catch(()=>{});
-    // #endregion
-
     // Support both new normalized shape and legacy shape for robustness
     let success = false;
     let user: User | null = null;
@@ -284,10 +280,6 @@ export async function signUp(
         }
       }
     }
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/beff2a73-2541-407a-b62e-088f90641c0f',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'auth-utils.ts:279',message:'After parsing',data:{success,hasUser:!!user,userKeys:user?Object.keys(user):[],errorMessage,errorCode,responseOk:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'signup-debug',hypothesisId:'G'})}).catch(()=>{});
-    // #endregion
 
     if (!response.ok || !user) {
       if (!errorMessage) {

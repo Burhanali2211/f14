@@ -255,57 +255,46 @@ export default function Index() {
           const todayStr = today.toDateString();
           
           if (lastShownDate !== todayStr) {
-            // Show toast after a short delay for better UX
+            // Show toast after 1-2 minutes (random delay between 60-120 seconds)
+            const delayMinutes = 1 + Math.random(); // Random between 1-2 minutes
+            const delayMs = delayMinutes * 60 * 1000;
+            
             setTimeout(() => {
-              const celebratoryMessage = getCelebratoryMessage(
-                nextEvent.event_type,
-                nextEvent.daysUntil,
-                nextEvent.imam?.name || 'Ahlul Bait'
-              );
-
               toast({
                 title: (
-                  <div className="flex items-start sm:items-center gap-2.5 sm:gap-3 w-full min-w-0">
-                    <div className={`p-2 sm:p-2.5 rounded-lg sm:rounded-xl flex-shrink-0 ${
-                      nextEvent.event_type === 'birthday' ? 'bg-gradient-to-br from-sky-400/30 to-emerald-400/30 dark:from-cyan-500/40 dark:to-emerald-500/40 text-sky-700 dark:text-cyan-300 shadow-sm' :
-                      nextEvent.event_type === 'martyrdom' ? 'bg-purple-500/20 dark:bg-purple-500/30 text-purple-700 dark:text-purple-400' :
-                      nextEvent.event_type === 'death' ? 'bg-slate-500/20 dark:bg-slate-500/30 text-slate-700 dark:text-slate-400' :
-                      'bg-emerald-500/20 dark:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400'
+                  <div className="flex items-center gap-2 w-full min-w-0">
+                    <div className={`p-1.5 rounded-md flex-shrink-0 ${
+                      nextEvent.event_type === 'birthday' ? 'bg-blue-500/20 dark:bg-blue-500/30 text-blue-600 dark:text-blue-400' :
+                      nextEvent.event_type === 'martyrdom' ? 'bg-red-500/20 dark:bg-red-500/30 text-red-600 dark:text-red-400' :
+                      nextEvent.event_type === 'death' ? 'bg-gray-500/20 dark:bg-gray-500/30 text-gray-600 dark:text-gray-400' :
+                      'bg-green-500/20 dark:bg-green-500/30 text-green-600 dark:text-green-400'
                     }`}>
                       {getEventIcon(nextEvent.event_type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-sm sm:text-base text-foreground leading-tight">
+                      <div className="font-semibold text-sm text-foreground leading-tight truncate">
                         {nextEvent.event_name}
                       </div>
                       {nextEvent.imam && (
-                        <div className="text-xs sm:text-sm text-muted-foreground mt-0.5 line-clamp-1">
+                        <div className="text-xs text-muted-foreground truncate">
                           {nextEvent.imam.name}
-                          {nextEvent.imam.title && ` - ${nextEvent.imam.title}`}
                         </div>
                       )}
+                    </div>
+                    <div className={`px-2 py-0.5 rounded-md text-xs font-medium whitespace-nowrap ${
+                      nextEvent.event_type === 'birthday' ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' :
+                      nextEvent.event_type === 'martyrdom' ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' :
+                      nextEvent.event_type === 'death' ? 'bg-gray-100 dark:bg-gray-900/50 text-gray-700 dark:text-gray-300' :
+                      'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300'
+                    }`}>
+                      {getDaysUntilText(nextEvent.daysUntil)}
                     </div>
                   </div>
                 ),
                 description: (
-                  <div className="space-y-2 sm:space-y-2 mt-2">
-                    <p className="text-xs sm:text-sm leading-relaxed font-medium text-foreground">
-                      {celebratoryMessage}
-                    </p>
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 pt-2 border-t border-border/30">
-                      <div className="flex items-center gap-1.5 sm:gap-2 text-xs text-muted-foreground">
-                        <Calendar className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
-                        <span className="break-words">{formatDate(eventThisYear)}</span>
-                      </div>
-                      <div className={`px-2.5 sm:px-3 py-1 rounded-full font-semibold text-xs whitespace-nowrap ${
-                        nextEvent.event_type === 'birthday' ? 'bg-gradient-to-r from-sky-400/25 to-emerald-400/25 dark:from-cyan-500/35 dark:to-emerald-500/35 text-sky-700 dark:text-cyan-300 border border-sky-300/30 dark:border-cyan-400/30' :
-                        nextEvent.event_type === 'martyrdom' ? 'bg-purple-500/20 dark:bg-purple-500/30 text-purple-700 dark:text-purple-400' :
-                        nextEvent.event_type === 'death' ? 'bg-slate-500/20 dark:bg-slate-500/30 text-slate-700 dark:text-slate-400' :
-                        'bg-emerald-500/20 dark:bg-emerald-500/30 text-emerald-700 dark:text-emerald-400'
-                      }`}>
-                        {getDaysUntilText(nextEvent.daysUntil)}
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-border/40">
+                    <Calendar className="w-3 h-3 text-muted-foreground flex-shrink-0" />
+                    <span className="text-xs text-muted-foreground">{formatDate(eventThisYear)}</span>
                   </div>
                 ),
                 duration: Infinity,
@@ -320,7 +309,7 @@ export default function Index() {
 
               // Store that we showed the toast today
               localStorage.setItem('upcomingEventToastDate', todayStr);
-            }, 1500); // Show after 1.5 seconds
+            }, delayMs);
           }
         }
       }
