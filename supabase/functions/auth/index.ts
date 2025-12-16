@@ -219,6 +219,7 @@ Deno.serve(async (req) => {
 
   const supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
 
+  try {
     const body = await req.json();
     const validation = validateRequestBody(body);
 
@@ -276,9 +277,33 @@ Deno.serve(async (req) => {
         );
       }
 
+      // #region agent log
+      console.error("DEBUG: userData after insert:", JSON.stringify({ hasUserData: !!userData, userDataType: typeof userData, userDataKeys: userData ? Object.keys(userData) : [] }));
+      // #endregion
+
+      if (!userData) {
+        console.error("Auth signup: userData is null after insert");
+        return jsonResponse(
+          500,
+          {
+            success: false,
+            data: null,
+            error: {
+              code: "AUTH_INTERNAL_ERROR",
+              message: "User created but data not returned. Please try again.",
+            },
+          },
+          corsHeaders
+        );
+      }
+
       // Remove password_hash before returning
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { password_hash, ...userWithoutPassword } = userData as any;
+
+      // #region agent log
+      console.error("DEBUG: Response payload:", JSON.stringify({ success: true, hasUser: !!userWithoutPassword, userKeys: Object.keys(userWithoutPassword) }));
+      // #endregion
 
       return jsonResponse(
         200,

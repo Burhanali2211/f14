@@ -38,6 +38,14 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
+echo "Deploying auth function..."
+supabase functions deploy auth
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to deploy auth"
+    exit 1
+fi
+
+echo ""
 echo "========================================"
 echo "Functions deployed successfully!"
 echo "========================================"

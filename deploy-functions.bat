@@ -43,6 +43,15 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 echo.
+echo Deploying auth function...
+supabase functions deploy auth
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: Failed to deploy auth
+    pause
+    exit /b 1
+)
+
+echo.
 echo ========================================
 echo Functions deployed successfully!
 echo ========================================
