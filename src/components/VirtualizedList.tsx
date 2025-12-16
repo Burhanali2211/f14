@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { List, RowComponentProps } from 'react-window';
+import { FixedSizeList, ListChildComponentProps } from 'react-window';
 
 interface VirtualizedListProps<T> {
   items: T[];
@@ -22,7 +22,7 @@ export function VirtualizedList<T>({
   className = '',
   overscanCount = 3,
 }: VirtualizedListProps<T>) {
-  const Row = memo(({ index, style }: RowComponentProps) => {
+  const Row = memo(({ index, style }: ListChildComponentProps) => {
     const item = items[index];
     return (
       <div style={style}>
@@ -47,14 +47,15 @@ export function VirtualizedList<T>({
   }
 
   return (
-    <List
+    <FixedSizeList
       height={totalHeight}
-      rowCount={items.length}
-      rowHeight={itemHeight}
-      style={{ width: '100%' }}
+      itemCount={items.length}
+      itemSize={itemHeight}
+      width="100%"
       overscanCount={overscanCount}
       className={className}
-      rowComponent={Row}
-    />
+    >
+      {Row}
+    </FixedSizeList>
   );
 }
