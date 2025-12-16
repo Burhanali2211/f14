@@ -90,6 +90,7 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+    dedupe: ['@supabase/supabase-js'],
   },
   build: {
     rollupOptions: {
@@ -106,7 +107,7 @@ export default defineConfig(({ mode }) => ({
             '@radix-ui/react-select',
             '@radix-ui/react-toast',
           ],
-          'supabase-vendor': ['@supabase/supabase-js', 'supabase'],
+          'supabase-vendor': ['@supabase/supabase-js'],
           'query-vendor': ['@tanstack/react-query'],
           'form-vendor': ['react-hook-form', '@hookform/resolvers', 'zod'],
         },
@@ -116,5 +117,13 @@ export default defineConfig(({ mode }) => ({
     chunkSizeWarningLimit: 1000,
     // Enable source maps for production debugging (optional - can disable for smaller builds)
     sourcemap: false,
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
+  },
+  optimizeDeps: {
+    include: ['@supabase/supabase-js'],
+    exclude: ['supabase'],
   },
 }));
