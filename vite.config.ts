@@ -1,35 +1,29 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import path from "path";
-import { componentTagger } from "lovable-tagger";
-import { VitePWA } from "vite-plugin-pwa";
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
+import { VitePWA } from 'vite-plugin-pwa';
+import path from 'path';
 
 // https://vitejs.dev/config/
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-  },
+export default defineConfig({
   plugins: [
-    react(), 
-    mode === "development" && componentTagger(),
+    react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'main.png', 'placeholder.svg'],
+      includeAssets: ['favicon.ico', 'main.png', 'robots.txt'],
       manifest: {
-        name: 'Kalam Reader - islamic poetry',
+        name: 'Kalam Reader - Islamic Poetry & Content Reader',
         short_name: 'Kalam Reader',
-        description: 'Islamic content reader for Naat, Noha, Dua, Manqabat, and Marsiya with audio and video support',
+        description: 'Discover and read Islamic poetry - Naat, Manqabat, Noha, Dua, Marsiya and more',
         theme_color: '#1a5c4d',
-        background_color: '#f8f6f2',
+        background_color: '#ffffff',
         display: 'standalone',
-        orientation: 'any',
+        orientation: 'portrait',
         scope: '/',
         start_url: '/',
         icons: [
           {
             src: '/main.png',
-            sizes: 'any',
+            sizes: '192x192',
             type: 'image/png',
             purpose: 'any maskable'
           },
@@ -40,133 +34,154 @@ export default defineConfig(({ mode }) => ({
             purpose: 'any maskable'
           }
         ],
+        categories: ['education', 'books', 'lifestyle'],
+        screenshots: [],
+        shortcuts: [],
+        share_target: {
+          action: '/',
+          method: 'GET',
+          params: {
+            title: 'title',
+            text: 'text',
+            url: 'url'
+          }
+        }
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-        // Exclude woff2 fonts from precaching - let runtime caching handle them
-        globIgnores: ['**/*.woff2'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'StaleWhileRevalidate', // Changed to StaleWhileRevalidate for better performance
-            options: {
-              cacheName: 'supabase-cache',
-              expiration: {
-                maxEntries: 100, // Increased cache size
-                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
-              },
-              cacheableResponse: {
-                statuses: [0, 200],
-              },
-            },
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
-            handler: 'CacheFirst', // Fonts rarely change
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: 'CacheFirst',
             options: {
               cacheName: 'google-fonts-cache',
               expiration: {
                 maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365, // 1 year
+                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
               },
               cacheableResponse: {
-                statuses: [0, 200],
-              },
-              fetchOptions: {
-                mode: 'cors',
-                credentials: 'omit',
-              },
-            },
+                statuses: [0, 200]
+              }
+            }
           },
           {
-            // Cache images with stale-while-revalidate
-            urlPattern: /\.(?:png|jpg|jpeg|svg|gif|webp)$/i,
-            handler: 'StaleWhileRevalidate',
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
+            handler: 'CacheFirst',
             options: {
-              cacheName: 'images-cache',
+              cacheName: 'gstatic-fonts-cache',
               expiration: {
-                maxEntries: 200,
-                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
               },
-            },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
           },
-        ],
+          {
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'supabase-api-cache',
+              expiration: {
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 5 // 5 minutes
+              },
+              cacheableResponse: {
+                statuses: [0, 200]
+              }
+            }
+          }
+        ]
       },
       devOptions: {
-        enabled: false, // Disable PWA in development for faster builds
-      },
-    }),
-  ].filter(Boolean),
+        enabled: false,
+        type: 'module'
+      }
+    })
+  ],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-    dedupe: ['@supabase/supabase-js'],
+      '@': path.resolve(__dirname, './src')
+    }
+  },
+  server: {
+    port: 5173,
+    host: true,
+    open: true,
+    cors: true,
+    strictPort: false
+  },
+  preview: {
+    port: 4173,
+    host: true,
+    cors: true,
+    strictPort: false
   },
   build: {
-    rollupOptions: {
-      output: {
-        manualChunks: (id) => {
-          // Split vendor chunks for better caching
-          if (id.includes('node_modules')) {
-            // React core
-            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router')) {
-              return 'react-vendor';
-            }
-            // UI libraries
-            if (id.includes('@radix-ui') || id.includes('lucide-react')) {
-              return 'ui-vendor';
-            }
-            // Supabase
-            if (id.includes('@supabase') || id.includes('supabase')) {
-              return 'supabase-vendor';
-            }
-            // Query library
-            if (id.includes('@tanstack/react-query')) {
-              return 'query-vendor';
-            }
-            // Form libraries
-            if (id.includes('react-hook-form') || id.includes('@hookform') || id.includes('zod')) {
-              return 'form-vendor';
-            }
-            // Chart library
-            if (id.includes('recharts')) {
-              return 'chart-vendor';
-            }
-            // Other large vendors
-            if (id.includes('date-fns') || id.includes('embla-carousel') || id.includes('react-window')) {
-              return 'utils-vendor';
-            }
-            // Everything else
-            return 'vendor';
-          }
-        },
-        // Optimize chunk names
-        chunkFileNames: 'assets/js/[name]-[hash].js',
-        entryFileNames: 'assets/js/[name]-[hash].js',
-        assetFileNames: 'assets/[ext]/[name]-[hash].[ext]',
-      },
-    },
-    // Optimize chunk size warnings
-    chunkSizeWarningLimit: 500, // Reduced from 1000 for stricter control
-    // Enable source maps for production debugging (optional - can disable for smaller builds)
+    outDir: 'dist',
+    assetsDir: 'assets',
     sourcemap: false,
-    // Minification optimizations
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Remove console.logs in production
-        drop_debugger: true,
-        pure_funcs: ['console.log', 'console.info', 'console.debug'], // Remove specific console methods
-      },
+        drop_console: true,
+        drop_debugger: true
+      }
     },
-    commonjsOptions: {
-      include: [/node_modules/],
-      transformMixedEsModules: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'ui-vendor': [
+            '@radix-ui/react-dialog',
+            '@radix-ui/react-dropdown-menu',
+            '@radix-ui/react-select',
+            '@radix-ui/react-tabs',
+            '@radix-ui/react-toast'
+          ],
+          'supabase-vendor': ['@supabase/supabase-js'],
+          'utils-vendor': ['date-fns', 'zod', 'clsx', 'tailwind-merge']
+        },
+        chunkFileNames: 'assets/js/[name]-[hash].js',
+        entryFileNames: 'assets/js/[name]-[hash].js',
+        assetFileNames: (assetInfo) => {
+          const info = assetInfo.name?.split('.') || [];
+          const ext = info[info.length - 1];
+          if (/png|jpe?g|svg|gif|tiff|bmp|ico/i.test(ext || '')) {
+            return `assets/images/[name]-[hash][extname]`;
+          }
+          if (/woff2?|eot|ttf|otf/i.test(ext || '')) {
+            return `assets/fonts/[name]-[hash][extname]`;
+          }
+          return `assets/[ext]/[name]-[hash][extname]`;
+        }
+      }
     },
+    chunkSizeWarningLimit: 1000,
+    target: 'esnext',
+    cssCodeSplit: true,
+    reportCompressedSize: true
   },
   optimizeDeps: {
-    include: ['@supabase/supabase-js', 'react-window'],
-    exclude: ['supabase'],
+    include: [
+      'react',
+      'react-dom',
+      'react-router-dom',
+      '@supabase/supabase-js',
+      'date-fns',
+      'zod',
+      'clsx',
+      'tailwind-merge'
+    ],
+    exclude: []
   },
-}));
+  define: {
+    'process.env': {}
+  },
+  envPrefix: 'VITE_',
+  css: {
+    devSourcemap: false,
+    postcss: './postcss.config.js'
+  }
+});
