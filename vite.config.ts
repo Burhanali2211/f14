@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         // Exclude woff2 fonts from precaching - let runtime caching handle them
-        excludeGlobPatterns: ['**/*.woff2'],
+        globIgnores: ['**/*.woff2'],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
