@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Filter, Grid3X3, List, SortAsc, 
@@ -37,7 +37,6 @@ export default function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
   const [category, setCategory] = useState<Category | null>(null);
   const [pieces, setPieces] = useState<Piece[]>([]);
-  const [filteredPieces, setFilteredPieces] = useState<Piece[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
   const [reciters, setReciters] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
@@ -53,10 +52,6 @@ export default function CategoryPage() {
       fetchCategory();
     }
   }, [slug]);
-
-  useEffect(() => {
-    filterAndSortPieces();
-  }, [pieces, selectedLanguage, selectedReciter, hasVideo, searchQuery, sortBy]);
 
   const fetchCategory = async () => {
     try {
@@ -107,7 +102,8 @@ export default function CategoryPage() {
     }
   };
 
-  const filterAndSortPieces = () => {
+  // Memoize filtered and sorted pieces to avoid recalculation on every render
+  const filteredPieces = useMemo(() => {
     let filtered = [...pieces];
 
     // Language filter
@@ -152,27 +148,30 @@ export default function CategoryPage() {
       }
     });
 
-    setFilteredPieces(filtered);
-  };
+    return filtered;
+  }, [pieces, selectedLanguage, selectedReciter, hasVideo, searchQuery, sortBy]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSelectedLanguage('all');
     setSelectedReciter('all');
     setHasVideo(null);
     setSearchQuery('');
     setSortBy('title');
-  };
+  }, []);
 
-  const hasActiveFilters = selectedLanguage !== 'all' || 
+  const hasActiveFilters = useMemo(() => 
+    selectedLanguage !== 'all' || 
     selectedReciter !== 'all' || 
     hasVideo !== null ||
-    searchQuery.trim() !== '';
+    searchQuery.trim() !== '',
+    [selectedLanguage, selectedReciter, hasVideo, searchQuery]
+  );
 
-  const stats = {
+  const stats = useMemo(() => ({
     total: filteredPieces.length,
     withVideo: filteredPieces.filter(p => p.video_url).length,
     totalViews: filteredPieces.reduce((sum, p) => sum + p.view_count, 0),
-  };
+  }), [filteredPieces]);
 
   if (loading) {
     return (

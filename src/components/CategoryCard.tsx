@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Heart, Star, Droplet, Hand, Moon, Users, Book, ArrowRight } from 'lucide-react';
 import type { Category } from '@/lib/supabase-types';
@@ -38,7 +38,7 @@ interface CategoryCardProps {
   index?: number;
 }
 
-export function CategoryCard({ category, index = 0 }: CategoryCardProps) {
+export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: CategoryCardProps) {
   const Icon = iconMap[category.icon] || Book;
   const gradient = gradientMap[category.icon] || gradientMap.book;
   const iconColor = iconColorMap[category.icon] || iconColorMap.book;
@@ -64,23 +64,6 @@ export function CategoryCard({ category, index = 0 }: CategoryCardProps) {
   };
   const objectPosition = positionMap[imagePosition] || 'center';
   
-  // Debug: Log category data (only once per category to avoid spam)
-  useEffect(() => {
-    if (category.bg_image_url) {
-      console.log('🎨 CategoryCard rendering with image:', {
-        name: category.name,
-        imageUrl: category.bg_image_url.substring(0, 60) + '...',
-        opacity: imageOpacity,
-        blur: imageBlur,
-        position: imagePosition,
-        size: imageSize,
-        scale: imageScale,
-      });
-    } else {
-      console.log('📦 CategoryCard without image:', category.name);
-    }
-  }, [category.id, category.bg_image_url, imageOpacity, imageBlur, imagePosition, imageSize, imageScale]);
-  
   return (
     <Link
       to={`/category/${category.slug}`}
@@ -105,21 +88,8 @@ export function CategoryCard({ category, index = 0 }: CategoryCardProps) {
             }}
             loading="lazy"
             onError={(e) => {
-              console.error('❌ CategoryCard: Image failed to load', {
-                category: category.name,
-                url: category.bg_image_url,
-              });
               const target = e.target as HTMLImageElement;
               target.style.display = 'none';
-            }}
-            onLoad={() => {
-              console.log('✅ CategoryCard: Image loaded and visible', {
-                category: category.name,
-                url: category.bg_image_url,
-                opacity: imageOpacity,
-                blur: imageBlur,
-                visible: imageOpacity > 0
-              });
             }}
           />
           {/* Overlay to blend with gradient - reduced opacity so image shows through better */}
@@ -170,4 +140,4 @@ export function CategoryCard({ category, index = 0 }: CategoryCardProps) {
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
     </Link>
   );
-}
+});

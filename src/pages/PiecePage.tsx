@@ -89,21 +89,29 @@ export default function PiecePage() {
     }
   }, [piece, id, getProgress, settings.rememberReadingPosition]);
 
-  // Save reading progress on scroll
+  // Save reading progress on scroll - debounced for performance
   useEffect(() => {
+    let scrollTimeout: ReturnType<typeof setTimeout>;
     const handleScroll = () => {
       if (id) {
-        saveProgress(id, { 
-          scrollPosition: window.scrollY,
-          currentVerse
-        });
+        // Clear existing timeout
+        clearTimeout(scrollTimeout);
+        // Debounce scroll handler to avoid excessive saves
+        scrollTimeout = setTimeout(() => {
+          saveProgress(id, { 
+            scrollPosition: window.scrollY,
+            currentVerse
+          });
+        }, 500); // Save every 500ms instead of every scroll event
       }
     };
 
-    const throttledScroll = throttle(handleScroll, 1000);
-    window.addEventListener('scroll', throttledScroll);
-    return () => window.removeEventListener('scroll', throttledScroll);
-  }, [id, currentVerse]);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      clearTimeout(scrollTimeout);
+    };
+  }, [id, currentVerse, saveProgress]);
 
   // Track which verse is currently in view using IntersectionObserver
   useEffect(() => {

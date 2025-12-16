@@ -14,23 +14,43 @@ import { UserRoleProvider } from "@/hooks/use-user-role";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
-import Index from "./pages/Index";
-import CategoryPage from "./pages/CategoryPage";
-import PiecePage from "./pages/PiecePage";
-import FigurePage from "./pages/FigurePage";
-import ArtistPage from "./pages/ArtistPage";
-import AuthPage from "./pages/AuthPage";
-import AdminPage from "./pages/AdminPage";
-import SiteSettingsPage from "./pages/SiteSettingsPage";
-import UploaderPage from "./pages/UploaderPage";
-import AddPiecePage from "./pages/AddPiecePage";
-import CategoryFormPage from "./pages/CategoryFormPage";
-import FavoritesPage from "./pages/FavoritesPage";
-import SettingsPage from "./pages/SettingsPage";
-import CalendarPage from "./pages/CalendarPage";
-import AnnouncementsPage from "./pages/AnnouncementsPage";
-import ProfilePage from "./pages/ProfilePage";
-import NotFound from "./pages/NotFound";
+import { lazy, Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Code splitting - lazy load all route components
+const Index = lazy(() => import("./pages/Index"));
+const CategoryPage = lazy(() => import("./pages/CategoryPage"));
+const PiecePage = lazy(() => import("./pages/PiecePage"));
+const FigurePage = lazy(() => import("./pages/FigurePage"));
+const ArtistPage = lazy(() => import("./pages/ArtistPage"));
+const AuthPage = lazy(() => import("./pages/AuthPage"));
+const AdminPage = lazy(() => import("./pages/AdminPage"));
+const SiteSettingsPage = lazy(() => import("./pages/SiteSettingsPage"));
+const UploaderPage = lazy(() => import("./pages/UploaderPage"));
+const AddPiecePage = lazy(() => import("./pages/AddPiecePage"));
+const CategoryFormPage = lazy(() => import("./pages/CategoryFormPage"));
+const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
+const CalendarPage = lazy(() => import("./pages/CalendarPage"));
+const AnnouncementsPage = lazy(() => import("./pages/AnnouncementsPage"));
+const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="min-h-screen bg-background flex flex-col">
+    <div className="container py-8 flex-1">
+      <Skeleton className="h-6 w-32 mb-6" />
+      <Skeleton className="h-10 w-64 mb-2" />
+      <Skeleton className="h-6 w-96 mb-8" />
+      <div className="grid gap-4">
+        {[...Array(5)].map((_, i) => (
+          <Skeleton key={i} className="h-32 rounded-xl" />
+        ))}
+      </div>
+    </div>
+  </div>
+);
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { toast } from "@/hooks/use-toast";
@@ -532,29 +552,31 @@ const App = () => (
                     <BackendHealthCheck />
                     <ServiceWorkerHandler />
                     <NotificationPermissionPrompt />
-                    <Routes>
-                      <Route path="/" element={<Index />} />
-                      <Route path="/category/:slug" element={<CategoryPage />} />
-                      <Route path="/piece/:id" element={<PiecePage />} />
-                      <Route path="/figure/:slug" element={<FigurePage />} />
-                      <Route path="/artist/:reciterName" element={<ArtistPage />} />
-                      <Route path="/auth" element={<AuthPage />} />
-                      <Route path="/admin" element={<AdminPage />} />
-                      <Route path="/admin/site-settings" element={<SiteSettingsPage />} />
-                      <Route path="/admin/announcements" element={<AnnouncementsPage />} />
-                      <Route path="/admin/category/new" element={<CategoryFormPage />} />
-                      <Route path="/admin/category/:id/edit" element={<CategoryFormPage />} />
-                      <Route path="/admin/piece/new" element={<AddPiecePage />} />
-                      <Route path="/admin/piece/:id/edit" element={<AddPiecePage />} />
-                      <Route path="/uploader" element={<UploaderPage />} />
-                      <Route path="/uploader/piece/new" element={<AddPiecePage />} />
-                      <Route path="/uploader/piece/:id/edit" element={<AddPiecePage />} />
-                      <Route path="/favorites" element={<FavoritesPage />} />
-                      <Route path="/settings" element={<SettingsPage />} />
-                      <Route path="/calendar" element={<CalendarPage />} />
-                      <Route path="/profile" element={<ProfilePage />} />
-                      <Route path="*" element={<NotFound />} />
-                    </Routes>
+                    <Suspense fallback={<PageLoader />}>
+                      <Routes>
+                        <Route path="/" element={<Index />} />
+                        <Route path="/category/:slug" element={<CategoryPage />} />
+                        <Route path="/piece/:id" element={<PiecePage />} />
+                        <Route path="/figure/:slug" element={<FigurePage />} />
+                        <Route path="/artist/:reciterName" element={<ArtistPage />} />
+                        <Route path="/auth" element={<AuthPage />} />
+                        <Route path="/admin" element={<AdminPage />} />
+                        <Route path="/admin/site-settings" element={<SiteSettingsPage />} />
+                        <Route path="/admin/announcements" element={<AnnouncementsPage />} />
+                        <Route path="/admin/category/new" element={<CategoryFormPage />} />
+                        <Route path="/admin/category/:id/edit" element={<CategoryFormPage />} />
+                        <Route path="/admin/piece/new" element={<AddPiecePage />} />
+                        <Route path="/admin/piece/:id/edit" element={<AddPiecePage />} />
+                        <Route path="/uploader" element={<UploaderPage />} />
+                        <Route path="/uploader/piece/new" element={<AddPiecePage />} />
+                        <Route path="/uploader/piece/:id/edit" element={<AddPiecePage />} />
+                        <Route path="/favorites" element={<FavoritesPage />} />
+                        <Route path="/settings" element={<SettingsPage />} />
+                        <Route path="/calendar" element={<CalendarPage />} />
+                        <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="*" element={<NotFound />} />
+                      </Routes>
+                    </Suspense>
                   </BrowserRouter>
                 </TooltipProvider>
               </UserRoleProvider>

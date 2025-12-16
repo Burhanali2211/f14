@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Eye, Video, ArrowUpRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -10,7 +11,7 @@ interface PieceCardProps {
   compact?: boolean;
 }
 
-export function PieceCard({ piece, index = 0, compact = false }: PieceCardProps) {
+export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = false }: PieceCardProps) {
   const hasVideo = !!piece.video_url;
   const hasImage = !!piece.image_url;
   const isRTL = getTextDirection(piece.title) === 'rtl';
@@ -181,4 +182,4 @@ export function PieceCard({ piece, index = 0, compact = false }: PieceCardProps)
       </div>
     </Link>
   );
-}
+});
