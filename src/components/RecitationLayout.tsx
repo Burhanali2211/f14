@@ -188,17 +188,29 @@ export function RecitationLayout({
     sectionMetaRef.current.forEach(onSectionMeta);
   }, [textContent, onSectionMeta]);
   
+  // Ensure fontSize is never too small (minimum 12px for readability)
+  const safeFontSize = Math.max(fontSize || 18, 12);
+  
   return (
     <div 
+      data-recitation-layout
       className={`space-y-0 ${className}`}
       style={{ 
-        fontSize: `${fontSize}px`,
+        fontSize: `${safeFontSize}px !important` as any,
         lineHeight: lineHeight,
         fontFamily: fontFamily,
         // Many Nastaliq / Arabic fonts ignore pure letter-spacing, so we
         // also gently increase word-spacing to make the effect visible.
         letterSpacing: `${letterSpacing ?? 0}em`,
         wordSpacing: `${(letterSpacing ?? 0) * 2}em`,
+        // Prevent browser zoom from affecting font size - use all vendor prefixes
+        textSizeAdjust: '100% !important' as any,
+        WebkitTextSizeAdjust: '100% !important' as any,
+        MozTextSizeAdjust: '100% !important' as any,
+        msTextSizeAdjust: '100% !important' as any,
+        // Force font size to be exactly what we set, regardless of zoom
+        minFontSize: `${safeFontSize}px` as any,
+        maxFontSize: `${safeFontSize}px` as any,
       }}
       dir="rtl"
     >

@@ -27,7 +27,9 @@ import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
 import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import { getCurrentUser } from '@/lib/auth-utils';
 import { getKarbalaPlaceholder } from '@/lib/utils';
+import { optimizeRecitationImage, formatFileSize } from '@/lib/image-optimizer';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
 
@@ -91,33 +93,34 @@ export default function UploaderPage() {
     setLoading(true);
     
     try {
-      // Fetch user permissions
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        logger.error('Error getting user:', userError);
+      // Fetch user permissions - use custom auth system
+      const user = getCurrentUser();
+      if (!user) {
+        logger.error('Error getting user: No user found');
         toast({ title: 'Error', description: 'Failed to authenticate', variant: 'destructive' });
         setLoading(false);
         return;
       }
-      
-      if (!user) {
-        setLoading(false);
-        return;
+
+      let categoryIds: string[] = [];
+      let imamIds: string[] = [];
+
+      // Only fetch permissions for uploaders (admins have access to everything)
+      if (role === 'uploader') {
+        const { data: perms, error: permsError } = await safeQuery(async () =>
+          await (supabase as any)
+            .from('uploader_permissions')
+            .select('category_id, imam_id')
+            .eq('user_id', user.id)
+        );
+
+        if (permsError) {
+          logger.error('Error fetching permissions:', permsError);
+        } else {
+          categoryIds = perms?.filter(p => p.category_id).map(p => p.category_id!) || [];
+          imamIds = perms?.filter(p => p.imam_id).map(p => p.imam_id!) || [];
+        }
       }
-
-      const { data: perms, error: permsError } = await safeQuery(async () =>
-        await (supabase as any)
-          .from('uploader_permissions')
-          .select('category_id, imam_id')
-          .eq('user_id', user.id)
-      );
-
-      if (permsError) {
-        logger.error('Error fetching permissions:', permsError);
-      }
-
-      const categoryIds = perms?.filter(p => p.category_id).map(p => p.category_id!) || [];
-      const imamIds = perms?.filter(p => p.imam_id).map(p => p.imam_id!) || [];
 
       setPermissions({ categoryIds, imamIds });
 
@@ -198,17 +201,29 @@ export default function UploaderPage() {
     
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      logger.debug('Optimizing recitation image for high quality', {
+        originalSize: formatFileSize(file.size),
+        fileName: file.name,
+      });
+
+      // Optimize image for recitation pages - high quality, clear, no blur
+      const optimizedBlob = await optimizeRecitationImage(file);
+      logger.debug('Recitation image optimized', {
+        optimizedSize: formatFileSize(optimizedBlob.size),
+        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
+      });
+
+      const fileName = `recitation-${Date.now()}.webp`;
       
-      logger.debug('Uploading image:', { fileName, size: file.size, type: file.type });
+      logger.debug('Uploading optimized recitation image:', { fileName, size: optimizedBlob.size });
       
+      // Upload optimized image with WebP format for better compression
       const { data, error } = await supabase.storage
         .from('piece-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
+        .upload(fileName, optimizedBlob, {
+          cacheControl: '31536000', // 1 year cache for optimized images
           upsert: false,
-          contentType: file.type,
+          contentType: 'image/webp',
         });
       
       if (error) {
@@ -390,7 +405,7 @@ export default function UploaderPage() {
       setPieceForm({
         title: piece.title,
         category_id: piece.category_id,
-        figure_id: piece.figure_id || '',
+        imam_id: piece.imam_id || '',
         reciter: piece.reciter || '',
         language: piece.language,
         text_content: piece.text_content,
@@ -518,7 +533,7 @@ export default function UploaderPage() {
 
         <h1 className="font-display text-3xl font-bold text-foreground mb-8">Uploader Dashboard</h1>
 
-        {categories.length === 0 && (
+        {categories.length === 0 && role !== 'admin' && (
           <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
             <p className="text-yellow-800 dark:text-yellow-200">
               You don't have permission to upload to any categories yet. Please contact an admin to grant you permissions.
@@ -538,7 +553,7 @@ export default function UploaderPage() {
             <div className="flex justify-end">
               <Button 
                 onClick={() => navigate('/uploader/piece/new')} 
-                disabled={categories.length === 0}
+                disabled={categories.length === 0 && role !== 'admin'}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Recitation

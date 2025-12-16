@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { ensureAuthenticated } from './session-utils';
+import { getCurrentUser } from './auth-utils';
 import { logger } from './logger';
 import type { PostgrestError } from '@supabase/supabase-js';
 
@@ -158,18 +159,25 @@ export async function authenticatedQuery<T>(
     };
   }
 
-  // Explicitly refresh the Supabase session to ensure token is valid
-  try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session) {
-      logger.warn('No valid Supabase session found, attempting refresh...');
-      const { error: refreshError } = await supabase.auth.refreshSession();
-      if (refreshError) {
-        logger.error('Failed to refresh Supabase session:', refreshError);
+  // Only refresh Supabase session if NOT using custom auth
+  // Custom auth doesn't use Supabase sessions, so refreshing will fail
+  const customUser = getCurrentUser();
+  if (!customUser) {
+    // Only refresh Supabase session if using Supabase Auth (not custom auth)
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        logger.warn('No valid Supabase session found, attempting refresh...');
+        const { error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError) {
+          logger.error('Failed to refresh Supabase session:', refreshError);
+        }
       }
+    } catch (refreshErr) {
+      logger.debug('Session refresh check completed', refreshErr);
     }
-  } catch (refreshErr) {
-    logger.debug('Session refresh check completed', refreshErr);
+  } else {
+    logger.debug('Skipping Supabase session refresh (using custom auth)');
   }
 
   // Execute the query
@@ -202,11 +210,17 @@ export async function authenticatedQuery<T>(
       };
     }
 
-    // Explicitly refresh Supabase session before retry
-    try {
-      await supabase.auth.refreshSession();
-    } catch (refreshErr) {
-      logger.debug('Session refresh before retry:', refreshErr);
+    // Only refresh Supabase session if NOT using custom auth
+    const customUserAfterRefresh = getCurrentUser();
+    if (!customUserAfterRefresh) {
+      // Only refresh Supabase session if using Supabase Auth (not custom auth)
+      try {
+        await supabase.auth.refreshSession();
+      } catch (refreshErr) {
+        logger.debug('Session refresh before retry:', refreshErr);
+      }
+    } else {
+      logger.debug('Skipping Supabase session refresh before retry (using custom auth)');
     }
 
     // Retry the query once with refreshed session

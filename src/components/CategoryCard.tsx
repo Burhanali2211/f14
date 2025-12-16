@@ -68,7 +68,10 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
     <Link
       to={`/category/${category.slug}`}
       className="group relative overflow-hidden rounded-2xl bg-card p-5 shadow-soft transition-all duration-500 hover:shadow-elevated hover:-translate-y-2 animate-slide-up opacity-0"
-      style={{ animationDelay: `${index * 0.08}s` }}
+      style={{ 
+        animationDelay: `${index * 0.08}s`,
+        willChange: 'transform, opacity', // GPU acceleration hint
+      }}
     >
       {/* Background image with configurable settings - only shown if bg_image_url exists */}
       {category.bg_image_url && (

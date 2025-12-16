@@ -34,6 +34,7 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const AnnouncementsPage = lazy(() => import("./pages/AnnouncementsPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
+const SitemapPage = lazy(() => import("./pages/SitemapPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Loading fallback component
@@ -61,6 +62,12 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes - data is fresh for 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes - cache garbage collection (formerly cacheTime)
+      refetchOnMount: false, // Don't refetch if data exists in cache
+      refetchOnReconnect: true, // Refetch on reconnect
+      // Enable request deduplication
+      structuralSharing: true,
     },
   },
 });
@@ -574,6 +581,7 @@ const App = () => (
                         <Route path="/settings" element={<SettingsPage />} />
                         <Route path="/calendar" element={<CalendarPage />} />
                         <Route path="/profile" element={<ProfilePage />} />
+                        <Route path="/sitemap.xml" element={<SitemapPage />} />
                         <Route path="*" element={<NotFound />} />
                       </Routes>
                     </Suspense>

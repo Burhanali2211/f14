@@ -59,7 +59,6 @@ export interface Piece {
   reciter: string | null;
   language: string;
   text_content: string;
-  audio_url: string | null;
   video_url: string | null;
   image_url: string | null;
   tags: string[];

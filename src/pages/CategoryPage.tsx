@@ -8,9 +8,15 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PieceCard } from '@/components/PieceCard';
 import { SearchBar } from '@/components/SearchBar';
+import { VirtualizedPieceList } from '@/pages/CategoryPageVirtualized';
+import { SEOHead } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  generateCollectionPageStructuredData,
+  generateBreadcrumbStructuredData,
+} from '@/lib/seo-utils';
 import {
   Select,
   SelectContent,
@@ -76,10 +82,11 @@ export default function CategoryPage() {
 
       setCategory(catData as Category);
 
+      // Optimized: Select only needed fields for list view
       const { data: piecesData, error: piecesError } = await safeQuery(async () =>
         await supabase
           .from('pieces')
-          .select('*')
+          .select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id, text_content')
           .eq('category_id', catData.id)
       );
 
@@ -213,8 +220,69 @@ export default function CategoryPage() {
     );
   }
 
+  // Generate SEO data for category page
+  const seoData = useMemo(() => {
+    if (!category) return null;
+    
+    const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const categoryUrl = `${siteUrl}/category/${category.slug}`;
+    const imageUrl = category.bg_image_url 
+      ? (category.bg_image_url.startsWith('http') ? category.bg_image_url : `${siteUrl}${category.bg_image_url}`)
+      : `${siteUrl}/main.png`;
+    
+    const description = category.description || `Browse ${category.name} - islamic poetry collection on Kalam Reader. Read Naat, Noha, Dua, Manqabat, and Marsiya.`;
+    const keywords = `${category.name}, islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, ${category.name} collection`;
+    
+    // Generate structured data
+    const collectionStructuredData = generateCollectionPageStructuredData(
+      category,
+      filteredPieces,
+      siteUrl
+    );
+    
+    const breadcrumbStructuredData = generateBreadcrumbStructuredData(
+      [
+        { name: 'Home', url: '/' },
+        { name: category.name, url: `/category/${category.slug}` },
+      ],
+      siteUrl
+    );
+    
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@graph': [collectionStructuredData, breadcrumbStructuredData],
+    };
+    
+    return {
+      title: `${category.name} - islamic poetry Collection`,
+      description,
+      keywords,
+      image: imageUrl,
+      url: categoryUrl,
+      type: 'website' as const,
+      category: category.name,
+      structuredData,
+      canonicalUrl: categoryUrl,
+    };
+  }, [category, filteredPieces]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* SEO Head */}
+      {seoData && (
+        <SEOHead
+          title={seoData.title}
+          description={seoData.description}
+          keywords={seoData.keywords}
+          image={seoData.image}
+          url={seoData.url}
+          type={seoData.type}
+          category={seoData.category}
+          structuredData={seoData.structuredData}
+          canonicalUrl={seoData.canonicalUrl}
+        />
+      )}
+      
       <Header />
       
       <main className="container py-8 flex-1">
@@ -385,16 +453,27 @@ export default function CategoryPage() {
           </div>
         </div>
 
-        {/* Pieces */}
+        {/* Pieces - Use virtualization for large lists */}
         {filteredPieces.length > 0 ? (
-          <div 
-            className={`transition-all duration-300 ${
-              viewMode === 'grid' 
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6' 
-                : 'space-y-2 md:space-y-3'
-            }`}
-          >
-            {filteredPieces.map((piece, i) => {
+          filteredPieces.length > 50 ? (
+            // Use virtual scrolling for large lists
+            <div className="w-full">
+              <VirtualizedPieceList 
+                pieces={filteredPieces} 
+                viewMode={viewMode}
+                itemHeight={viewMode === 'list' ? 140 : 280}
+              />
+            </div>
+          ) : (
+            // Regular rendering for smaller lists
+            <div 
+              className={`transition-all duration-300 ${
+                viewMode === 'grid' 
+                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6' 
+                  : 'space-y-2 md:space-y-3'
+              }`}
+            >
+              {filteredPieces.map((piece, i) => {
               const isRTL = getTextDirection(piece.title) === 'rtl';
               const textAlign = getTextAlignmentClass(piece.title);
               
@@ -468,7 +547,8 @@ export default function CategoryPage() {
                 />
               );
             })}
-          </div>
+            </div>
+          )
         ) : (
           <div className="text-center py-16 bg-card rounded-2xl border border-dashed border-border">
             <Filter className="w-12 h-12 text-muted-foreground mx-auto mb-4" />

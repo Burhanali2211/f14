@@ -165,6 +165,7 @@ self.addEventListener('message', (event) => {
       self.scheduledTimeouts = new Map();
     }
     self.scheduledTimeouts.set(scheduledTime, timeoutId);
+  }
   // Removed ANNOUNCEMENT_NOTIFICATION and BROADCAST_ANNOUNCEMENT handlers
   // Announcements are now handled via Realtime database listeners in App.tsx
   // This prevents duplicate notifications on mobile devices

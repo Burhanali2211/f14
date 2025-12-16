@@ -15,7 +15,7 @@ export interface AppSettings {
   rememberReadingPosition: boolean;
   
   // Appearance
-  readerBackground: 'default' | 'sepia' | 'dark' | 'paper';
+  readerBackground: 'default' | 'sepia' | 'dark' | 'paper' | 'parchment' | 'cream' | 'night' | 'blue-light' | 'green-light' | 'warm-white';
   compactMode: boolean;
   animationsEnabled: boolean;
   

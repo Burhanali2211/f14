@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 
 interface FavoritesContextType {
   favorites: string[];
@@ -39,29 +39,29 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('recently-viewed', JSON.stringify(recentlyViewed));
   }, [recentlyViewed]);
 
-  const addFavorite = (id: string) => {
+  const addFavorite = useCallback((id: string) => {
     setFavorites(prev => {
       if (prev.includes(id)) return prev;
       return [id, ...prev];
     });
-  };
+  }, []);
 
-  const removeFavorite = (id: string) => {
+  const removeFavorite = useCallback((id: string) => {
     setFavorites(prev => prev.filter(f => f !== id));
-  };
+  }, []);
 
-  const isFavorite = (id: string) => favorites.includes(id);
+  const isFavorite = useCallback((id: string) => favorites.includes(id), [favorites]);
 
-  const addToRecentlyViewed = (id: string) => {
+  const addToRecentlyViewed = useCallback((id: string) => {
     setRecentlyViewed(prev => {
       const filtered = prev.filter(r => r !== id);
       return [id, ...filtered].slice(0, MAX_RECENT);
     });
-  };
+  }, []);
 
-  const clearRecentlyViewed = () => {
+  const clearRecentlyViewed = useCallback(() => {
     setRecentlyViewed([]);
-  };
+  }, []);
 
   return (
     <FavoritesContext.Provider value={{

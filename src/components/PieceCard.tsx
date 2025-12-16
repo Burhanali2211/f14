@@ -22,7 +22,10 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
       <Link
         to={`/piece/${piece.id}`}
         className="group relative overflow-hidden bg-card rounded-xl md:rounded-2xl shadow-md border border-border/50 hover:border-primary/30 transition-all duration-300 hover:shadow-xl hover:-translate-y-1 animate-slide-up opacity-0"
-        style={{ animationDelay: `${index * 0.04}s` }}
+        style={{ 
+          animationDelay: `${index * 0.04}s`,
+          willChange: 'transform, opacity', // GPU acceleration hint
+        }}
       >
         {/* Cover Image */}
         <div className="relative h-40 sm:h-48 md:h-52 overflow-hidden bg-secondary">
@@ -30,6 +33,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
             src={hasImage ? piece.image_url! : getKarbalaPlaceholder(piece.id)} 
             alt={piece.title}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            style={{ willChange: 'transform' }} // GPU acceleration
             loading="lazy"
             onError={(e) => {
               const target = e.target as HTMLImageElement;
@@ -96,11 +100,12 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
     >
       {/* Cover Image */}
       <div className="relative h-44 sm:h-48 md:h-52 lg:h-56 overflow-hidden bg-secondary">
-        <img 
-          src={hasImage ? piece.image_url! : getKarbalaPlaceholder(piece.id)} 
-          alt={piece.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-          loading="lazy"
+          <img 
+            src={hasImage ? piece.image_url! : getKarbalaPlaceholder(piece.id)} 
+            alt={`${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}`}
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+            loading="lazy"
+            title={piece.title}
           onError={(e) => {
             const target = e.target as HTMLImageElement;
             target.src = getKarbalaPlaceholder(piece.id);

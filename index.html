@@ -4,83 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no" />
     <script>
-      // Immediately prevent zoom on page load (before any content renders)
+      // Minimal zoom prevention - main.tsx handles the rest to avoid conflicts
+      // Only prevent touch gestures here, let main.tsx handle viewport management
       (function() {
-        // Function to detect and fix zoom
-        function detectAndFixZoom() {
-          // Check for zoom using multiple methods
-          var zoom = 1;
-          var hasZoom = false;
-          
-          // Method 1: Visual Viewport API
-          if (window.visualViewport && window.visualViewport.scale) {
-            zoom = window.visualViewport.scale;
-            if (zoom !== 1) hasZoom = true;
-          }
-          // Method 2: Width comparison
-          else if (window.outerWidth && window.innerWidth && window.outerWidth !== window.innerWidth) {
-            zoom = window.outerWidth / window.innerWidth;
-            if (Math.abs(zoom - 1) > 0.01) hasZoom = true;
-          }
-          
-          // If zoom detected, fix it
-          if (hasZoom) {
-            // Force viewport reset
-            var viewport = document.querySelector('meta[name="viewport"]');
-            if (viewport) {
-              var parent = viewport.parentNode;
-              var content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
-              viewport.setAttribute('content', content);
-              // Re-apply by removing and re-adding
-              if (parent) {
-                parent.removeChild(viewport);
-                parent.insertBefore(viewport, parent.firstChild);
-              }
-            }
-            
-            // Reset CSS zoom
-            if (document.body) document.body.style.zoom = '1';
-            if (document.documentElement) document.documentElement.style.zoom = '1';
-          }
-        }
-        
-        // Run immediately
-        detectAndFixZoom();
-        
-        // Run on DOM ready
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', detectAndFixZoom);
-        } else {
-          detectAndFixZoom();
-        }
-        
-        // Run periodically to catch late zoom
-        setInterval(detectAndFixZoom, 500);
-        
-        // Reset zoom immediately
-        if (document.body && document.body.style.zoom !== undefined) {
-          document.body.style.zoom = '1';
-        }
-        if (document.documentElement && document.documentElement.style.zoom !== undefined) {
-          document.documentElement.style.zoom = '1';
-        }
-        
-        // Ensure viewport meta is correct - force re-application
-        var viewport = document.querySelector('meta[name="viewport"]');
-        if (viewport) {
-          var parent = viewport.parentNode;
-          var content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
-          // Force browser to re-parse by removing and re-adding
-          if (parent) {
-            parent.removeChild(viewport);
-            var newViewport = document.createElement('meta');
-            newViewport.setAttribute('name', 'viewport');
-            newViewport.setAttribute('content', content);
-            parent.insertBefore(newViewport, parent.firstChild);
-          }
-        }
-        
-        // Prevent zoom on touch events (early binding)
         var lastTouchEnd = 0;
         document.addEventListener('touchstart', function(e) {
           if (e.target && e.target.closest && e.target.closest('[data-fullscreen-image-viewer]')) {
@@ -101,15 +27,6 @@
           }
           lastTouchEnd = now;
         }, { passive: false });
-        
-        // Monitor for zoom changes
-        if (window.visualViewport) {
-          window.visualViewport.addEventListener('resize', function() {
-            if (window.visualViewport.scale !== 1) {
-              detectAndFixZoom();
-            }
-          });
-        }
       })();
     </script>
     
@@ -155,7 +72,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     
-    <!-- Arabic Fonts for Reader -->
+    <!-- DNS prefetch for external resources -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="/main.png" as="image" />
+    
+    <!-- Arabic Fonts for Reader - optimized with font-display: swap -->
     <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Scheherazade+New:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     
     <!-- Structured Data -->

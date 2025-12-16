@@ -38,6 +38,7 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { ensureAuthenticated } from '@/lib/session-utils';
+import { optimizeAnnouncementThumbnail, formatFileSize } from '@/lib/image-optimizer';
 import type { EventType, Imam } from '@/lib/supabase-types';
 import { getNotificationTemplate } from '@/lib/notification-templates';
 
@@ -323,17 +324,29 @@ export default function AnnouncementsPage() {
     
     setUploadingThumbnail(true);
     try {
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const fileName = `announcements/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      logger.debug('Optimizing announcement thumbnail', {
+        originalSize: formatFileSize(file.size),
+        fileName: file.name,
+      });
+
+      // Optimize thumbnail for announcements - balanced optimization
+      const optimizedBlob = await optimizeAnnouncementThumbnail(file);
+      logger.debug('Announcement thumbnail optimized', {
+        optimizedSize: formatFileSize(optimizedBlob.size),
+        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
+      });
+
+      const fileName = `announcements/${Date.now()}.webp`;
       
-      logger.debug('Uploading thumbnail:', { fileName, size: file.size, type: file.type });
+      logger.debug('Uploading optimized thumbnail:', { fileName, size: optimizedBlob.size });
       
+      // Upload optimized thumbnail
       const { data, error } = await supabase.storage
         .from('piece-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
+        .upload(fileName, optimizedBlob, {
+          cacheControl: '31536000', // 1 year cache
           upsert: false,
-          contentType: file.type,
+          contentType: 'image/webp',
         });
       
       if (error) {

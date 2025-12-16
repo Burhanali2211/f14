@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, User, Globe, Bookmark, Eye,
-  Clock, Users, Maximize2, ArrowUp, ListTree, Music2
+  Clock, Users, Maximize2, ArrowUp, ListTree
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -11,6 +11,7 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { VideoPlayer } from '@/components/VideoPlayer';
 import { FullscreenImageViewer } from '@/components/FullscreenImageViewer';
 import { RecitationLayout } from '@/components/RecitationLayout';
+import { SEOHead } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -20,6 +21,12 @@ import { useReadingProgress } from '@/hooks/use-reading-progress';
 import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import {
+  generateMetaDescription,
+  generateKeywords,
+  generateArticleStructuredData,
+  generateBreadcrumbStructuredData,
+} from '@/lib/seo-utils';
 import type { Piece, Category, Imam } from '@/lib/supabase-types';
 
 export default function PiecePage() {
@@ -56,13 +63,104 @@ export default function PiecePage() {
     };
   }, []);
 
+  const fetchPiece = useCallback(async () => {
+    try {
+      // Optimized: Fetch piece with category and imam in single query for SEO
+      const { data, error } = await safeQuery(async () =>
+        await supabase
+          .from('pieces')
+          .select(`
+            id,
+            title,
+            text_content,
+            image_url,
+            video_url,
+            reciter,
+            language,
+            view_count,
+            created_at,
+            updated_at,
+            category_id,
+            imam_id,
+            tags,
+            category:categories(id, name, slug, description),
+            imam:imams(id, name, slug, title, description)
+          `)
+          .eq('id', id)
+          .maybeSingle()
+      );
+
+      if (error) {
+        logger.error('Error fetching piece:', error);
+        setLoading(false);
+        return;
+      }
+
+      if (!data) {
+        setLoading(false);
+        return;
+      }
+
+      const typedPiece = data as any;
+      setPiece(typedPiece as Piece);
+
+      // Extract category and imam from joined data
+      if (typedPiece.category) {
+        setCategory(typedPiece.category as Category);
+        
+        // Fetch sibling pieces for navigation (optimized query)
+        const { data: siblings, error: siblingsError } = await safeQuery(async () =>
+          await supabase
+            .from('pieces')
+            .select('id, title, category_id')
+            .eq('category_id', typedPiece.category_id)
+            .order('title')
+        );
+        
+        if (siblingsError) {
+          logger.error('Error fetching siblings:', siblingsError);
+        } else if (siblings) {
+          const currentIndex = siblings.findIndex(s => s.id === id);
+          setSiblingPieces({
+            prev: currentIndex > 0 ? siblings[currentIndex - 1] as Piece : undefined,
+            next: currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] as Piece : undefined,
+          });
+        }
+      }
+
+      // Extract imam from joined data
+      if (typedPiece.imam) {
+        setImam(typedPiece.imam as Imam);
+      }
+    } catch (error) {
+      logger.error('Unexpected error in fetchPiece:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  const incrementViewCount = useCallback(async () => {
+    if (id) {
+      try {
+        const { error } = await safeQuery(async () =>
+          await supabase.rpc('increment_view_count', { piece_id: id })
+        );
+        if (error) {
+          logger.error('Error incrementing view count:', error);
+        }
+      } catch (error) {
+        logger.error('Unexpected error incrementing view count:', error);
+      }
+    }
+  }, [id]);
+
   useEffect(() => {
     if (id) {
       fetchPiece();
       incrementViewCount();
       addToRecentlyViewed(id);
     }
-  }, [id]);
+  }, [id, fetchPiece, incrementViewCount, addToRecentlyViewed]);
 
   // Restore reading progress - delayed to allow page to open at top first.
   // This is optional and can be disabled via settings.rememberReadingPosition
@@ -159,102 +257,6 @@ export default function PiecePage() {
     };
   }, [piece?.id, settings.compactMode, settings.fontSize, settings.lineHeight]);
 
-  const fetchPiece = async () => {
-    try {
-      const { data, error } = await safeQuery(async () =>
-        await supabase
-          .from('pieces')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle()
-      );
-
-      if (error) {
-        logger.error('Error fetching piece:', error);
-        setLoading(false);
-        return;
-      }
-
-      if (!data) {
-        setLoading(false);
-        return;
-      }
-
-      const typedPiece = data as Piece;
-      setPiece(typedPiece);
-
-      // Fetch category
-      const { data: catData, error: catError } = await safeQuery(async () =>
-        await supabase
-          .from('categories')
-          .select('*')
-          .eq('id', typedPiece.category_id)
-          .maybeSingle()
-      );
-
-      if (catError) {
-        logger.error('Error fetching category:', catError);
-      } else if (catData) {
-        setCategory(catData as Category);
-        
-        // Fetch sibling pieces for navigation
-        const { data: siblings, error: siblingsError } = await safeQuery(async () =>
-          await supabase
-            .from('pieces')
-            .select('*')
-            .eq('category_id', typedPiece.category_id)
-            .order('title')
-        );
-        
-        if (siblingsError) {
-          logger.error('Error fetching siblings:', siblingsError);
-        } else if (siblings) {
-          const currentIndex = siblings.findIndex(s => s.id === id);
-          setSiblingPieces({
-            prev: currentIndex > 0 ? siblings[currentIndex - 1] as Piece : undefined,
-            next: currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] as Piece : undefined,
-          });
-        }
-      }
-
-      // Fetch imam if exists
-      if (typedPiece.imam_id) {
-        const { data: imamData, error: imamError } = await safeQuery(async () =>
-          await supabase
-            .from('imams')
-            .select('*')
-            .eq('id', typedPiece.imam_id)
-            .maybeSingle()
-        );
-        
-        if (imamError) {
-          logger.error('Error fetching imam:', imamError);
-        } else if (imamData) {
-          setImam(imamData as Imam);
-        }
-      }
-    } catch (error) {
-      logger.error('Unexpected error in fetchPiece:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const incrementViewCount = async () => {
-    if (id) {
-      try {
-        const { error } = await safeQuery(async () =>
-          await supabase.rpc('increment_view_count', { piece_id: id })
-        );
-        if (error) {
-          logger.error('Error incrementing view count:', error);
-        }
-      } catch (error) {
-        logger.error('Unexpected error incrementing view count:', error);
-      }
-    }
-  };
-
   const handlePrevious = () => {
     if (siblingPieces.prev) {
       navigate(`/piece/${siblingPieces.prev.id}`);
@@ -276,11 +278,30 @@ export default function PiecePage() {
   };
 
   const getReaderBgClass = () => {
+    // Ensure smooth transitions between themes
+    const baseTransition = settings.animationsEnabled ? 'transition-colors duration-300' : '';
+    
     switch (settings.readerBackground) {
-      case 'sepia': return 'bg-amber-50 dark:bg-amber-950/30';
-      case 'dark': return 'bg-zinc-900 text-zinc-100';
-      case 'paper': return 'bg-stone-100 dark:bg-stone-900';
-      default: return 'bg-card';
+      case 'sepia': 
+        return `${baseTransition} bg-amber-50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-50 reader-bg-sepia`;
+      case 'dark': 
+        return `${baseTransition} bg-zinc-900 text-zinc-100 reader-bg-dark`;
+      case 'paper': 
+        return `${baseTransition} bg-stone-100 dark:bg-stone-900 text-stone-900 dark:text-stone-100 reader-bg-paper`;
+      case 'parchment': 
+        return `${baseTransition} bg-amber-100 dark:bg-amber-900/40 text-amber-950 dark:text-amber-50 reader-bg-parchment`;
+      case 'cream': 
+        return `${baseTransition} bg-amber-50 dark:bg-amber-950/20 text-zinc-900 dark:text-zinc-100 reader-bg-cream`;
+      case 'night': 
+        return `${baseTransition} bg-slate-950 text-slate-100 reader-bg-night`;
+      case 'blue-light': 
+        return `${baseTransition} bg-blue-50 dark:bg-blue-950/30 text-blue-950 dark:text-blue-50 reader-bg-blue-light`;
+      case 'green-light': 
+        return `${baseTransition} bg-emerald-50 dark:bg-emerald-950/30 text-emerald-950 dark:text-emerald-50 reader-bg-green-light`;
+      case 'warm-white': 
+        return `${baseTransition} bg-orange-50 dark:bg-orange-950/20 text-orange-950 dark:text-orange-50 reader-bg-warm-white`;
+      default: 
+        return `${baseTransition} bg-card text-foreground`;
     }
   };
 
@@ -296,6 +317,61 @@ export default function PiecePage() {
       });
     }
   };
+
+  // Calculate word count and reading time (safe even if piece is null)
+  const wordCount = piece?.text_content ? piece.text_content.split(/\s+/).length : 0;
+  const readingTime = Math.ceil(wordCount / 150); // ~150 words per minute for poetry
+
+  // Generate SEO data (must be called before early returns to maintain hook order)
+  const seoData = useMemo(() => {
+    if (!piece) return null;
+    
+    const siteUrl = window.location.origin;
+    const pieceUrl = `${siteUrl}/piece/${piece.id}`;
+    const imageUrl = piece.image_url 
+      ? (piece.image_url.startsWith('http') ? piece.image_url : `${siteUrl}${piece.image_url}`)
+      : `${siteUrl}/main.png`;
+    
+    const metaDescription = generateMetaDescription(piece);
+    const keywords = generateKeywords(piece, category || undefined, imam || undefined);
+    
+    // Generate structured data
+    const articleStructuredData = generateArticleStructuredData(
+      piece,
+      category || undefined,
+      imam || undefined,
+      siteUrl
+    );
+    
+    // Generate breadcrumb structured data
+    const breadcrumbItems = [
+      { name: 'Home', url: '/' },
+      ...(category ? [{ name: category.name, url: `/category/${category.slug}` }] : []),
+      { name: piece.title, url: `/piece/${piece.id}` },
+    ];
+    const breadcrumbStructuredData = generateBreadcrumbStructuredData(breadcrumbItems, siteUrl);
+    
+    // Combine structured data
+    const structuredData = {
+      '@context': 'https://schema.org',
+      '@graph': [articleStructuredData, breadcrumbStructuredData],
+    };
+    
+    return {
+      title: piece.title,
+      description: metaDescription,
+      keywords,
+      image: imageUrl,
+      url: pieceUrl,
+      type: 'article' as const,
+      author: piece.reciter || undefined,
+      publishedTime: piece.created_at,
+      modifiedTime: piece.updated_at || piece.created_at,
+      category: category?.name,
+      structuredData,
+      canonicalUrl: pieceUrl,
+    };
+  }, [piece, category, imam]);
 
   if (loading) {
     return (
@@ -341,12 +417,26 @@ export default function PiecePage() {
     );
   }
 
-  // Calculate word count and reading time
-  const wordCount = piece.text_content.split(/\s+/).length;
-  const readingTime = Math.ceil(wordCount / 150); // ~150 words per minute for poetry
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* SEO Head */}
+      {seoData && (
+        <SEOHead
+          title={seoData.title}
+          description={seoData.description}
+          keywords={seoData.keywords}
+          image={seoData.image}
+          url={seoData.url}
+          type={seoData.type}
+          author={seoData.author}
+          publishedTime={seoData.publishedTime}
+          modifiedTime={seoData.modifiedTime}
+          category={seoData.category}
+          structuredData={seoData.structuredData}
+          canonicalUrl={seoData.canonicalUrl}
+        />
+      )}
+      
       <Header />
       
       <ReaderToolbar
@@ -380,9 +470,10 @@ export default function PiecePage() {
             >
               <img 
                 src={piece.image_url} 
-                alt={piece.title}
+                alt={`${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}${category ? ` - ${category.name}` : ''}`}
                 className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
                 loading="lazy"
+                itemProp="image"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -519,51 +610,17 @@ export default function PiecePage() {
         )}
 
         {/* Media Player(s) */}
-        {(piece.audio_url || piece.video_url) && (
+        {piece.video_url && (
           <div className="mb-8 space-y-4">
-            {piece.audio_url && (
-              <div className="bg-card rounded-2xl p-4 border border-border/70 flex flex-col gap-2">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                      <Music2 className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-medium text-foreground">
-                        Audio recitation
-                      </span>
-                      {piece.reciter && (
-                        <span className="text-xs text-muted-foreground">
-                          {piece.reciter}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {settings.autoScrollWhilePlaying && (
-                    <span className="hidden sm:inline-flex items-center px-2 py-1 rounded-full bg-muted text-[11px] text-muted-foreground">
-                      Auto-scroll enabled
-                    </span>
-                  )}
+            <div>
+              {isOffline ? (
+                <div className="bg-card rounded-2xl p-6 text-center text-muted-foreground aspect-video flex items-center justify-center border border-dashed border-border">
+                  <p>Video unavailable offline</p>
                 </div>
-                <audio
-                  controls
-                  className="w-full mt-1"
-                  src={piece.audio_url || undefined}
-                />
-              </div>
-            )}
-
-            {piece.video_url && (
-              <div>
-                {isOffline ? (
-                  <div className="bg-card rounded-2xl p-6 text-center text-muted-foreground aspect-video flex items-center justify-center border border-dashed border-border">
-                    <p>Video unavailable offline</p>
-                  </div>
-                ) : (
-                  <VideoPlayer src={piece.video_url} />
-                )}
-              </div>
-            )}
+              ) : (
+                <VideoPlayer src={piece.video_url} />
+              )}
+            </div>
           </div>
         )}
 
@@ -577,10 +634,11 @@ export default function PiecePage() {
             <div className="flex flex-col items-center justify-center min-h-[400px]">
               <img 
                 src={piece.image_url} 
-                alt={piece.title}
+                alt={`${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}${category ? ` - ${category.name}` : ''}`}
                 className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
                 onClick={() => setImageViewerOpen(true)}
                 loading="lazy"
+                itemProp="image"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -599,9 +657,7 @@ export default function PiecePage() {
           /* Text Content - Reader View with Layout System */
           <article 
             ref={contentRef}
-            className={`rounded-2xl px-4 py-5 md:px-8 md:py-8 lg:px-10 lg:py-10 shadow-card border border-border/40 ${getReaderBgClass()} ${
-              !settings.animationsEnabled ? '' : 'transition-all duration-300'
-            }`}
+            className={`rounded-2xl px-4 py-5 md:px-8 md:py-8 lg:px-10 lg:py-10 shadow-card border border-border/40 ${getReaderBgClass()}`}
           >
             <RecitationLayout
               textContent={piece.text_content}

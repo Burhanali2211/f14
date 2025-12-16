@@ -43,7 +43,7 @@ import { logger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getKarbalaPlaceholder } from '@/lib/utils';
 import type { Category, Piece, Imam, UserProfile, UploaderPermission, SiteSettings, Artiste, AhlulBaitEvent, EventType } from '@/lib/supabase-types';
-import { optimizeArtistImage, validateImageFile, formatFileSize } from '@/lib/image-optimizer';
+import { optimizeArtistImage, optimizeRecitationImage, validateImageFile, formatFileSize } from '@/lib/image-optimizer';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
 
 export default function AdminPage() {
@@ -264,17 +264,29 @@ export default function AdminPage() {
     
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      logger.debug('Optimizing piece image for high quality', {
+        originalSize: formatFileSize(file.size),
+        fileName: file.name,
+      });
+
+      // Optimize image for pieces - high quality, clear, no blur
+      const optimizedBlob = await optimizeRecitationImage(file);
+      logger.debug('Piece image optimized', {
+        optimizedSize: formatFileSize(optimizedBlob.size),
+        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
+      });
+
+      const fileName = `piece-${Date.now()}.webp`;
       
-      logger.debug('Uploading image:', { fileName, size: file.size, type: file.type });
+      logger.debug('Uploading optimized piece image:', { fileName, size: optimizedBlob.size });
       
+      // Upload optimized image with WebP format
       const { data, error } = await supabase.storage
         .from('piece-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
+        .upload(fileName, optimizedBlob, {
+          cacheControl: '31536000', // 1 year cache
           upsert: false,
-          contentType: file.type,
+          contentType: 'image/webp',
         });
       
       if (error) {

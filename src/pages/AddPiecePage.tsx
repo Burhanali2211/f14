@@ -34,6 +34,7 @@ import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/auth-utils';
+import { optimizeRecitationImage, formatFileSize } from '@/lib/image-optimizer';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
 
@@ -248,18 +249,29 @@ export default function AddPiecePage() {
     
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      logger.debug('Optimizing recitation image for high quality', {
+        originalSize: formatFileSize(file.size),
+        fileName: file.name,
+      });
+
+      // Optimize image for recitation pages - high quality, clear, no blur
+      const optimizedBlob = await optimizeRecitationImage(file);
+      logger.debug('Recitation image optimized', {
+        optimizedSize: formatFileSize(optimizedBlob.size),
+        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
+      });
+
+      const fileName = `recitation-${Date.now()}.webp`;
       
-      logger.debug('Uploading image:', { fileName, size: file.size, type: file.type });
+      logger.debug('Uploading optimized recitation image:', { fileName, size: optimizedBlob.size });
       
-      // Upload with upsert option and proper content type
+      // Upload optimized image with WebP format for better compression
       const { data, error } = await supabase.storage
         .from('piece-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
+        .upload(fileName, optimizedBlob, {
+          cacheControl: '31536000', // 1 year cache for optimized images
           upsert: false,
-          contentType: file.type,
+          contentType: 'image/webp',
         });
       
       if (error) {

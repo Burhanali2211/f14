@@ -1,11 +1,14 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ChevronLeft, Loader2, Mic } from 'lucide-react';
 import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
+import { SEOHead } from '@/components/SEOHead';
 import { PieceCard } from '@/components/PieceCard';
 import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import { generateBreadcrumbStructuredData } from '@/lib/seo-utils';
 import type { Piece, Artiste } from '@/lib/supabase-types';
 
 export default function ArtistPage() {
@@ -28,14 +31,14 @@ export default function ArtistPage() {
         safeQuery(async () =>
           await (supabase as any)
             .from('artistes')
-            .select('*')
+            .select('name, image_url')
             .eq('name', decodedName)
             .maybeSingle()
         ),
         safeQuery(async () =>
           await supabase
             .from('pieces')
-            .select('*')
+            .select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id, text_content')
             .eq('reciter', decodedName)
             .order('created_at', { ascending: false })
         ),
@@ -133,6 +136,8 @@ export default function ArtistPage() {
           </div>
         )}
       </main>
+      
+      <Footer />
     </div>
   );
 }

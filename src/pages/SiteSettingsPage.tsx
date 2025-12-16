@@ -19,6 +19,7 @@ import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import { optimizeLogoImage, optimizeHeroImage, formatFileSize } from '@/lib/image-optimizer';
 import type { SiteSettings } from '@/lib/supabase-types';
 
 export default function SiteSettingsPage() {
@@ -267,15 +268,28 @@ export default function SiteSettingsPage() {
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      logger.debug('Optimizing logo/site image', {
+        originalSize: formatFileSize(file.size),
+        fileName: file.name,
+      });
+
+      // Optimize logo/site images for performance
+      const optimizedBlob = await optimizeLogoImage(file);
+      logger.debug('Logo image optimized', {
+        optimizedSize: formatFileSize(optimizedBlob.size),
+        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
+      });
+
+      const fileName = `site-${Date.now()}.webp`;
+
+      logger.debug('Uploading optimized logo image:', { fileName, size: optimizedBlob.size });
 
       const { data, error } = await supabase.storage
         .from('piece-images')
-        .upload(fileName, file, {
-          cacheControl: '3600',
+        .upload(fileName, optimizedBlob, {
+          cacheControl: '31536000', // 1 year cache
           upsert: false,
-          contentType: file.type,
+          contentType: 'image/webp',
         });
 
       if (error) {
@@ -304,6 +318,92 @@ export default function SiteSettingsPage() {
       return publicUrl;
     } catch (error: any) {
       logger.error('Unexpected error during image upload:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'An unexpected error occurred during upload',
+        variant: 'destructive',
+      });
+      return null;
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleHeroImageUpload = async (file: File) => {
+    if (!file) return null;
+
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) {
+      toast({
+        title: 'Error',
+        description: 'Invalid file type. Please upload an image (JPEG, PNG, WebP, or GIF)',
+        variant: 'destructive',
+      });
+      return null;
+    }
+
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        title: 'Error',
+        description: 'File too large. Maximum size is 10MB',
+        variant: 'destructive',
+      });
+      return null;
+    }
+
+    setUploading(true);
+    try {
+      logger.debug('Optimizing hero image', {
+        originalSize: formatFileSize(file.size),
+        fileName: file.name,
+      });
+
+      // Optimize hero images - larger but still optimized
+      const optimizedBlob = await optimizeHeroImage(file);
+      logger.debug('Hero image optimized', {
+        optimizedSize: formatFileSize(optimizedBlob.size),
+        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
+      });
+
+      const fileName = `hero-${Date.now()}.webp`;
+
+      logger.debug('Uploading optimized hero image:', { fileName, size: optimizedBlob.size });
+
+      const { data, error } = await supabase.storage
+        .from('piece-images')
+        .upload(fileName, optimizedBlob, {
+          cacheControl: '31536000', // 1 year cache
+          upsert: false,
+          contentType: 'image/webp',
+        });
+
+      if (error) {
+        logger.error('Hero image upload error:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to upload image. Please try again.',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      if (!data?.path) {
+        toast({
+          title: 'Error',
+          description: 'Upload succeeded but failed to get image URL',
+          variant: 'destructive',
+        });
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('piece-images')
+        .getPublicUrl(data.path);
+
+      return publicUrl;
+    } catch (error: any) {
+      logger.error('Unexpected error during hero image upload:', error);
       toast({
         title: 'Error',
         description: error.message || 'An unexpected error occurred during upload',
@@ -512,7 +612,7 @@ export default function SiteSettingsPage() {
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (file) {
-                    const url = await handleImageUpload(file);
+                    const url = await handleHeroImageUpload(file);
                     if (url) {
                       setSiteSettingsForm(f => ({ ...f, hero_image_url: url }));
                     }

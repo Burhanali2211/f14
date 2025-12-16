@@ -3,9 +3,19 @@
 User-agent: *
 Allow: /
 
+# Sitemap location
+Sitemap: https://your-domain.com/sitemap.xml
+
 # Crawl-delay
 Crawl-delay: 1
 
 # Disallow admin pages from indexing
 Disallow: /admin
 Disallow: /auth
+Disallow: /uploader
+
+# Allow important pages
+Allow: /piece/
+Allow: /category/
+Allow: /figure/
+Allow: /artist/

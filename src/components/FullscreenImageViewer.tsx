@@ -234,20 +234,25 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
       document.body.style.width = '100%';
       document.body.style.height = '100%';
       
-      // Prevent all wheel and touch events from scrolling the background
-      // React's synthetic events will still work because we only preventDefault, not stopPropagation
+      // Prevent wheel and touch events from scrolling the background
+      // Only prevent if event is NOT on the image viewer container
       const handleWheel = (e: WheelEvent) => {
-        e.preventDefault();
-        // Don't stop propagation - let React handlers still fire
+        const target = e.target as HTMLElement;
+        // Only prevent default if event is outside the image viewer
+        if (!containerRef.current?.contains(target)) {
+          e.preventDefault();
+        }
       };
       
       const handleTouchMove = (e: TouchEvent) => {
-        e.preventDefault();
-        // Don't stop propagation - let React handlers still fire
+        const target = e.target as HTMLElement;
+        // Only prevent default if event is outside the image viewer
+        if (!containerRef.current?.contains(target)) {
+          e.preventDefault();
+        }
       };
       
       // Add listeners with capture: true to catch events early
-      // React's event delegation will still work
       const options = { passive: false, capture: true };
       
       document.addEventListener('wheel', handleWheel, options);
@@ -270,6 +275,23 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     }
   }, [isOpen]);
 
+  // Cleanup animation frame and timeouts on unmount or close
+  useEffect(() => {
+    return () => {
+      if (wheelAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(wheelAnimationFrameRef.current);
+        wheelAnimationFrameRef.current = null;
+      }
+      if (throttleTimeoutRef.current) {
+        clearTimeout(throttleTimeoutRef.current);
+        throttleTimeoutRef.current = null;
+      }
+      wheelDeltaRef.current = 0;
+      pendingZoomRef.current = null;
+      pendingPositionRef.current = null;
+    };
+  }, []);
+
   // Reset on open and when src changes
   useEffect(() => {
     if (isOpen && src) {
@@ -289,6 +311,18 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
       isInitialLoadRef.current = true;
       prevRotationRef.current = 0;
       setImageDimensions({ width: 0, height: 0 });
+      // Reset wheel state
+      wheelDeltaRef.current = 0;
+      if (wheelAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(wheelAnimationFrameRef.current);
+        wheelAnimationFrameRef.current = null;
+      }
+      if (throttleTimeoutRef.current) {
+        clearTimeout(throttleTimeoutRef.current);
+        throttleTimeoutRef.current = null;
+      }
+      pendingZoomRef.current = null;
+      pendingPositionRef.current = null;
       
       // Clear any existing loading timeout
       if (loadingTimeoutRef.current) {
@@ -760,23 +794,119 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
   }, [resetControlsTimeout]);
 
 
-  // Wheel zoom with position constraint
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // Wheel zoom with position constraint - throttled to prevent excessive updates
+  const wheelDeltaRef = useRef(0);
+  const wheelAnimationFrameRef = useRef<number | null>(null);
+  const lastStateUpdateRef = useRef(0);
+  const pendingZoomRef = useRef<number | null>(null);
+  const pendingPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentZoomRef = useRef(zoom);
+  const currentPositionRef = useRef(position);
+  const STATE_UPDATE_THROTTLE_MS = 50; // Update state at most every 50ms (20fps instead of 60fps)
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    currentZoomRef.current = zoom;
+    currentPositionRef.current = position;
+  }, [zoom, position]);
+
+
+  // Set up native non-passive wheel listener to avoid passive event listener errors
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const container = containerRef.current;
     
-    // Always zoom when wheel is used on the image viewer
-    // Ctrl/Cmd + wheel is standard, but we'll also allow plain wheel
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    setZoom(prev => {
-      const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, prev + delta));
-      // Constrain position with 5px padding after zoom
-      const constrained = constrainPosition(position.x, position.y, newZoom);
-      setPosition(constrained);
-      return newZoom;
-    });
-    resetControlsTimeout();
-  }, [minZoom, position, constrainPosition, resetControlsTimeout]);
+    // Use native event listener with passive: false to properly preventDefault
+    const nativeHandleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Accumulate wheel delta
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      wheelDeltaRef.current += delta;
+      
+      // Throttle updates using requestAnimationFrame - only update once per frame
+      if (wheelAnimationFrameRef.current === null) {
+        wheelAnimationFrameRef.current = requestAnimationFrame(() => {
+          const accumulatedDelta = wheelDeltaRef.current;
+          wheelDeltaRef.current = 0;
+          wheelAnimationFrameRef.current = null;
+          
+          if (Math.abs(accumulatedDelta) > 0.001) {
+            // Calculate new zoom and position but store in refs
+            const currentZoom = pendingZoomRef.current ?? currentZoomRef.current;
+            const currentPos = pendingPositionRef.current ?? currentPositionRef.current;
+            
+            const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, currentZoom + accumulatedDelta));
+            const constrained = constrainPosition(currentPos.x, currentPos.y, newZoom);
+            
+            // Always update pending values (they accumulate)
+            pendingZoomRef.current = newZoom;
+            pendingPositionRef.current = constrained;
+            
+            // Throttle state updates - only update every STATE_UPDATE_THROTTLE_MS
+            const now = Date.now();
+            const timeSinceLastUpdate = now - lastStateUpdateRef.current;
+            
+            if (timeSinceLastUpdate >= STATE_UPDATE_THROTTLE_MS) {
+              // Update immediately
+              setZoom(newZoom);
+              setPosition(constrained);
+              pendingZoomRef.current = null;
+              pendingPositionRef.current = null;
+              lastStateUpdateRef.current = now;
+              resetControlsTimeout();
+              
+              // Cancel any pending delayed update since we just updated
+              if (throttleTimeoutRef.current) {
+                clearTimeout(throttleTimeoutRef.current);
+                throttleTimeoutRef.current = null;
+              }
+            } else {
+              // Clear any existing timeout to prevent cascades
+              if (throttleTimeoutRef.current) {
+                clearTimeout(throttleTimeoutRef.current);
+              }
+              
+              // Schedule a single delayed update (will be canceled if another immediate update happens)
+              const delay = STATE_UPDATE_THROTTLE_MS - timeSinceLastUpdate;
+              throttleTimeoutRef.current = setTimeout(() => {
+                // Only update if we still have pending values (not canceled by immediate update)
+                if (pendingZoomRef.current !== null && pendingPositionRef.current !== null) {
+                  setZoom(pendingZoomRef.current);
+                  setPosition(pendingPositionRef.current);
+                  pendingZoomRef.current = null;
+                  pendingPositionRef.current = null;
+                  lastStateUpdateRef.current = Date.now();
+                  resetControlsTimeout();
+                }
+                throttleTimeoutRef.current = null;
+              }, delay);
+            }
+          }
+        });
+      }
+    };
+
+    container.addEventListener('wheel', nativeHandleWheel, { passive: false });
+    
+    return () => {
+      container.removeEventListener('wheel', nativeHandleWheel);
+      if (wheelAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(wheelAnimationFrameRef.current);
+        wheelAnimationFrameRef.current = null;
+      }
+      if (throttleTimeoutRef.current) {
+        clearTimeout(throttleTimeoutRef.current);
+        throttleTimeoutRef.current = null;
+      }
+      wheelDeltaRef.current = 0;
+      pendingZoomRef.current = null;
+      pendingPositionRef.current = null;
+    };
+  }, [isOpen, minZoom, constrainPosition, resetControlsTimeout]);
 
   // Download image
   const handleDownload = useCallback(async () => {
@@ -803,7 +933,6 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
       ref={containerRef}
       className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-sm"
       onClick={handleContainerClick}
-      onWheel={handleWheel}
       style={{ 
         touchAction: 'none',
         overscrollBehavior: 'none',
@@ -820,7 +949,6 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
           touchAction: 'none',
           overscrollBehavior: 'none',
         }}
-        onWheel={handleWheel}
         onTouchStart={(e) => {
           // Don't prevent default on container - let buttons handle their own touches
           e.stopPropagation();

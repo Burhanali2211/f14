@@ -49,10 +49,11 @@ export function useSearch() {
       
       // Use proper Supabase .or() syntax: column.operator.value,column.operator.value
       // The format is: column1.operator.value,column2.operator.value
+      // Optimized: Select only needed fields for search results
       const { data, error } = await safeQuery(async () => {
         return await supabase
           .from('pieces')
-          .select('*')
+          .select('id, title, image_url, reciter, language, view_count, video_url, text_content, category_id')
           .or(`title.ilike.${searchPattern},text_content.ilike.${searchPattern},reciter.ilike.${searchPattern}`)
           .limit(20)
           .order('view_count', { ascending: false });
@@ -62,25 +63,26 @@ export function useSearch() {
         // If .or() fails, try alternative approach with separate queries
         logger.warn('Primary search failed, trying alternative method:', error);
         
+        // Optimized: Select only needed fields for search results
         const [titleRes, contentRes, reciterRes] = await Promise.all([
           safeQuery(async () => 
             await supabase
               .from('pieces')
-              .select('*')
+              .select('id, title, image_url, reciter, language, view_count, video_url, text_content, category_id')
               .ilike('title', searchPattern)
               .limit(20)
           ),
           safeQuery(async () => 
             await supabase
               .from('pieces')
-              .select('*')
+              .select('id, title, image_url, reciter, language, view_count, video_url, text_content, category_id')
               .ilike('text_content', searchPattern)
               .limit(20)
           ),
           safeQuery(async () => 
             await supabase
               .from('pieces')
-              .select('*')
+              .select('id, title, image_url, reciter, language, view_count, video_url, text_content, category_id')
               .ilike('reciter', searchPattern)
               .limit(20)
           ),

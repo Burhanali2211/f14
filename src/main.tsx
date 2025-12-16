@@ -3,117 +3,102 @@ import App from "./App.tsx";
 import "./index.css";
 import { performanceMonitor } from "./lib/error-tracking";
 
-// Function to get current zoom level using multiple methods
+// Function to get current zoom level - only use reliable methods
 const getZoomLevel = (): number => {
+  // Method 1: Visual Viewport API (most accurate, works on mobile and modern desktop browsers)
   const visualViewport = (window as any).visualViewport;
-  let zoom = 1;
-  
-  // Method 1: Visual Viewport API (most accurate on mobile)
-  if (visualViewport && visualViewport.scale) {
-    zoom = visualViewport.scale;
-  }
-  // Method 2: Compare innerWidth to outerWidth (browser zoom detection)
-  else if (window.outerWidth && window.innerWidth) {
-    zoom = window.outerWidth / window.innerWidth;
-  }
-  // Method 3: Compare screen width to viewport width
-  else if (window.screen && window.screen.width && document.documentElement) {
-    const screenWidth = window.screen.width;
-    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    if (viewportWidth > 0) {
-      zoom = screenWidth / viewportWidth;
-    }
-  }
-  // Method 4: devicePixelRatio (can indicate zoom on some browsers)
-  else {
-    zoom = window.devicePixelRatio || 1;
+  if (visualViewport && visualViewport.scale !== undefined) {
+    return visualViewport.scale;
   }
   
-  // Also check for CSS zoom property
+  // Method 2: Check CSS zoom property (if explicitly set)
   const htmlZoom = parseFloat((document.documentElement.style as any).zoom || '1');
   const bodyZoom = parseFloat((document.body.style as any).zoom || '1');
+  if (htmlZoom !== 1 && htmlZoom > 0) {
+    return htmlZoom;
+  }
+  if (bodyZoom !== 1 && bodyZoom > 0) {
+    return bodyZoom;
+  }
   
-  // If CSS zoom is set, use that instead
-  if (htmlZoom !== 1) return htmlZoom;
-  if (bodyZoom !== 1) return bodyZoom;
+  // On desktop, width-based methods are unreliable due to browser chrome
+  // Only use them on mobile where they're more accurate
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
-  return zoom;
-};
-
-// Function to reset zoom to 1.0 using multiple aggressive methods
-const resetZoom = (): void => {
-  // Method 1: Reset viewport meta tag (most important for mobile)
-  const viewport = document.querySelector('meta[name="viewport"]');
-  if (viewport) {
-    // Remove and re-add to force browser to re-parse
-    const parent = viewport.parentNode;
-    const content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
-    viewport.setAttribute('content', content);
-    // Force re-application by temporarily removing
-    if (parent) {
-      parent.removeChild(viewport);
-      parent.insertBefore(viewport, parent.firstChild);
+  if (isMobile) {
+    // Method 3: On mobile, compare screen width to viewport width (more reliable)
+    if (window.screen && window.screen.width && document.documentElement) {
+      const screenWidth = window.screen.width;
+      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+      if (viewportWidth > 0 && screenWidth > 0) {
+        const calculatedZoom = screenWidth / viewportWidth;
+        // Only return if it's significantly different from 1 (not just browser UI)
+        if (Math.abs(calculatedZoom - 1) > 0.1) {
+          return calculatedZoom;
+        }
+      }
     }
   }
   
-  // Method 2: Force reset using CSS zoom property (works in some browsers)
-  try {
-    (document.body.style as any).zoom = '1';
-    (document.documentElement.style as any).zoom = '1';
-  } catch (e) {
-    // Ignore errors
+  // Default: assume no zoom
+  return 1;
+};
+
+// Ensure viewport meta tag exists and is correct (in case it was removed/modified)
+// Only update if content actually differs to avoid unnecessary re-parsing
+// MUST be defined before resetZoomInternal uses it
+const ensureViewportMeta = () => {
+  let viewport = document.querySelector('meta[name="viewport"]');
+  if (!viewport) {
+    viewport = document.createElement('meta');
+    viewport.setAttribute('name', 'viewport');
+    document.head.insertBefore(viewport, document.head.firstChild);
   }
-  
-  // Method 3: Use Visual Viewport API to reset (if available)
-  const visualViewport = (window as any).visualViewport;
-  if (visualViewport && visualViewport.scale !== 1) {
-    // Try to programmatically reset (may not work in all browsers)
-    try {
-      // Force a resize event that might trigger browser to reset
-      window.dispatchEvent(new Event('resize'));
-    } catch (e) {
-      // Ignore errors
-    }
-  }
-  
-  // Method 4: Remove any CSS transforms that might cause scaling
-  const htmlElement = document.documentElement;
-  const bodyElement = document.body;
-  const htmlTransform = htmlElement.style.transform;
-  const bodyTransform = bodyElement.style.transform;
-  
-  // Check if transform contains scale
-  if (htmlTransform && htmlTransform.includes('scale')) {
-    htmlElement.style.transform = htmlTransform.replace(/scale\([^)]+\)/g, 'scale(1)');
-  }
-  if (bodyTransform && bodyTransform.includes('scale')) {
-    bodyElement.style.transform = bodyTransform.replace(/scale\([^)]+\)/g, 'scale(1)');
+  const correctContent = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
+  const currentContent = viewport.getAttribute('content');
+  // Only update if content actually differs
+  if (currentContent !== correctContent) {
+    viewport.setAttribute('content', correctContent);
   }
 };
 
-// Reset zoom immediately when script loads
+// COMPLETELY REMOVED resetZoom functions - they were causing the zoom issues!
+// We rely ONLY on the viewport meta tag to prevent zoom
+// No programmatic zoom manipulation whatsoever
+
+// Ensure viewport meta is correct on load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    resetZoom();
+    ensureViewportMeta();
   });
 } else {
-  resetZoom();
+  ensureViewportMeta();
 }
 
 // Reset zoom on page visibility change (when user returns to tab)
+// REMOVED: This was causing issues - just ensure viewport meta is correct
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) {
-    resetZoom();
+    ensureViewportMeta();
   }
 });
 
 // Reset zoom on window resize (handles orientation changes)
+// REMOVED: resetZoom() calls - they were causing the zoom issues
+// Just ensure viewport meta is correct
 let resizeTimeout: ReturnType<typeof setTimeout>;
+let lastResizeCheck = 0;
+const RESIZE_CHECK_DEBOUNCE_MS = 500; // Only check every 500ms
 window.addEventListener('resize', () => {
+  const now = Date.now();
+  if (now - lastResizeCheck < RESIZE_CHECK_DEBOUNCE_MS) return;
+  lastResizeCheck = now;
+  
   clearTimeout(resizeTimeout);
   resizeTimeout = setTimeout(() => {
-    resetZoom();
-  }, 100);
+    // Just ensure viewport meta is correct - that's all we need
+    ensureViewportMeta();
+  }, 200);
 });
 
 // Prevent zoom gestures (pinch-to-zoom, double-tap zoom) on the website
@@ -160,39 +145,24 @@ document.addEventListener('wheel', (e) => {
 }, { passive: false });
 
 // Additional zoom prevention using Visual Viewport API (more reliable on mobile)
+// Use debounced handler to prevent event loops
 if ('visualViewport' in window) {
   const visualViewport = (window as any).visualViewport;
+  let lastScaleCheck = 0;
+  const SCALE_CHECK_DEBOUNCE_MS = 200;
   
-  visualViewport.addEventListener('resize', () => {
-    const currentScale = visualViewport.scale;
+  const handleViewportChange = () => {
+    const now = Date.now();
+    if (now - lastScaleCheck < SCALE_CHECK_DEBOUNCE_MS) return;
+    lastScaleCheck = now;
     
-    // If zoom is not 1.0, reset it
-    if (currentScale !== 1.0) {
-      resetZoom();
-    }
-  });
+    // COMPLETELY REMOVED: Any zoom manipulation
+    // The viewport meta tag is the only way to prevent zoom
+  };
   
-  visualViewport.addEventListener('scroll', () => {
-    const currentScale = visualViewport.scale;
-    if (currentScale !== 1.0) {
-      resetZoom();
-    }
-  });
+  visualViewport.addEventListener('resize', handleViewportChange);
+  // Don't listen to scroll events - they fire too frequently and cause loops
 }
-
-// Ensure viewport meta tag exists and is correct (in case it was removed/modified)
-const ensureViewportMeta = () => {
-  let viewport = document.querySelector('meta[name="viewport"]');
-  if (!viewport) {
-    viewport = document.createElement('meta');
-    viewport.setAttribute('name', 'viewport');
-    document.head.insertBefore(viewport, document.head.firstChild);
-  }
-  const correctContent = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
-  if (viewport.getAttribute('content') !== correctContent) {
-    viewport.setAttribute('content', correctContent);
-  }
-};
 
 // Ensure viewport meta is correct on load
 ensureViewportMeta();
@@ -205,7 +175,7 @@ const viewportObserver = new MutationObserver((mutations) => {
       const correctContent = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
       if (viewport.getAttribute('content') !== correctContent) {
         ensureViewportMeta();
-        resetZoom();
+        // COMPLETELY REMOVED: Any zoom manipulation
       }
     }
   });
@@ -218,70 +188,21 @@ if (viewportMeta) {
 }
 
 // Function to check for viewport width mismatch (indicates zoom)
-// Only check on mobile devices where screen width should match viewport
+// DISABLED: This function was incorrectly detecting mismatches and causing issues
+// The viewport meta tag is sufficient to prevent zoom
 const checkViewportMismatch = (): boolean => {
-  const screenWidth = window.screen?.width || 0;
-  const innerWidth = window.innerWidth;
-  const outerWidth = window.outerWidth;
-  const devicePixelRatio = window.devicePixelRatio || 1;
-  
-  // Only check on mobile devices (where outerWidth should be close to screenWidth)
-  // On desktop, browser chrome makes outerWidth much smaller than screenWidth
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  const isLikelyMobile = outerWidth > 0 && Math.abs(outerWidth - screenWidth) < 100; // Desktop browsers have significant chrome
-  
-  let widthMismatch = false;
-  if (isMobile || isLikelyMobile) {
-    // On mobile, expected width should be close to screen width (accounting for device pixel ratio)
-    const expectedWidth = screenWidth > 0 ? screenWidth / devicePixelRatio : innerWidth;
-    // Allow larger tolerance on mobile (50px) due to browser UI variations
-    widthMismatch = Math.abs(innerWidth - expectedWidth) > 50;
-  }
-  // On desktop, don't check - browser chrome makes this unreliable
-  
-  return widthMismatch;
+  // Always return false - we don't want to trigger any zoom resets
+  // The viewport meta tag handles zoom prevention
+  return false;
 };
 
-// More aggressive approach: Force viewport meta tag on every check
-// Some browsers ignore viewport meta if it's set before content loads
-let lastViewportCheck = 0;
-const forceViewportReset = () => {
-  const now = Date.now();
-  // Only force reset every 500ms to avoid performance issues
-  if (now - lastViewportCheck < 500) return;
-  lastViewportCheck = now;
-  
-  const viewport = document.querySelector('meta[name="viewport"]');
-  if (viewport) {
-    // Force browser to re-parse by changing content slightly then back
-    const currentContent = viewport.getAttribute('content') || '';
-    const targetContent = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no';
-    
-    if (currentContent !== targetContent) {
-      // Remove and re-add to force browser to re-parse
-      const parent = viewport.parentNode;
-      if (parent) {
-        parent.removeChild(viewport);
-        const newViewport = document.createElement('meta');
-        newViewport.setAttribute('name', 'viewport');
-        newViewport.setAttribute('content', targetContent);
-        parent.insertBefore(newViewport, parent.firstChild);
-      }
-    }
-  }
-};
+// Removed forceViewportReset - it was too aggressive and caused issues
+// The ensureViewportMeta function is sufficient
 
-// Re-check viewport meta periodically (in case something modifies it)
-setInterval(() => {
-  ensureViewportMeta();
-  forceViewportReset(); // Aggressively enforce viewport meta
-  const currentZoom = getZoomLevel();
-  const hasMismatch = checkViewportMismatch();
-  
-  if (currentZoom !== 1.0 || hasMismatch) {
-    resetZoom();
-  }
-}, 1000);
+// DISABLED: Periodic zoom checks were causing issues
+// The viewport meta tag is sufficient to prevent zoom
+// Only ensure viewport meta is correct on load and when it changes
+// No periodic checks needed
 
 // Initialize performance monitoring
 performanceMonitor.measurePageLoad();

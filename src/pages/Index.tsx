@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { SEOHead } from '@/components/SEOHead';
 import { UpcomingEvents } from '@/components/UpcomingEvents';
 import { HeroSection } from '@/components/sections/HeroSection';
 import { CategoriesSection } from '@/components/sections/CategoriesSection';
@@ -14,6 +15,7 @@ import { CTASection } from '@/components/sections/CTASection';
 import { useIndexData } from '@/hooks/use-index-data';
 import { useSearch } from '@/hooks/use-search';
 import { useEventToast } from '@/hooks/use-event-toast';
+import { generateWebSiteStructuredData } from '@/lib/seo-utils';
 
 export default function Index() {
   const {
@@ -44,8 +46,24 @@ export default function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Generate SEO data for homepage
+  const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const seoStructuredData = generateWebSiteStructuredData(siteUrl);
+
   return (
     <div className="min-h-screen bg-background">
+      {/* SEO Head for homepage */}
+      <SEOHead
+        title="Kalam Reader - islamic poetry & Content Reader"
+        description="Discover and read islamic poetry - Naat, Manqabat, Noha, Dua, Marsiya and more. Your spiritual companion with video support. Read and connect with your heritage."
+        keywords="islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Islamic content, Urdu poetry, Arabic poetry, recitation"
+        image={`${siteUrl}/main.png`}
+        url={siteUrl}
+        type="website"
+        structuredData={seoStructuredData}
+        canonicalUrl={siteUrl}
+      />
+      
       <Header />
       
       <HeroSection

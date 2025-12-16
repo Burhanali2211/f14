@@ -227,31 +227,50 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
               <div className="space-y-2">
                 <Label>Reader Background</Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {(['default', 'sepia', 'dark', 'paper'] as const).map((bg) => (
+                <p className="text-xs text-muted-foreground mb-2">
+                  Choose a background theme for optimal reading
+                </p>
+                <div className="grid grid-cols-5 gap-2 max-h-[280px] overflow-y-auto custom-scrollbar pr-1">
+                  {([
+                    { value: 'default', label: 'Default', preview: 'bg-card' },
+                    { value: 'sepia', label: 'Sepia', preview: 'bg-amber-50 dark:bg-amber-950' },
+                    { value: 'paper', label: 'Paper', preview: 'bg-stone-100 dark:bg-stone-900' },
+                    { value: 'parchment', label: 'Parchment', preview: 'bg-amber-100 dark:bg-amber-900/40' },
+                    { value: 'cream', label: 'Cream', preview: 'bg-amber-50 dark:bg-amber-950/20' },
+                    { value: 'warm-white', label: 'Warm', preview: 'bg-orange-50 dark:bg-orange-950/20' },
+                    { value: 'blue-light', label: 'Blue', preview: 'bg-blue-50 dark:bg-blue-950/30' },
+                    { value: 'green-light', label: 'Green', preview: 'bg-emerald-50 dark:bg-emerald-950/30' },
+                    { value: 'dark', label: 'Dark', preview: 'bg-zinc-900' },
+                    { value: 'night', label: 'Night', preview: 'bg-slate-950' },
+                  ] as const).map((bg) => (
                     <button
-                      key={bg}
-                      onClick={() => updateSetting('readerBackground', bg)}
-                      className={`h-12 rounded-lg border-2 transition-all ${
-                        settings.readerBackground === bg 
-                          ? 'border-primary ring-2 ring-primary/20' 
-                          : 'border-border hover:border-primary/50'
-                      } ${
-                        bg === 'default' ? 'bg-card' :
-                        bg === 'sepia' ? 'bg-amber-50 dark:bg-amber-950' :
-                        bg === 'dark' ? 'bg-zinc-900' :
-                        'bg-stone-100 dark:bg-stone-900'
-                      }`}
+                      key={bg.value}
+                      onClick={() => updateSetting('readerBackground', bg.value)}
+                      className={`h-14 rounded-lg border-2 transition-all relative overflow-hidden group ${
+                        settings.readerBackground === bg.value 
+                          ? 'border-primary ring-2 ring-primary/20 scale-105' 
+                          : 'border-border hover:border-primary/50 hover:scale-102'
+                      } ${bg.preview}`}
+                      title={bg.label}
                     >
-                      <span className="sr-only">{bg}</span>
+                      {settings.readerBackground === bg.value && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-5 h-5 rounded-full bg-primary/20 flex items-center justify-center">
+                            <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                          </div>
+                        </div>
+                      )}
+                      <div className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-full px-0.5">
+                        <span className={`text-[9px] font-medium leading-tight ${
+                          bg.value === 'dark' || bg.value === 'night' 
+                            ? 'text-white' 
+                            : 'text-zinc-700 dark:text-zinc-300'
+                        }`}>
+                          {bg.label}
+                        </span>
+                      </div>
                     </button>
                   ))}
-                </div>
-                <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground text-center">
-                  <span>Default</span>
-                  <span>Sepia</span>
-                  <span>Dark</span>
-                  <span>Paper</span>
                 </div>
               </div>
 
