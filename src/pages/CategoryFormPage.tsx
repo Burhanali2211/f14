@@ -177,16 +177,7 @@ export default function CategoryFormPage() {
 
     setUploadingImage(true);
     try {
-      logger.debug('Optimizing category background image', {
-        originalSize: formatFileSize(categoryImageFile.size),
-        fileName: categoryImageFile.name,
-      });
-
       const optimizedBlob = await optimizeCategoryBgImage(categoryImageFile);
-      logger.debug('Image optimized', {
-        optimizedSize: formatFileSize(optimizedBlob.size),
-        reduction: `${Math.round((1 - optimizedBlob.size / categoryImageFile.size) * 100)}%`,
-      });
 
       const fileName = `category-bg-${Date.now()}.webp`;
 
@@ -222,10 +213,6 @@ export default function CategoryFormPage() {
         .from('piece-images')
         .getPublicUrl(data.path);
 
-      console.log('✅ Image uploaded successfully!');
-      console.log('  - File path:', data.path);
-      console.log('  - Public URL:', publicUrl);
-      logger.debug('Got public URL for uploaded image:', publicUrl);
       return publicUrl;
     } catch (error: any) {
       logger.error('Unexpected error during category image upload:', error);
@@ -254,22 +241,12 @@ export default function CategoryFormPage() {
     try {
       // Upload image if a new one was selected
       let bgImageUrl = categoryForm.bg_image_url;
-      console.log('📤 Image upload check:', {
-        hasFile: !!categoryImageFile,
-        hasExistingUrl: !!categoryForm.bg_image_url,
-        existingUrl: categoryForm.bg_image_url
-      });
       
       if (categoryImageFile) {
-        console.log('🔄 Starting image upload...');
-        logger.debug('Uploading new category image...');
         const uploadedUrl = await uploadCategoryImage();
         if (uploadedUrl) {
           bgImageUrl = uploadedUrl;
-          console.log('✅ Image upload complete! URL:', uploadedUrl);
-          logger.debug('Image uploaded successfully, URL:', uploadedUrl);
         } else {
-          console.error('❌ Image upload failed - no URL returned');
           logger.error('Image upload failed');
           toast({
             title: 'Error',
@@ -282,10 +259,6 @@ export default function CategoryFormPage() {
       } else if (categoryForm.bg_image_url) {
         // Keep existing image URL if no new file selected
         bgImageUrl = categoryForm.bg_image_url;
-        console.log('ℹ️ Using existing image URL:', bgImageUrl);
-        logger.debug('Using existing image URL:', bgImageUrl);
-      } else {
-        console.log('ℹ️ No image to upload or use');
       }
 
       const data = {
@@ -301,26 +274,6 @@ export default function CategoryFormPage() {
         bg_image_scale: categoryForm.bg_image_scale,
       };
 
-      // Log the actual data being saved
-      console.log('💾 Saving category with data:', {
-        name: data.name,
-        slug: data.slug,
-        bg_image_url: bgImageUrl || 'NULL - NO IMAGE URL',
-        bg_image_position: data.bg_image_position,
-        bg_image_opacity: data.bg_image_opacity,
-        bg_image_blur: data.bg_image_blur,
-        bg_image_scale: data.bg_image_scale,
-        fullData: data
-      });
-      
-      logger.debug('Saving category with data:', { 
-        name: data.name,
-        slug: data.slug,
-        bg_image_url: bgImageUrl ? `URL: ${bgImageUrl.substring(0, 50)}...` : 'No URL',
-        bg_image_position: data.bg_image_position,
-        bg_image_opacity: data.bg_image_opacity,
-        bg_image_blur: data.bg_image_blur,
-      });
 
       if (isEditing && id) {
         const { error } = await authenticatedQuery(async () =>
@@ -343,8 +296,6 @@ export default function CategoryFormPage() {
         
         // Don't verify immediately - the update succeeded (204 response)
         // The verification query might fail due to RLS, but the update worked
-        logger.debug('Category update completed (204 response)');
-        console.log('✅ Category update completed. Image URL should be saved:', bgImageUrl);
         toast({
           title: 'Success',
           description: 'Category updated successfully',
@@ -369,8 +320,6 @@ export default function CategoryFormPage() {
         }
         
         const savedCategory = Array.isArray(insertedData) ? insertedData[0] : insertedData;
-        logger.debug('Category created successfully. Image URL saved:', savedCategory?.bg_image_url);
-        console.log('✅ Category created with image URL:', savedCategory?.bg_image_url || 'NO URL');
         toast({
           title: 'Success',
           description: 'Category created successfully',

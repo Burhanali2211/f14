@@ -5,8 +5,6 @@ import { getCurrentUser } from './auth-utils';
 import type { UserRole, UserProfile } from './supabase-types';
 
 export async function getUserProfile(userId: string): Promise<UserProfile | null> {
-  logger.debug('UserRole: Fetching profile for userId', userId);
-  
   const { data, error } = await safeQuery(async () => {
     return await (supabase as any)
       .from('users')
@@ -21,7 +19,6 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
   }
   
   if (!data) {
-    logger.debug('UserRole: No profile data found');
     return null;
   }
   
@@ -36,23 +33,18 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
     updated_at: userData.updated_at,
   };
   
-  logger.debug('UserRole: Profile found', { id: profile.id, role: profile.role });
   return profile;
 }
 
 export async function getCurrentUserRole(): Promise<UserRole> {
   try {
-    logger.debug('UserRole: Getting current user role');
-    
     const user = getCurrentUser();
     
     if (!user) {
-      logger.debug('UserRole: No user found');
       return 'user';
     }
 
     const role = user.role as UserRole || 'user';
-    logger.debug('UserRole: Current role', role);
     return role;
   } catch (error) {
     logger.error('UserRole: Error in getCurrentUserRole:', error);
@@ -62,12 +54,9 @@ export async function getCurrentUserRole(): Promise<UserRole> {
 
 export async function getCurrentUserProfile(): Promise<UserProfile | null> {
   try {
-    logger.debug('UserRole: Getting current user profile');
-    
     const user = getCurrentUser();
     
     if (!user) {
-      logger.debug('UserRole: No user found');
       return null;
     }
 
@@ -105,7 +94,6 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
     }
 
     if (!data) {
-      logger.debug('UserRole: No profile data found in DB');
       return null;
     }
 
@@ -129,7 +117,6 @@ export async function getCurrentUserProfile(): Promise<UserProfile | null> {
       updated_at: userData.updated_at,
     };
 
-    logger.debug('UserRole: Profile fetched from DB', { id: profile.id, role: profile.role });
     return profile;
   } catch (error) {
     logger.error('UserRole: Error in getCurrentUserProfile:', error);

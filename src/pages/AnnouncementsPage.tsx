@@ -324,21 +324,10 @@ export default function AnnouncementsPage() {
     
     setUploadingThumbnail(true);
     try {
-      logger.debug('Optimizing announcement thumbnail', {
-        originalSize: formatFileSize(file.size),
-        fileName: file.name,
-      });
-
       // Optimize thumbnail for announcements - balanced optimization
       const optimizedBlob = await optimizeAnnouncementThumbnail(file);
-      logger.debug('Announcement thumbnail optimized', {
-        optimizedSize: formatFileSize(optimizedBlob.size),
-        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
-      });
 
       const fileName = `announcements/${Date.now()}.webp`;
-      
-      logger.debug('Uploading optimized thumbnail:', { fileName, size: optimizedBlob.size });
       
       // Upload optimized thumbnail
       const { data, error } = await supabase.storage
@@ -373,7 +362,6 @@ export default function AnnouncementsPage() {
         .from('piece-images')
         .getPublicUrl(data.path);
       
-      logger.debug('Thumbnail uploaded successfully:', publicUrl);
       setAnnouncementForm(prev => ({ ...prev, thumbnailUrl: publicUrl }));
       toast({
         title: 'Success',
@@ -406,7 +394,6 @@ export default function AnnouncementsPage() {
       }
 
       if (!users || users.length === 0) {
-        logger.info('No users with notifications enabled');
         toast({
           title: 'Info',
           description: 'No users have notifications enabled yet',
@@ -414,30 +401,24 @@ export default function AnnouncementsPage() {
         return;
       }
 
-      logger.info(`Sending notifications to ${users.length} users`);
-
       // The database INSERT will trigger Realtime listeners on all clients
       // All users who have the app open are listening to INSERT events on announcements table
       // The Realtime listener in App.tsx will handle showing notifications to all users
       // We don't need to manually show notifications here - let Realtime handle it
       // This prevents duplicate notifications (especially on mobile devices)
-      logger.info('Announcement will be broadcast via database Realtime listeners to all devices');
 
       // Method 3: For future implementation - Web Push to all subscriptions
       // This would require a backend service with VAPID keys
-      // For now, we'll log that subscriptions exist for future use
+      // For now, we'll check that subscriptions exist for future use
       const { data: subscriptions } = await supabase
         .from('push_subscriptions')
         .select('id, user_id, endpoint')
         .in('user_id', users.map(u => u.id));
 
       if (subscriptions && subscriptions.length > 0) {
-        logger.info(`Found ${subscriptions.length} push subscriptions (for future Web Push implementation)`);
         // TODO: Implement Web Push sending via Supabase Edge Function
         // This requires VAPID keys and a backend service
       }
-      
-      logger.info(`Notification broadcast completed`);
       
     } catch (error) {
       logger.error('Error sending notifications:', error);
@@ -764,10 +745,103 @@ export default function AnnouncementsPage() {
                   }
                   rows={6}
                 />
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">💡 Writing Suggestions:</p>
+                  <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                    <li>Keep the message clear and concise (2-3 sentences recommended)</li>
+                    <li>Include the significance or importance of the event</li>
+                    <li>Mention any special recitations or programs related to the event</li>
+                    <li>Add a call to action if relevant (e.g., "Join us in remembrance")</li>
+                    <li>Event date and hijri date will be automatically added if provided</li>
+                  </ul>
+                </div>
                 <p className="text-xs text-muted-foreground">
                   This message will be included in the notification. Event date and hijri date will be automatically appended if provided.
                 </p>
               </div>
+
+              {/* Notification Preview */}
+              {(announcementForm.title || announcementForm.message) && (
+                <div className="space-y-2">
+                  <Label>Notification Preview</Label>
+                  <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      {announcementForm.thumbnailUrl && (
+                        <img
+                          src={announcementForm.thumbnailUrl}
+                          alt="Preview"
+                          className="w-12 h-12 object-cover rounded border border-border flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-foreground mb-1">
+                          {(() => {
+                            const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none'
+                              ? imams.find(i => i.id === announcementForm.imamId)
+                              : null;
+                            const imamName = selectedImam?.name || '';
+                            
+                            if (announcementForm.title) {
+                              return announcementForm.title;
+                            }
+                            
+                            switch (announcementForm.eventType) {
+                              case 'birthday':
+                                return imamName ? `🎂 Birth Anniversary: ${imamName}` : 'Birth Anniversary';
+                              case 'martyrdom':
+                                return imamName ? `🕊️ Martyrdom: ${imamName}` : 'Martyrdom Commemoration';
+                              case 'death':
+                                return imamName ? `🕯️ Passing: ${imamName}` : 'Commemoration';
+                              case 'other':
+                                return '📢 Important Event';
+                              default:
+                                return '📢 Announcement';
+                            }
+                          })()}
+                        </div>
+                        <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {(() => {
+                            const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none'
+                              ? imams.find(i => i.id === announcementForm.imamId)
+                              : null;
+                            const imamName = selectedImam?.name || '';
+                            let body = announcementForm.message || 'Your message will appear here...';
+                            
+                            if (announcementForm.eventType !== 'general' && imamName && announcementForm.eventDate) {
+                              if (announcementForm.eventType === 'birthday') {
+                                body = `${imamName}'s birth anniversary is approaching.\n\n${body}`;
+                              } else if (announcementForm.eventType === 'martyrdom') {
+                                body = `Commemorating the martyrdom of ${imamName}.\n\n${body}`;
+                              } else if (announcementForm.eventType === 'death') {
+                                body = `Commemorating the passing of ${imamName}.\n\n${body}`;
+                              }
+                              
+                              if (announcementForm.hijriDate) {
+                                body += `\n\n📅 Date: ${new Date(announcementForm.eventDate).toLocaleDateString()} (${announcementForm.hijriDate})`;
+                              } else if (announcementForm.eventDate) {
+                                body += `\n\n📅 Date: ${new Date(announcementForm.eventDate).toLocaleDateString()}`;
+                              }
+                            }
+                            
+                            return body;
+                          })()}
+                        </div>
+                        <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                          <div className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
+                            View Recitations
+                          </div>
+                          <div className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded">
+                            Subscribe
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This is how the notification will appear to users. Clicking the notification or "View Recitations" will open the holy personality's page.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="thumbnail">Thumbnail Image (Optional)</Label>

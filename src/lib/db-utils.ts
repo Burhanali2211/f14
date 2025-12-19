@@ -174,10 +174,8 @@ export async function authenticatedQuery<T>(
         }
       }
     } catch (refreshErr) {
-      logger.debug('Session refresh check completed', refreshErr);
+      // Session refresh check completed
     }
-  } else {
-    logger.debug('Skipping Supabase session refresh (using custom auth)');
   }
 
   // Execute the query
@@ -217,14 +215,11 @@ export async function authenticatedQuery<T>(
       try {
         await supabase.auth.refreshSession();
       } catch (refreshErr) {
-        logger.debug('Session refresh before retry:', refreshErr);
+        // Session refresh before retry
       }
-    } else {
-      logger.debug('Skipping Supabase session refresh before retry (using custom auth)');
     }
 
     // Retry the query once with refreshed session
-    logger.debug('Retrying query with refreshed session...');
     return executeQuery(queryFn, options);
   }
 

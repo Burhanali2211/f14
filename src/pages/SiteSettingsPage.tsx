@@ -268,21 +268,10 @@ export default function SiteSettingsPage() {
 
     setUploading(true);
     try {
-      logger.debug('Optimizing logo/site image', {
-        originalSize: formatFileSize(file.size),
-        fileName: file.name,
-      });
-
       // Optimize logo/site images for performance
       const optimizedBlob = await optimizeLogoImage(file);
-      logger.debug('Logo image optimized', {
-        optimizedSize: formatFileSize(optimizedBlob.size),
-        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
-      });
 
       const fileName = `site-${Date.now()}.webp`;
-
-      logger.debug('Uploading optimized logo image:', { fileName, size: optimizedBlob.size });
 
       const { data, error } = await supabase.storage
         .from('piece-images')
@@ -354,21 +343,10 @@ export default function SiteSettingsPage() {
 
     setUploading(true);
     try {
-      logger.debug('Optimizing hero image', {
-        originalSize: formatFileSize(file.size),
-        fileName: file.name,
-      });
-
       // Optimize hero images - larger but still optimized
       const optimizedBlob = await optimizeHeroImage(file);
-      logger.debug('Hero image optimized', {
-        optimizedSize: formatFileSize(optimizedBlob.size),
-        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
-      });
 
       const fileName = `hero-${Date.now()}.webp`;
-
-      logger.debug('Uploading optimized hero image:', { fileName, size: optimizedBlob.size });
 
       const { data, error } = await supabase.storage
         .from('piece-images')
@@ -425,11 +403,6 @@ export default function SiteSettingsPage() {
       return;
     }
 
-    logger.debug('SiteSettings: Saving settings', {
-      hero_image_url: siteSettingsForm.hero_image_url?.substring(0, 50) || 'empty',
-      logo_url: siteSettingsForm.logo_url?.substring(0, 50) || 'empty',
-    });
-
     const updateData = {
       site_name: siteSettingsForm.site_name.trim(),
       site_tagline: siteSettingsForm.site_tagline?.trim() || null,
@@ -482,11 +455,6 @@ export default function SiteSettingsPage() {
       fetchSiteSettings();
       return;
     }
-
-    logger.debug('SiteSettings: Settings updated successfully', {
-      hero_image_url: updatedData.hero_image_url?.substring(0, 50) || 'empty',
-      logo_url: updatedData.logo_url?.substring(0, 50) || 'empty',
-    });
 
     toast({
       title: 'Success',

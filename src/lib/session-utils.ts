@@ -15,14 +15,12 @@ export async function waitForSession(maxWait = 2000): Promise<boolean> {
       
       // If we got a response (even if no session), the auth is ready
       if (!error) {
-        logger.debug('Session ready', { hasSession: !!session });
         return true;
       }
       
       // If there's an error, wait a bit and retry
       await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
-      logger.debug('Error checking session, retrying...', error);
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
@@ -68,7 +66,6 @@ export async function ensureAuthenticated(): Promise<{ id: string; email?: strin
     // First, try custom auth session (primary auth system)
     const customUser = getCurrentUser();
     if (customUser) {
-      logger.debug('ensureAuthenticated: using custom auth user', { userId: customUser.id });
       return { id: customUser.id, email: customUser.email || undefined };
     }
 
@@ -81,13 +78,10 @@ export async function ensureAuthenticated(): Promise<{ id: string; email?: strin
     
     // If getUser fails or user is null, try refreshing the session
     if (getUserError || !user) {
-      logger.debug('User not found, attempting to refresh session...');
-      
       // Try to refresh the session token explicitly
       const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
       
       if (refreshError) {
-        logger.debug('Session refresh failed, trying getSession...', refreshError);
         // If refresh fails, try getting the current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
@@ -122,11 +116,9 @@ export async function ensureAuthenticated(): Promise<{ id: string; email?: strin
         await supabase.auth.refreshSession();
       } catch (refreshErr) {
         // Ignore refresh errors if user already exists - session might be valid
-        logger.debug('Session refresh skipped (user already authenticated)', refreshErr);
       }
     }
     
-    logger.debug('User authenticated', { userId: user.id });
     return user;
   } catch (error) {
     logger.error('Error ensuring authentication:', error);

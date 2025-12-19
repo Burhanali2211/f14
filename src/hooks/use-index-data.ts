@@ -89,9 +89,7 @@ export function useIndexData(): IndexData {
   }, [roleLoading]);
 
   const fetchData = async () => {
-    logger.debug('Index: Starting fetchData');
     try {
-      logger.debug('Index: Executing queries');
       // Optimized: Select only needed fields instead of * to reduce payload size
       const [catRes, recentRes, popularRes, imamRes, artistsRes, siteSettingsRes] = await Promise.all([
         safeQuery(async () => await supabase.from('categories').select('id, name, slug, description, icon, bg_image_url, bg_image_opacity, bg_image_blur, bg_image_position, bg_image_size, bg_image_scale').order('name')),
@@ -101,12 +99,6 @@ export function useIndexData(): IndexData {
         safeQuery(async () => await supabase.from('pieces').select('reciter').not('reciter', 'is', null)),
         safeQuery(async () => await (supabase as any).from('site_settings').select('id, site_name, site_tagline, logo_url, hero_image_url, hero_text_color_mode, hero_gradient_preset, hero_gradient_opacity, hero_image_opacity, hero_heading_line1, hero_heading_line2, hero_description, hero_badge_text').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle()),
       ]);
-      
-      logger.debug('Index: Queries completed', {
-        categories: { hasData: !!catRes.data, hasError: !!catRes.error, count: catRes.data?.length },
-        recent: { hasData: !!recentRes.data, hasError: !!recentRes.error, count: recentRes.data?.length },
-        popular: { hasData: !!popularRes.data, hasError: !!popularRes.error, count: popularRes.data?.length },
-        imams: { hasData: !!imamRes.data, hasError: !!imamRes.error, count: imamRes.data?.length },
       });
 
       if (catRes.error) {

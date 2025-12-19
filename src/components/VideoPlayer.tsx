@@ -58,9 +58,8 @@ export function VideoPlayer({ src, title }: VideoPlayerProps) {
             referrerPolicy="no-referrer-when-downgrade"
             className="w-full h-full border-0"
             style={{ display: 'block' }}
-            onError={(e) => {
+            onError={() => {
               // Silently handle iframe errors - YouTube's player handles its own errors
-              console.debug('YouTube iframe error (this is normal):', e);
             }}
           />
         </div>

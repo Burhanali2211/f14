@@ -79,7 +79,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const notificationData = event.notification.data || {};
-  const action = event.action || 'view';
+  const action = event.action; // undefined when clicking notification body, 'view' or 'subscribe' when clicking buttons
 
   // Handle Subscribe action
   if (action === 'subscribe') {
@@ -107,7 +107,7 @@ self.addEventListener('notificationclick', (event) => {
     return;
   }
 
-  // Handle View action (default)
+  // Handle View action or notification body click (when action is undefined or 'view')
   // Determine URL: if imam slug exists, navigate to their recitations page
   let urlToOpen = notificationData.url || '/';
   

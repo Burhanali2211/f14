@@ -180,7 +180,6 @@ export class PerformanceMonitor {
             timestamp: new Date().toISOString(),
           };
 
-          logger.info('Performance metrics:', metrics);
           errorTracker.captureMessage('Page load performance', 'info', metrics);
         }
       }, 0);
@@ -200,13 +199,8 @@ export class PerformanceMonitor {
     const result = operation();
     
     if (result instanceof Promise) {
-      return result.finally(() => {
-        const duration = performance.now() - start;
-        logger.debug(`Operation "${name}" took ${duration.toFixed(2)}ms`);
-      });
+      return result;
     } else {
-      const duration = performance.now() - start;
-      logger.debug(`Operation "${name}" took ${duration.toFixed(2)}ms`);
       return result;
     }
   }

@@ -28,6 +28,18 @@ interface SettingsPanelProps {
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { settings, updateSetting, resetSettings } = useSettings();
 
+  const getFontFamily = () => {
+    switch (settings.fontFamily) {
+      case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
+      case 'gulzar': return "'Gulzar', serif";
+      case 'lateef': return "'Lateef', serif";
+      case 'noto-sans-arabic': return "'Noto Sans Arabic', sans-serif";
+      case 'reem-kufi': return "'Reem Kufi', sans-serif";
+      case 'scheherazade': return "'Scheherazade New', serif";
+      default: return "'Amiri', serif";
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
@@ -61,6 +73,75 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 <Type className="w-4 h-4 text-primary" />
                 Typography
               </h3>
+              
+              {/* Text Preview Section - Shows how text will look */}
+              <div className="p-4 rounded-lg border-2 border-primary/20 bg-card/80 backdrop-blur-sm shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-sm font-semibold text-foreground flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-primary" />
+                    Live Preview
+                  </Label>
+                  <span className="text-xs text-muted-foreground">
+                    {settings.fontSize}px • {settings.lineHeight.toFixed(1)} • {settings.letterSpacing.toFixed(2)}em
+                  </span>
+                </div>
+                <div
+                  className="p-4 rounded-md bg-background border-2 border-border/60 min-h-[140px] sm:min-h-[160px] max-h-[240px] overflow-y-auto custom-scrollbar"
+                  style={{
+                    fontSize: `${settings.fontSize}px`,
+                    lineHeight: settings.lineHeight,
+                    letterSpacing: `${settings.letterSpacing}em`,
+                    wordSpacing: `${settings.letterSpacing * 2}em`,
+                    fontFamily: getFontFamily(),
+                    textAlign: settings.textAlign,
+                    direction: 'rtl',
+                  }}
+                >
+                  <div className="text-foreground whitespace-pre-wrap">
+                    {settings.textAlign === 'center' ? (
+                      <>
+                        یا نبی سلام علیک<br />
+                        یا رسول سلام علیک<br />
+                        یا حبیب سلام علیک<br />
+                        صلوات اللہ علیک<br />
+                        <br />
+                        اشرق البدر علینا<br />
+                        فاختفت منہ البدور
+                      </>
+                    ) : settings.textAlign === 'justify' ? (
+                      <>
+                        لب پہ آتی ہے دعا بن کے تمنا میری<br />
+                        زندگی شمع کی صورت ہو خدایا میری<br />
+                        <br />
+                        دور دنیا کا مرے دم سے اندھیرا ہو جائے<br />
+                        ہر جگہ میرے چمکنے سے اجالا ہو جائے<br />
+                        <br />
+                        زندگی ہو مری پروانے کی صورت یا رب<br />
+                        علم کی شمع سے ہو مجھ کو محبت یا رب
+                      </>
+                    ) : (
+                      <>
+                        یا نبی سلام علیک<br />
+                        یا رسول سلام علیک<br />
+                        یا حبیب سلام علیک<br />
+                        صلوات اللہ علیک<br />
+                        <br />
+                        اشرق البدر علینا<br />
+                        فاختفت منہ البدور<br />
+                        مثل حسنک ما راینا<br />
+                        قط یا وجہ السرور<br />
+                        <br />
+                        یا نبی سلام علیک<br />
+                        یا رسول سلام علیک
+                      </>
+                    )}
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/60"></span>
+                  Preview updates in real-time as you adjust settings
+                </p>
+              </div>
               
               <div className="space-y-3">
                 <div className="flex items-center justify-between">

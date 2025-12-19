@@ -25,36 +25,26 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
   const refresh = useCallback(async () => {
     // Prevent multiple simultaneous refresh calls
     if (isRefreshingRef.current) {
-      logger.debug('UserRole: Refresh already in progress, skipping');
       return;
     }
 
     isRefreshingRef.current = true;
     
     try {
-      logger.debug('UserRole: Refreshing user role');
-      
       // Get user from custom session
       const currentUser = getCurrentUser();
       
-      logger.debug('UserRole: Current user', { hasUser: !!currentUser, userId: currentUser?.id });
       setUser(currentUser);
 
       if (currentUser) {
         try {
-          logger.debug('UserRole: Fetching profile for user', currentUser.id);
           const userProfile = await getCurrentUserProfile();
-          logger.debug('UserRole: Profile fetched', { hasProfile: !!userProfile, role: userProfile?.role });
           setProfile(userProfile);
           const newRole = userProfile?.role || currentUser.role as UserRole || 'user';
           setRole(newRole);
           
           // Update session with latest role if it changed
           if (userProfile && userProfile.role !== currentUser.role) {
-            logger.debug('UserRole: Role changed, updating session', { 
-              oldRole: currentUser.role, 
-              newRole: userProfile.role 
-            });
             const updatedUser: User = {
               ...currentUser,
               role: userProfile.role,
@@ -79,7 +69,6 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
       isRefreshingRef.current = false;
-      logger.debug('UserRole: Refresh complete');
     }
   }, []);
 
@@ -105,7 +94,6 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
     // Listen for storage changes (when user logs in/out in another tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'user_session' && mounted) {
-        logger.debug('UserRole: Session changed in storage, refreshing');
         refresh().catch(error => {
           logger.error('UserRole: Error refreshing on storage change:', error);
         });
@@ -117,7 +105,6 @@ export function UserRoleProvider({ children }: { children: ReactNode }) {
     // Also listen for custom events (when user logs in/out in same tab)
     const handleCustomAuthChange = () => {
       if (mounted) {
-        logger.debug('UserRole: Custom auth change event, refreshing');
         refresh().catch(error => {
           logger.error('UserRole: Error refreshing on auth change:', error);
         });

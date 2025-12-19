@@ -193,8 +193,6 @@ export default function AuthPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    logger.debug('Auth: Starting', isLogin ? 'login' : 'signup');
-    
     // Validate input
     let result;
     if (isLogin) {
@@ -222,8 +220,6 @@ export default function AuthPage() {
 
     try {
       if (isLogin) {
-        logger.debug('Auth: Attempting login for', email);
-        
         const result = await login(email, password);
 
         if (!result.success || result.error) {
@@ -246,8 +242,6 @@ export default function AuthPage() {
           throw new Error('Failed to get user data. Please try again.');
         }
 
-        logger.debug('Auth: Login successful, navigating');
-        
         // Save credentials if remember me is checked
         if (rememberMe) {
           localStorage.setItem(STORAGE_KEYS.EMAIL, email);
@@ -266,8 +260,6 @@ export default function AuthPage() {
         // Navigate to profile page
         navigate('/profile', { replace: true });
       } else {
-        logger.debug('Auth: Attempting signup for', email);
-        
         const result = await register(
           email,
           password,
@@ -288,8 +280,6 @@ export default function AuthPage() {
           throw new Error('Failed to create account. Please try again.');
         }
 
-        logger.debug('Auth: Signup successful');
-        
         // Save credentials if remember me is checked
         if (rememberMe) {
           localStorage.setItem(STORAGE_KEYS.EMAIL, email);

@@ -249,21 +249,10 @@ export default function AddPiecePage() {
     
     setUploading(true);
     try {
-      logger.debug('Optimizing recitation image for high quality', {
-        originalSize: formatFileSize(file.size),
-        fileName: file.name,
-      });
-
       // Optimize image for recitation pages - high quality, clear, no blur
       const optimizedBlob = await optimizeRecitationImage(file);
-      logger.debug('Recitation image optimized', {
-        optimizedSize: formatFileSize(optimizedBlob.size),
-        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
-      });
 
       const fileName = `recitation-${Date.now()}.webp`;
-      
-      logger.debug('Uploading optimized recitation image:', { fileName, size: optimizedBlob.size });
       
       // Upload optimized image with WebP format for better compression
       const { data, error } = await supabase.storage
@@ -314,7 +303,6 @@ export default function AddPiecePage() {
         .from('piece-images')
         .getPublicUrl(data.path);
       
-      logger.debug('Image uploaded successfully:', publicUrl);
       return publicUrl;
     } catch (error: any) {
       logger.error('Unexpected error during image upload:', error);
@@ -514,8 +502,6 @@ export default function AddPiecePage() {
 
     setTranslating(true);
     try {
-      logger.debug('Translating text', { sourceLanguage, targetLanguage, textLength: pieceForm.text_content.length });
-      
       const { data, error } = await supabase.functions.invoke('translate', {
         body: { 
           text: pieceForm.text_content,
@@ -577,7 +563,6 @@ export default function AddPiecePage() {
         const cleanedText = data.translatedText.replace(/\|\|BREAK\|\|/g, '\n\n');
         setPieceForm(f => ({ ...f, text_content: cleanedText }));
         toast({ title: 'Success', description: `Text translated to ${targetLanguage}` });
-        logger.debug('Translation successful');
       } else {
         logger.warn('Translation returned no text');
         toast({ 

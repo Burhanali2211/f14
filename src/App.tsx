@@ -90,7 +90,7 @@ function ServiceWorkerHandler() {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
               // Update user profile to enable notifications for this imam
-              const { error } = await supabase
+              const { error } = await (supabase as any)
                 .from('profiles')
                 .update({ 
                   notifications_enabled: true,
@@ -175,18 +175,28 @@ function ServiceWorkerHandler() {
       }
     };
     
+    // Atomic lock to prevent race conditions
+    const processingLocks = new Set<string>();
+    
     const markNotificationAsShown = (id: string): void => {
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
         const data = stored ? JSON.parse(stored) : {};
         data[id] = Date.now();
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        // Also add to in-memory set for quick access
+        shownNotificationIds.add(id);
       } catch (error) {
         logger.error('Error saving shown notification ID:', error);
       }
     };
     
     const isNotificationShown = (id: string): boolean => {
+      // Check in-memory cache first (faster)
+      if (shownNotificationIds.has(id)) {
+        return true;
+      }
+      // Fallback to persistent storage
       const shownIds = getShownNotificationIds();
       return shownIds.has(id);
     };
@@ -194,7 +204,39 @@ function ServiceWorkerHandler() {
     // Track shown notifications to prevent duplicates (in-memory cache for quick access)
     const shownNotificationIds = getShownNotificationIds();
     
-    logger.info('Setting up Realtime subscription for announcements');
+    // Function to safely process notification with atomic locking
+    const processNotification = async (announcement: any): Promise<boolean> => {
+      const announcementId = announcement.id;
+      
+      // Atomic check and lock - prevents race conditions
+      if (processingLocks.has(announcementId)) {
+        return false;
+      }
+      
+      if (isNotificationShown(announcementId)) {
+        return false;
+      }
+      
+      // Acquire lock
+      processingLocks.add(announcementId);
+      
+      try {
+        // Double-check after acquiring lock
+        if (isNotificationShown(announcementId)) {
+          return false;
+        }
+        
+        // Mark as shown immediately (before processing) to prevent duplicates
+        markNotificationAsShown(announcementId);
+        
+        return true;
+      } finally {
+        // Release lock after a short delay to ensure notification is sent
+        setTimeout(() => {
+          processingLocks.delete(announcementId);
+        }, 2000);
+      }
+    };
     
     // Listen to database changes (INSERT events on announcements table)
     // This is the PRIMARY method - it works for all devices
@@ -223,35 +265,23 @@ function ServiceWorkerHandler() {
             thumbnail_url?: string | null;
           };
           
-          logger.info('New announcement detected via database Realtime:', {
-            id: announcement.id,
-            title: announcement.title,
-            eventType: announcement.event_type,
-            hasSentAt: !!announcement.sent_at,
-            device: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile' : 'desktop',
-            timestamp: new Date().toISOString()
-          });
-          
-          // Deduplication: Check if we've already shown this notification
-          if (isNotificationShown(announcement.id)) {
-            logger.info('Notification already shown for announcement:', announcement.id);
+          // Only show notification if sent_at is set (means it's a real announcement, not a draft)
+          // Also check if notification permission is granted
+          if (!announcement.sent_at || Notification.permission !== 'granted') {
             return;
           }
           
-          // Only show notification if sent_at is set (means it's a real announcement, not a draft)
-          // Also check if notification permission is granted
-          if (announcement.sent_at && Notification.permission === 'granted') {
-            logger.info('Showing notification for announcement:', announcement.title);
-            
-            // Mark as shown immediately to prevent duplicates (persistent storage)
-            markNotificationAsShown(announcement.id);
-            shownNotificationIds.add(announcement.id);
+          // Atomic check and process notification (prevents duplicates and race conditions)
+          const shouldProcess = await processNotification(announcement);
+          if (!shouldProcess) {
+            return;
+          }
             
             // Fetch imam slug if imam_id exists
             let imamSlug: string | null = null;
             if (announcement.imam_id) {
               try {
-                const { data: imamData } = await supabase
+                const { data: imamData } = await (supabase as any)
                   .from('imams')
                   .select('slug')
                   .eq('id', announcement.imam_id)
@@ -343,17 +373,15 @@ function ServiceWorkerHandler() {
                     }
                   ],
                   silent: false, // Ensure browser default sound plays
-                  renotify: true, // Show notification even if one with same tag exists
+                  renotify: false, // Don't renotify - we handle deduplication ourselves
                   timestamp: Date.now()
-                });
-                logger.info('Notification shown successfully via service worker with template');
+                } as any);
               } catch (error) {
                 logger.error('Error showing notification via service worker:', error);
                 // Fallback
                 new Notification(template.title, {
                   body: template.body,
                   icon: template.icon,
-                  image: template.image,
                   tag: template.tag,
                 });
               }
@@ -362,44 +390,44 @@ function ServiceWorkerHandler() {
               new Notification(template.title, {
                 body: template.body,
                 icon: template.icon,
-                image: template.image,
                 tag: template.tag,
               });
             }
-          } else {
-            logger.info('Skipping notification:', {
-              hasSentAt: !!announcement.sent_at,
-              hasPermission: Notification.permission === 'granted'
-            });
-          }
         }
       )
       .subscribe((status) => {
-        logger.info('Realtime subscription status:', status);
-        
         if (status === 'SUBSCRIBED') {
-          logger.info('Successfully subscribed to announcements channel');
+          realtimeConnected = true;
         } else if (status === 'CHANNEL_ERROR') {
           logger.error('Realtime channel error - attempting to resubscribe');
-          // Attempt to resubscribe after a delay
-          setTimeout(() => {
-            logger.info('Resubscribing to channel after error...');
-            announcementsChannel.subscribe();
-          }, 2000);
+          realtimeConnected = false;
+          // Attempt to resubscribe after a delay with exponential backoff
+          let retryCount = 0;
+          const maxRetries = 5;
+          const retry = () => {
+            if (retryCount < maxRetries) {
+              retryCount++;
+              const delay = Math.min(2000 * Math.pow(2, retryCount - 1), 30000); // Max 30 seconds
+              setTimeout(() => {
+                announcementsChannel.subscribe();
+              }, delay);
+            } else {
+              logger.error('Max retry attempts reached for Realtime subscription');
+            }
+          };
+          retry();
         } else if (status === 'TIMED_OUT') {
           logger.warn('Realtime subscription timed out - attempting to resubscribe');
+          realtimeConnected = false;
           setTimeout(() => {
-            logger.info('Resubscribing to channel after timeout...');
             announcementsChannel.subscribe();
-          }, 2000);
+          }, 3000);
         } else if (status === 'CLOSED') {
           logger.warn('Realtime channel closed - attempting to resubscribe');
+          realtimeConnected = false;
           setTimeout(() => {
-            logger.info('Resubscribing to channel after close...');
             announcementsChannel.subscribe();
-          }, 2000);
-        } else {
-          logger.info('Realtime subscription status:', status);
+          }, 3000);
         }
       });
 
@@ -407,14 +435,12 @@ function ServiceWorkerHandler() {
     // This is especially important for mobile devices
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        logger.info('Page became visible - checking Realtime subscription and missed announcements');
-        
         // Resubscribe to ensure connection is active
         announcementsChannel.subscribe();
         
         // Check for any announcements we might have missed while in background
         try {
-          const { data: recentAnnouncements } = await supabase
+          const { data: recentAnnouncements } = await (supabase as any)
             .from('announcements')
             .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
             .not('sent_at', 'is', null)
@@ -424,56 +450,143 @@ function ServiceWorkerHandler() {
           if (recentAnnouncements && recentAnnouncements.length > 0) {
             // Check each announcement to see if we missed it
             for (const announcement of recentAnnouncements) {
-              // Use persistent storage check
-              if (!isNotificationShown(announcement.id) && 
-                  announcement.sent_at && 
-                  Notification.permission === 'granted') {
-                
-                // Only show if it was sent in the last 5 minutes (to avoid showing old announcements)
-                const sentTime = new Date(announcement.sent_at).getTime();
-                const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-                
-                if (sentTime > fiveMinutesAgo) {
-                  logger.info('Found missed announcement while in background:', announcement.title);
+              // Only check if sent_at is set and permission is granted
+              if (!announcement.sent_at || Notification.permission !== 'granted') {
+                continue;
+              }
+              
+              // Only show if it was sent in the last 5 minutes (to avoid showing old announcements)
+              const sentTime = new Date(announcement.sent_at).getTime();
+              const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+              
+              if (sentTime <= fiveMinutesAgo) {
+                continue; // Too old, skip
+              }
+              
+              // Atomic check and process notification
+              const shouldProcess = await processNotification(announcement);
+              if (!shouldProcess) {
+                continue;
+              }
+              
+              // Fetch imam slug if imam_id exists
+              let imamSlug: string | null = null;
+              if (announcement.imam_id) {
+                try {
+                  const { data: imamData } = await (supabase as any)
+                    .from('imams')
+                    .select('slug')
+                    .eq('id', announcement.imam_id)
+                    .maybeSingle();
                   
-                  // Mark as shown in persistent storage
-                  markNotificationAsShown(announcement.id);
-                  shownNotificationIds.add(announcement.id);
+                  if (imamData) {
+                    imamSlug = imamData.slug;
+                  }
+                } catch (error) {
+                  logger.warn('Error fetching imam slug for notification:', error);
+                }
+              }
+              
+              // Get notification template
+              const { getNotificationTemplate } = await import('@/lib/notification-templates');
+              const template = getNotificationTemplate({
+                title: (announcement as any).title,
+                message: (announcement as any).message,
+                eventType: ((announcement as any).event_type as any) || 'general',
+                imamName: (announcement as any).template_data?.imamName || '',
+                imamId: (announcement as any).imam_id || null,
+                imamSlug: imamSlug,
+                eventDate: (announcement as any).event_date || '',
+                hijriDate: (announcement as any).hijri_date || '',
+                thumbnailUrl: (announcement as any).thumbnail_url || null,
+              }, (announcement as any).id);
 
-                  const { getNotificationTemplate } = await import('@/lib/notification-templates');
-                  const template = getNotificationTemplate({
-                    title: announcement.title,
-                    message: announcement.message,
-                    eventType: (announcement.event_type as any) || 'general',
-                    imamName: announcement.template_data?.imamName || '',
-                    eventDate: announcement.event_date || '',
-                    hijriDate: announcement.hijri_date || '',
-                    thumbnailUrl: announcement.thumbnail_url || null,
-                  }, announcement.id);
-
-                  if ('serviceWorker' in navigator) {
+              // Play notification sound
+              try {
+                const playNotificationSound = () => {
+                  try {
+                    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = 800;
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.3);
+                  } catch (webAudioError) {
                     try {
-                      const registration = await navigator.serviceWorker.ready;
-                      await registration.showNotification(template.title, {
-                        body: template.body,
-                        icon: template.icon,
-                        badge: template.badge,
-                        image: template.image,
-                        tag: template.tag,
-                        data: template.data,
-                        requireInteraction: template.requireInteraction,
-                        vibrate: template.vibrate,
-                        actions: [
-                          {
-                            action: 'view',
-                            title: 'View'
-                          }
-                        ]
-                      });
-                    } catch (error) {
-                      logger.error('Error showing missed notification:', error);
+                      const audio = new Audio('/notification-sound.mp3');
+                      audio.volume = 0.5;
+                      audio.play().catch(() => {});
+                    } catch (audioError) {
+                      // Silent fail
                     }
                   }
+                };
+                
+                playNotificationSound();
+              } catch (error) {
+                // Silent fail
+              }
+
+              if ('serviceWorker' in navigator) {
+                try {
+                  const registration = await navigator.serviceWorker.ready;
+                  await registration.showNotification(template.title, {
+                    body: template.body,
+                    icon: template.icon,
+                    badge: template.badge,
+                    image: template.image,
+                    tag: template.tag,
+                    data: template.data,
+                    requireInteraction: template.requireInteraction,
+                    vibrate: template.vibrate,
+                    actions: [
+                      {
+                        action: 'view',
+                        title: 'View Recitations',
+                        icon: '/main.png'
+                      },
+                      {
+                        action: 'subscribe',
+                        title: 'Subscribe',
+                        icon: '/main.png'
+                      }
+                    ],
+                    silent: false,
+                    renotify: false,
+                    timestamp: Date.now()
+                  } as any);
+                } catch (error) {
+                  logger.error('Error showing missed notification:', error);
+                  // Fallback
+                  try {
+                    new Notification(template.title, {
+                      body: template.body,
+                      icon: template.icon,
+                      tag: template.tag,
+                    });
+                  } catch (fallbackError) {
+                    logger.error('Fallback notification also failed:', fallbackError);
+                  }
+                }
+              } else {
+                // Fallback if service worker is not available
+                try {
+                  new Notification(template.title, {
+                    body: template.body,
+                    icon: template.icon,
+                    tag: template.tag,
+                  });
+                } catch (error) {
+                  logger.error('Fallback notification failed:', error);
                 }
               }
             }
@@ -481,8 +594,6 @@ function ServiceWorkerHandler() {
         } catch (error) {
           logger.error('Error checking for missed announcements:', error);
         }
-      } else {
-        logger.info('Page became hidden');
       }
     };
 
@@ -493,16 +604,12 @@ function ServiceWorkerHandler() {
       const state = announcementsChannel.state;
       const isConnected = state === 'joined';
       
-      logger.info('Realtime channel health check:', {
-        state,
-        isConnected,
-        userAgent: navigator.userAgent,
-        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-      });
-      
       if (!isConnected && state !== 'joining') {
         logger.warn('Realtime channel not active, resubscribing...', { state });
+        realtimeConnected = false;
         announcementsChannel.subscribe();
+      } else if (isConnected) {
+        realtimeConnected = true;
       }
     }, 30000); // Check every 30 seconds
 
@@ -511,12 +618,11 @@ function ServiceWorkerHandler() {
     let lastAnnouncementId: string | null = null;
     let realtimeConnected = false;
     
-    // Track Realtime connection status
-    announcementsChannel.on('system', {}, (payload) => {
-      if (payload.status === 'ok') {
+    // Track Realtime connection status via system events
+    announcementsChannel.on('system', {}, (payload: any) => {
+      if (payload.status === 'ok' || payload.status === 'SUBSCRIBED') {
         realtimeConnected = true;
-        logger.info('Realtime connected');
-      } else if (payload.status === 'error') {
+      } else if (payload.status === 'error' || payload.status === 'CHANNEL_ERROR') {
         realtimeConnected = false;
         logger.warn('Realtime connection error');
       }
@@ -524,8 +630,9 @@ function ServiceWorkerHandler() {
 
     const pollInterval = setInterval(async () => {
       // Only poll if Realtime is not connected (as a fallback)
+      // Check both state and our tracked connection status
       const channelState = announcementsChannel.state;
-      const shouldPoll = channelState !== 'joined' && channelState !== 'joining';
+      const shouldPoll = (channelState !== 'joined' && channelState !== 'joining') || !realtimeConnected;
       
       if (!shouldPoll) {
         // Realtime is working, skip polling
@@ -533,10 +640,8 @@ function ServiceWorkerHandler() {
       }
 
       try {
-        logger.info('Realtime not connected, using polling fallback');
-        
         // Get the most recent announcement
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('announcements')
           .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
           .not('sent_at', 'is', null)
@@ -547,115 +652,118 @@ function ServiceWorkerHandler() {
         if (error || !data) return;
 
         // If this is a new announcement we haven't seen, show notification
-        if (data.id !== lastAnnouncementId && !isNotificationShown(data.id)) {
-          lastAnnouncementId = data.id;
+        if ((data as any).id !== lastAnnouncementId) {
+          lastAnnouncementId = (data as any).id;
           
           // Only show if notification permission is granted
-          if (data.sent_at && Notification.permission === 'granted') {
-            logger.info('New announcement detected via polling fallback:', data.title);
-            
-            // Mark as shown in persistent storage
-            markNotificationAsShown(data.id);
-            shownNotificationIds.add(data.id);
+          if (!(data as any).sent_at || Notification.permission !== 'granted') {
+            return;
+          }
+          
+          // Atomic check and process notification
+          const shouldProcess = await processNotification(data);
+          if (!shouldProcess) {
+            return;
+          }
 
-            // Fetch imam slug if imam_id exists
-            let imamSlug: string | null = null;
-            if (data.imam_id) {
-              try {
-                const { data: imamData } = await supabase
-                  .from('imams')
-                  .select('slug')
-                  .eq('id', data.imam_id)
-                  .maybeSingle();
-                
-                if (imamData) {
-                  imamSlug = imamData.slug;
-                }
-              } catch (error) {
-                logger.warn('Error fetching imam slug for notification:', error);
-              }
-            }
-
-            // Play notification sound
+          // Fetch imam slug if imam_id exists
+          let imamSlug: string | null = null;
+          if ((data as any).imam_id) {
             try {
-              const playNotificationSound = () => {
-                try {
-                  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                  const oscillator = audioContext.createOscillator();
-                  const gainNode = audioContext.createGain();
-                  
-                  oscillator.connect(gainNode);
-                  gainNode.connect(audioContext.destination);
-                  
-                  oscillator.frequency.value = 800;
-                  oscillator.type = 'sine';
-                  
-                  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-                  
-                  oscillator.start(audioContext.currentTime);
-                  oscillator.stop(audioContext.currentTime + 0.3);
-                } catch (webAudioError) {
-                  try {
-                    const audio = new Audio('/notification-sound.mp3');
-                    audio.volume = 0.5;
-                    audio.play().catch(() => {});
-                  } catch (audioError) {
-                    // Silent fail
-                  }
-                }
-              };
+              const { data: imamData } = await (supabase as any)
+                .from('imams')
+                .select('slug')
+                .eq('id', (data as any).imam_id)
+                .maybeSingle();
               
-              playNotificationSound();
-            } catch (error) {
-              // Silent fail
-            }
-
-            // Get notification template
-            const { getNotificationTemplate } = await import('@/lib/notification-templates');
-            const template = getNotificationTemplate({
-              title: data.title,
-              message: data.message,
-              eventType: (data.event_type as any) || 'general',
-              imamName: data.template_data?.imamName || '',
-              imamId: data.imam_id || null,
-              imamSlug: imamSlug,
-              eventDate: data.event_date || '',
-              hijriDate: data.hijri_date || '',
-              thumbnailUrl: data.thumbnail_url || null,
-            }, data.id);
-
-            if ('serviceWorker' in navigator) {
-              try {
-                const registration = await navigator.serviceWorker.ready;
-                await registration.showNotification(template.title, {
-                  body: template.body,
-                  icon: template.icon,
-                  badge: template.badge,
-                  image: template.image,
-                  tag: template.tag,
-                  data: template.data,
-                  requireInteraction: template.requireInteraction,
-                  vibrate: template.vibrate,
-                  silent: false,
-                  actions: [
-                    {
-                      action: 'view',
-                      title: 'View Recitations',
-                      icon: '/main.png'
-                    },
-                    {
-                      action: 'subscribe',
-                      title: 'Subscribe',
-                      icon: '/main.png'
-                    }
-                  ],
-                  renotify: true,
-                  timestamp: Date.now()
-                });
-              } catch (error) {
-                logger.error('Error showing notification via polling:', error);
+              if (imamData) {
+                imamSlug = imamData.slug;
               }
+            } catch (error) {
+              logger.warn('Error fetching imam slug for notification:', error);
+            }
+          }
+
+          // Play notification sound
+          try {
+            const playNotificationSound = () => {
+              try {
+                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sine';
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
+              } catch (webAudioError) {
+                try {
+                  const audio = new Audio('/notification-sound.mp3');
+                  audio.volume = 0.5;
+                  audio.play().catch(() => {});
+                } catch (audioError) {
+                  // Silent fail
+                }
+              }
+            };
+            
+            playNotificationSound();
+          } catch (error) {
+            // Silent fail
+          }
+
+          // Get notification template
+          const { getNotificationTemplate } = await import('@/lib/notification-templates');
+          const template = getNotificationTemplate({
+            title: (data as any).title,
+            message: (data as any).message,
+            eventType: ((data as any).event_type as any) || 'general',
+            imamName: (data as any).template_data?.imamName || '',
+            imamId: (data as any).imam_id || null,
+            imamSlug: imamSlug,
+            eventDate: (data as any).event_date || '',
+            hijriDate: (data as any).hijri_date || '',
+            thumbnailUrl: (data as any).thumbnail_url || null,
+          }, (data as any).id);
+
+          if ('serviceWorker' in navigator) {
+            try {
+              const registration = await navigator.serviceWorker.ready;
+              const notificationOptions: any = {
+                body: template.body,
+                icon: template.icon,
+                badge: template.badge,
+                image: template.image,
+                tag: template.tag,
+                data: template.data,
+                requireInteraction: template.requireInteraction,
+                vibrate: template.vibrate,
+                silent: false,
+                actions: [
+                  {
+                    action: 'view',
+                    title: 'View Recitations',
+                    icon: '/main.png'
+                  },
+                  {
+                    action: 'subscribe',
+                    title: 'Subscribe',
+                    icon: '/main.png'
+                  }
+                ],
+                renotify: false, // Don't renotify - we handle deduplication ourselves
+                timestamp: Date.now()
+              };
+              await registration.showNotification(template.title, notificationOptions);
+            } catch (error) {
+              logger.error('Error showing notification via polling:', error);
             }
           }
         }
@@ -685,12 +793,6 @@ function BackendHealthCheck() {
         const result = await testLogin("healthcheck@example.com", "invalid-password", { suppressErrorLog: true });
 
         // If we get back a structured auth error, backend is reachable
-        if (!result.success && result.error) {
-          logger.debug("Auth healthcheck: backend reachable", {
-            error: result.error,
-            errorCode: result.errorCode,
-          });
-        }
       } catch (error: any) {
         logger.error("Auth healthcheck failed", {
           message: error?.message,

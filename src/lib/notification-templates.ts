@@ -77,14 +77,22 @@ function getBirthdayTemplate(
     ? `🎂 Birth Anniversary: ${imamName}`
     : announcement.title || 'Birth Anniversary';
   
-  let body = announcement.message;
+  // Use the actual message from announcement, don't override it
+  let body = announcement.message || '';
   if (imamName && eventDate) {
-    body = `${imamName}'s birth anniversary is approaching.\n\n${announcement.message}`;
+    // Only prepend context if message exists, otherwise use context as main message
+    if (body) {
+      body = `${imamName}'s birth anniversary is approaching.\n\n${body}`;
+    } else {
+      body = `${imamName}'s birth anniversary is approaching.`;
+    }
     if (hijriDate) {
       body += `\n\n📅 Date: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
       body += `\n\n📅 Date: ${eventDate}`;
     }
+  } else if (!body) {
+    body = 'Birth anniversary announcement';
   }
 
   // Determine URL: if imam slug exists, navigate to their recitations page
@@ -127,14 +135,20 @@ function getMartyrdomTemplate(
     ? `🕊️ Martyrdom: ${imamName}`
     : announcement.title || 'Martyrdom Commemoration';
   
-  let body = announcement.message;
+  let body = announcement.message || '';
   if (imamName && eventDate) {
-    body = `Commemorating the martyrdom of ${imamName}.\n\n${announcement.message}`;
+    if (body) {
+      body = `Commemorating the martyrdom of ${imamName}.\n\n${body}`;
+    } else {
+      body = `Commemorating the martyrdom of ${imamName}.`;
+    }
     if (hijriDate) {
       body += `\n\n📅 Date: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
       body += `\n\n📅 Date: ${eventDate}`;
     }
+  } else if (!body) {
+    body = 'Martyrdom commemoration announcement';
   }
 
   // Determine URL: if imam slug exists, navigate to their recitations page
@@ -177,14 +191,20 @@ function getDeathTemplate(
     ? `🕯️ Passing: ${imamName}`
     : announcement.title || 'Commemoration';
   
-  let body = announcement.message;
+  let body = announcement.message || '';
   if (imamName && eventDate) {
-    body = `Commemorating the passing of ${imamName}.\n\n${announcement.message}`;
+    if (body) {
+      body = `Commemorating the passing of ${imamName}.\n\n${body}`;
+    } else {
+      body = `Commemorating the passing of ${imamName}.`;
+    }
     if (hijriDate) {
       body += `\n\n📅 Date: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
       body += `\n\n📅 Date: ${eventDate}`;
     }
+  } else if (!body) {
+    body = 'Commemoration announcement';
   }
 
   // Determine URL: if imam slug exists, navigate to their recitations page
@@ -225,9 +245,15 @@ function getOtherEventTemplate(
 ): NotificationTemplate {
   const title = announcement.title || '📢 Important Event';
   
-  let body = announcement.message;
+  let body = announcement.message || '';
   if (imamName) {
-    body = `${imamName}: ${announcement.message}`;
+    if (body) {
+      body = `${imamName}: ${body}`;
+    } else {
+      body = `${imamName} - Important event`;
+    }
+  } else if (!body) {
+    body = 'Important event announcement';
   }
   if (eventDate) {
     if (hijriDate) {
@@ -275,7 +301,7 @@ function getGeneralTemplate(
 
   return {
     title: announcement.title || '📢 Announcement',
-    body: announcement.message,
+    body: announcement.message || 'New announcement',
     icon: thumbnailUrl || '/main.png',
     badge: '/main.png',
     image: thumbnailUrl || undefined,

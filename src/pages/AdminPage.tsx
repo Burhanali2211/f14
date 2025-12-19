@@ -264,21 +264,10 @@ export default function AdminPage() {
     
     setUploading(true);
     try {
-      logger.debug('Optimizing piece image for high quality', {
-        originalSize: formatFileSize(file.size),
-        fileName: file.name,
-      });
-
       // Optimize image for pieces - high quality, clear, no blur
       const optimizedBlob = await optimizeRecitationImage(file);
-      logger.debug('Piece image optimized', {
-        optimizedSize: formatFileSize(optimizedBlob.size),
-        reduction: `${Math.round((1 - optimizedBlob.size / file.size) * 100)}%`,
-      });
 
       const fileName = `piece-${Date.now()}.webp`;
-      
-      logger.debug('Uploading optimized piece image:', { fileName, size: optimizedBlob.size });
       
       // Upload optimized image with WebP format
       const { data, error } = await supabase.storage
@@ -328,7 +317,6 @@ export default function AdminPage() {
         .from('piece-images')
         .getPublicUrl(data.path);
       
-      logger.debug('Image uploaded successfully:', publicUrl);
       return publicUrl;
     } catch (error: any) {
       logger.error('Unexpected error during image upload:', error);
@@ -398,8 +386,6 @@ export default function AdminPage() {
 
     setTranslating(true);
     try {
-      logger.debug('Translating text', { sourceLanguage, targetLanguage, textLength: pieceForm.text_content.length });
-      
       const { data, error } = await supabase.functions.invoke('translate', {
         body: { 
           text: pieceForm.text_content,
@@ -439,7 +425,6 @@ export default function AdminPage() {
         const cleanedText = data.translatedText.replace(/\|\|BREAK\|\|/g, '\n\n');
         setPieceForm(f => ({ ...f, text_content: cleanedText }));
         toast({ title: 'Success', description: `Text translated to ${targetLanguage}` });
-        logger.debug('Translation successful');
       } else {
         logger.warn('Translation returned no text');
         toast({ 
@@ -529,7 +514,6 @@ export default function AdminPage() {
         return;
       }
 
-      logger.debug('Admin: Imam updated successfully:', updatedData);
       toast({ title: 'Success', description: 'Holy Personality updated' });
     } else {
       const { error } = await authenticatedQuery(async () =>
@@ -617,7 +601,6 @@ export default function AdminPage() {
         return;
       }
 
-      logger.debug('Admin: Piece updated successfully:', updatedData);
       toast({ title: 'Success', description: 'Recitation updated' });
     } else {
       const { error } = await authenticatedQuery(async () =>
@@ -681,16 +664,7 @@ export default function AdminPage() {
     setUploadingArtisteImage(true);
     try {
       // Optimize the image for small size
-      logger.debug('Optimizing artist image', {
-        originalSize: formatFileSize(artisteImageFile.size),
-        fileName: artisteImageFile.name,
-      });
-
       const optimizedBlob = await optimizeArtistImage(artisteImageFile);
-      logger.debug('Image optimized', {
-        optimizedSize: formatFileSize(optimizedBlob.size),
-        reduction: `${Math.round((1 - optimizedBlob.size / artisteImageFile.size) * 100)}%`,
-      });
 
       // Create optimized file name
       const fileName = `${selectedArtiste.slug}-${Date.now()}.webp`;
@@ -747,7 +721,6 @@ export default function AdminPage() {
         return;
       }
 
-      logger.debug('Artiste image uploaded successfully:', publicUrl);
       toast({
         title: 'Success',
         description: `Image uploaded for ${selectedArtiste.name}`,
@@ -801,7 +774,6 @@ export default function AdminPage() {
       // Verify the delete actually happened by checking if data is returned
       // Supabase returns the deleted row(s) in the data field
       if (data && data.length > 0) {
-        logger.debug(`Successfully deleted ${deleteDialog.type}:`, data);
         toast({ 
           title: 'Success', 
           description: `${deleteDialog.type} deleted successfully` 
@@ -890,8 +862,6 @@ export default function AdminPage() {
       }
 
       try {
-        logger.debug('Admin: Creating new user', { email: userForm.email, role: userForm.role });
-        
         const passwordHash = await hashPassword(userForm.password);
 
         const { data: newUser, error } = await authenticatedQuery(async () => {
@@ -946,8 +916,6 @@ export default function AdminPage() {
         return;
       }
 
-      logger.debug('Admin: Updating user', { userId: editingUser.id, newRole: userForm.role });
-
       const updateData: any = {
         role: userForm.role,
         full_name: userForm.full_name || null,
@@ -991,7 +959,6 @@ export default function AdminPage() {
         return;
       }
 
-      logger.debug('Admin: User updated successfully:', updatedData);
       toast({ title: 'Success', description: 'User updated successfully' });
       setUserDialogOpen(false);
       fetchData();
@@ -1168,7 +1135,6 @@ export default function AdminPage() {
         return;
       }
 
-      logger.debug('Admin: Event updated successfully:', updatedData);
       toast({ title: 'Success', description: 'Event updated' });
     } else {
       const { error } = await authenticatedQuery(async () =>

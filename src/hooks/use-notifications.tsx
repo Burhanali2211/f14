@@ -37,7 +37,6 @@ class NotificationService {
         });
         
         this.serviceWorkerRegistration = registration;
-        logger.info('Service Worker registered successfully');
 
         // Wait for service worker to be ready (but don't block if it fails)
         try {
@@ -62,11 +61,9 @@ class NotificationService {
 
     // Always check current permission state
     let currentPermission = Notification.permission;
-    logger.info(`Current notification permission: ${currentPermission}`);
 
     // If permission is already granted, return immediately
     if (currentPermission === 'granted') {
-      logger.info('Notification permission already granted');
       return { state: 'granted', granted: true };
     }
 
@@ -77,7 +74,6 @@ class NotificationService {
     }
 
     // Permission is 'default', request it
-    logger.info('Requesting notification permission...');
     try {
       // Ensure service worker is ready before requesting permission
       if (this.serviceWorkerRegistration) {
@@ -86,7 +82,6 @@ class NotificationService {
 
       // Request permission - this will show the browser's native permission dialog
       const permission = await Notification.requestPermission();
-      logger.info(`Notification permission result: ${permission}`);
 
       const granted = permission === 'granted';
 
@@ -103,8 +98,6 @@ class NotificationService {
         
         if (error) {
           logger.error('Error updating notification permission in DB:', error);
-        } else {
-          logger.info('Notification permission saved to database');
         }
       }
 
@@ -172,7 +165,6 @@ class NotificationService {
     setTimeout(async () => {
       try {
         await this.scheduleUpcomingEventNotifications(true);
-        logger.info('Test notification scheduled successfully');
       } catch (error) {
         logger.error('Error scheduling test notification:', error);
       }
@@ -236,8 +228,6 @@ class NotificationService {
 
         if (subError) {
           logger.error('Error storing push subscription:', subError);
-        } else {
-          logger.info('Push subscription stored successfully');
         }
       }
     } catch (error) {
@@ -407,11 +397,8 @@ class NotificationService {
       scheduledTime
     };
 
-    logger.info(`Scheduling notification: ${notification.title} in ${Math.round(notificationDelay / 1000)} seconds`);
-
     // Schedule using setTimeout (for browser notifications)
     const timeoutId = window.setTimeout(() => {
-      logger.info(`Sending notification: ${notification.title}`);
       this.sendNotification(notification.title, notification.body, {
         eventId: event.id,
         eventName: event.event_name,
@@ -479,7 +466,7 @@ class NotificationService {
           }
         ]
       }).then(() => {
-        logger.info('Notification sent via service worker');
+        // Notification sent via service worker
       }).catch((error) => {
         logger.error('Error sending notification via service worker:', error);
         // Fallback to regular Notification API
@@ -508,8 +495,6 @@ class NotificationService {
         }
         notification.close();
       };
-      
-      logger.info('Notification sent via Notification API');
     } catch (error) {
       logger.error('Error sending notification via Notification API:', error);
     }
@@ -601,20 +586,13 @@ export function useNotifications() {
   const requestPermission = useCallback(async (): Promise<boolean> => {
     setIsLoading(true);
     try {
-      console.log('[useNotifications] Requesting permission...');
-      console.log('[useNotifications] Current Notification.permission:', Notification.permission);
-      
       const perm = await notificationService.requestPermission();
-      console.log('[useNotifications] Permission result:', perm);
       
       setPermission(perm);
 
       if (perm.granted) {
-        console.log('[useNotifications] Permission granted, enabling notifications...');
         const enabled = await notificationService.enableNotifications();
         setIsEnabled(enabled);
-        
-        console.log('[useNotifications] Notifications enabled:', enabled);
         
         if (enabled) {
           toast({
@@ -631,7 +609,6 @@ export function useNotifications() {
         
         return enabled;
       } else {
-        console.log('[useNotifications] Permission denied or not granted');
         toast({
           title: "Permission denied",
           description: "Please enable notifications in your browser settings",
@@ -640,7 +617,6 @@ export function useNotifications() {
         return false;
       }
     } catch (error) {
-      console.error('[useNotifications] Error requesting permission:', error);
       logger.error('Error requesting notification permission:', error);
       toast({
         title: "Error",

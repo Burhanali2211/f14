@@ -518,7 +518,6 @@ export default function UploaderPage() {
     // Check cache if not forcing refresh
     const now = Date.now();
     if (!forceRefresh && !isRetry && now - lastFetchTime < CACHE_DURATION && allPieces.length > 0) {
-      logger.debug('Using cached data');
       return;
     }
 

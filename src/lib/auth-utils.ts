@@ -22,7 +22,6 @@ async function testConnection(): Promise<boolean> {
     clearTimeout(timeoutId);
     return response.ok || response.status === 200;
   } catch (error) {
-    logger.debug('Connection test failed:', error);
     return false;
   }
 }
@@ -113,7 +112,6 @@ export function saveSession(user: User): void {
     };
     
     localStorage.setItem('user_session', JSON.stringify(sessionData));
-    logger.debug('Session saved for user:', user.email);
     
     // Dispatch custom event for auth state change
     window.dispatchEvent(new Event('auth:change'));
@@ -137,7 +135,6 @@ export function saveSession(user: User): void {
           createdAt: new Date().toISOString(),
         };
         localStorage.setItem('user_session', JSON.stringify(sessionData));
-        logger.debug('Session saved after clearing storage');
         window.dispatchEvent(new Event('auth:change'));
       } catch (retryError) {
         logger.error('Error saving session after retry:', retryError);
@@ -149,7 +146,6 @@ export function saveSession(user: User): void {
 // Clear session
 export function clearSession(): void {
   localStorage.removeItem('user_session');
-  logger.debug('Session cleared');
   
   // Dispatch custom event for auth state change
   window.dispatchEvent(new Event('auth:change'));
@@ -166,24 +162,12 @@ export async function signUp(
   try {
     // Use the anon key (JWT) for Edge Functions with verify_jwt: true
     const anonKey = getAnonKey();
-    logger.debug('Using anon key for signup:', {
-      hasKey: !!anonKey,
-      keyLength: anonKey.length,
-      startsWithJWT: anonKey.startsWith('eyJ'),
-    });
     
     // Add timeout and better error handling for mobile devices
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
-    // Log for debugging mobile issues
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    logger.debug('Signup attempt:', { 
-      url: AUTH_FUNCTION_URL,
-      isMobile,
-      userAgent: navigator.userAgent.substring(0, 50),
-      origin: window.location.origin
-    });
     
     let response: Response;
     try {
@@ -356,13 +340,6 @@ async function fetchWithRetry(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeout);
       
-      logger.debug(`Fetch attempt ${attempt + 1}/${retries + 1}`, { 
-        url, 
-        isMobile, 
-        timeout,
-        attempt 
-      });
-      
       const response = await fetch(url, {
         ...options,
         signal: controller.signal,
@@ -394,11 +371,6 @@ async function fetchWithRetry(
       
       // Don't retry on last attempt
       if (attempt < retries) {
-        logger.debug('Network error, retrying...', { 
-          error: error.message, 
-          attempt,
-          isMobile 
-        });
         // Exponential backoff: 1s, 2s, 4s for mobile
         await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, attempt)));
         continue;
@@ -421,14 +393,7 @@ export async function signIn(
     // Use the anon key (JWT) for Edge Functions with verify_jwt: true
     const anonKey = getAnonKey();
     
-    // Log for debugging mobile issues
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    logger.debug('Login attempt:', { 
-      url: AUTH_FUNCTION_URL,
-      isMobile,
-      userAgent: navigator.userAgent.substring(0, 50),
-      origin: window.location.origin
-    });
     
     // For mobile, test connection first (non-blocking)
     if (isMobile) {
@@ -602,7 +567,6 @@ export async function login(
 // Sign out user
 export function signOut(): void {
   clearSession();
-  logger.debug('User signed out');
 }
 
 // Check if user is authenticated
