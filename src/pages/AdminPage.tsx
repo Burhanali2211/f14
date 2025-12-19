@@ -42,6 +42,8 @@ import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getKarbalaPlaceholder } from '@/lib/utils';
+import { getCachedData, setCachedData, getCacheKey, invalidateCache } from '@/lib/data-cache';
+import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Category, Piece, Imam, UserProfile, UploaderPermission, SiteSettings, Artiste, AhlulBaitEvent, EventType } from '@/lib/supabase-types';
 import { optimizeArtistImage, optimizeRecitationImage, validateImageFile, formatFileSize } from '@/lib/image-optimizer';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
@@ -160,6 +162,46 @@ export default function AdminPage() {
 
   const fetchData = async () => {
     try {
+      // Check cache for admin data
+      const cacheKey = getCacheKey('admin:data');
+      const cached = getCachedData<{
+        categories: Category[];
+        pieces: Piece[];
+        imams: Imam[];
+        artistes: Artiste[];
+        users: UserProfile[];
+        events: AhlulBaitEvent[];
+      }>(cacheKey);
+
+      if (cached) {
+        // Check if cache is stale
+        const [piecesVersion, categoriesVersion, imamsVersion, artistesVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('categories'),
+          getTableVersion('imams'),
+          getTableVersion('artistes'),
+        ]);
+
+        const latestVersion = [piecesVersion, categoriesVersion, imamsVersion, artistesVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0];
+
+        if (latestVersion && cached.version && latestVersion <= cached.version) {
+          // Cache is still valid
+          logger.debug('Using cached admin data');
+          setCategories(cached.data.categories);
+          setPieces(cached.data.pieces);
+          setImams(cached.data.imams);
+          setArtistes(cached.data.artistes);
+          setUserProfiles(cached.data.users);
+          setEvents(cached.data.events);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Cache miss or stale - fetch from API
       const [catRes, pieceRes, imamRes, artistesRes, usersRes, eventsRes] = await Promise.all([
         safeQuery(async () => await supabase.from('categories').select('*').order('name')),
         safeQuery(async () => await supabase.from('pieces').select('*').order('created_at', { ascending: false })),
@@ -227,6 +269,34 @@ export default function AdminPage() {
         toast({ title: 'Error', description: 'Failed to load events', variant: 'destructive' });
       } else if (eventsRes.data) {
         setEvents(eventsRes.data as unknown as AhlulBaitEvent[]);
+      }
+
+      // Cache the data if all fetches were successful
+      if (catRes.data && pieceRes.data && imamRes.data && usersRes.data && eventsRes.data) {
+        const [piecesVersion, categoriesVersion, imamsVersion, artistesVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('categories'),
+          getTableVersion('imams'),
+          getTableVersion('artistes'),
+        ]);
+
+        const latestVersion = [piecesVersion, categoriesVersion, imamsVersion, artistesVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0] || null;
+
+        setCachedData(
+          cacheKey,
+          {
+            categories: catRes.data as Category[],
+            pieces: pieceRes.data as Piece[],
+            imams: imamRes.data as Imam[],
+            artistes: artistesRes.data as unknown as Artiste[] || [],
+            users: usersRes.data as UserProfile[],
+            events: eventsRes.data as unknown as AhlulBaitEvent[],
+          },
+          latestVersion
+        );
       }
     } catch (error) {
       logger.error('Unexpected error in fetchData:', error);
@@ -515,6 +585,10 @@ export default function AdminPage() {
       }
 
       toast({ title: 'Success', description: 'Holy Personality updated' });
+      // Invalidate cache
+      invalidateCache('imams:*');
+      invalidateCache('index:*');
+      invalidateCache('admin:data');
     } else {
       const { error } = await authenticatedQuery(async () =>
         await (supabase as any).from('imams').insert([data])
@@ -525,6 +599,10 @@ export default function AdminPage() {
         return;
       }
       toast({ title: 'Success', description: 'Holy Personality created' });
+      // Invalidate cache
+      invalidateCache('imams:*');
+      invalidateCache('index:*');
+      invalidateCache('admin:data');
     }
 
     setImamDialogOpen(false);
@@ -602,6 +680,10 @@ export default function AdminPage() {
       }
 
       toast({ title: 'Success', description: 'Recitation updated' });
+      // Invalidate cache
+      invalidateCache('pieces:*');
+      invalidateCache('index:*');
+      invalidateCache('admin:data');
     } else {
       const { error } = await authenticatedQuery(async () =>
         await supabase.from('pieces').insert([data])
@@ -612,6 +694,10 @@ export default function AdminPage() {
         return;
       }
       toast({ title: 'Success', description: 'Recitation created' });
+      // Invalidate cache
+      invalidateCache('pieces:*');
+      invalidateCache('index:*');
+      invalidateCache('admin:data');
     }
 
     setPieceDialogOpen(false);
@@ -778,6 +864,18 @@ export default function AdminPage() {
           title: 'Success', 
           description: `${deleteDialog.type} deleted successfully` 
         });
+        // Invalidate cache based on deleted type
+        if (deleteDialog.type === 'piece') {
+          invalidateCache('pieces:*');
+          invalidateCache('index:*');
+        } else if (deleteDialog.type === 'category') {
+          invalidateCache('categories:*');
+          invalidateCache('index:*');
+        } else if (deleteDialog.type === 'imam') {
+          invalidateCache('imams:*');
+          invalidateCache('index:*');
+        }
+        invalidateCache('admin:data');
         // Refresh data to reflect the deletion
         fetchData();
       } else {

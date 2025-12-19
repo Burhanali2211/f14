@@ -27,6 +27,8 @@ import {
   generateArticleStructuredData,
   generateBreadcrumbStructuredData,
 } from '@/lib/seo-utils';
+import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
+import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Piece, Category, Imam } from '@/lib/supabase-types';
 
 export default function PiecePage() {
@@ -65,6 +67,31 @@ export default function PiecePage() {
 
   const fetchPiece = useCallback(async () => {
     try {
+      // Check cache first
+      const cacheKey = getCacheKey('piece', { id });
+      const cached = getCachedData<{
+        piece: Piece;
+        category: Category | null;
+        imam: Imam | null;
+        siblings: { prev?: Piece; next?: Piece };
+      }>(cacheKey);
+
+      if (cached) {
+        // Check if cache is stale
+        const piecesVersion = await getTableVersion('pieces');
+        if (piecesVersion && cached.version && piecesVersion <= cached.version) {
+          // Cache is still valid
+          logger.debug('Using cached piece data');
+          setPiece(cached.data.piece);
+          setCategory(cached.data.category);
+          setImam(cached.data.imam);
+          setSiblingPieces(cached.data.siblings);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Cache miss or stale - fetch from API
       // Optimized: Fetch piece with category and imam in single query for SEO
       const { data, error } = await safeQuery(async () =>
         await supabase
@@ -105,6 +132,8 @@ export default function PiecePage() {
       setPiece(typedPiece as Piece);
 
       // Extract category and imam from joined data
+      let fetchedSiblings: { prev?: Piece; next?: Piece } = {};
+      
       if (typedPiece.category) {
         setCategory(typedPiece.category as Category);
         
@@ -121,10 +150,11 @@ export default function PiecePage() {
           logger.error('Error fetching siblings:', siblingsError);
         } else if (siblings) {
           const currentIndex = siblings.findIndex(s => s.id === id);
-          setSiblingPieces({
+          fetchedSiblings = {
             prev: currentIndex > 0 ? siblings[currentIndex - 1] as Piece : undefined,
             next: currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] as Piece : undefined,
-          });
+          };
+          setSiblingPieces(fetchedSiblings);
         }
       }
 
@@ -132,6 +162,19 @@ export default function PiecePage() {
       if (typedPiece.imam) {
         setImam(typedPiece.imam as Imam);
       }
+
+      // Cache the data
+      const piecesVersion = await getTableVersion('pieces');
+      setCachedData(
+        cacheKey,
+        {
+          piece: typedPiece as Piece,
+          category: typedPiece.category as Category | null,
+          imam: typedPiece.imam as Imam | null,
+          siblings: fetchedSiblings,
+        },
+        piecesVersion
+      );
     } catch (error) {
       logger.error('Unexpected error in fetchPiece:', error);
     } finally {

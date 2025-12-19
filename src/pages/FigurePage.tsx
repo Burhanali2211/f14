@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { generateBreadcrumbStructuredData } from '@/lib/seo-utils';
+import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
+import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Piece, Imam } from '@/lib/supabase-types';
 
 export default function FigurePage() {
@@ -21,6 +23,33 @@ export default function FigurePage() {
     const fetchData = async () => {
       if (!slug) return;
 
+      // Check cache first
+      const cacheKey = getCacheKey('figure', { slug });
+      const cached = getCachedData<{ imam: Imam; pieces: Piece[] }>(cacheKey);
+
+      if (cached) {
+        // Check if cache is stale
+        const [piecesVersion, imamsVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('imams'),
+        ]);
+
+        const latestVersion = [piecesVersion, imamsVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0];
+
+        if (latestVersion && cached.version && latestVersion <= cached.version) {
+          // Cache is still valid
+          logger.debug('Using cached figure data');
+          setImam(cached.data.imam);
+          setPieces(cached.data.pieces);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Cache miss or stale - fetch from API
       // Optimized: Fetch imam with optimized fields
       const { data: imamData, error: imamError } = await safeQuery(async () =>
         await (supabase as any)
@@ -47,7 +76,25 @@ export default function FigurePage() {
         if (piecesError) {
           logger.error('Error fetching pieces:', piecesError);
         } else if (piecesData) {
-          setPieces(piecesData as unknown as Piece[]);
+          const pieces = piecesData as unknown as Piece[];
+          setPieces(pieces);
+
+          // Cache the data
+          const [piecesVersion, imamsVersion] = await Promise.all([
+            getTableVersion('pieces'),
+            getTableVersion('imams'),
+          ]);
+
+          const latestVersion = [piecesVersion, imamsVersion]
+            .filter((v): v is string => v !== null)
+            .sort()
+            .reverse()[0] || null;
+
+          setCachedData(
+            cacheKey,
+            { imam: imamData as Imam, pieces },
+            latestVersion
+          );
         }
       }
 

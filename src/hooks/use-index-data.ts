@@ -5,6 +5,8 @@ import { useReadingProgress } from '@/hooks/use-reading-progress';
 import { useUserRole } from '@/hooks/use-user-role';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
+import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Category, Piece, Imam, SiteSettings } from '@/lib/supabase-types';
 
 export interface IndexData {
@@ -90,6 +92,49 @@ export function useIndexData(): IndexData {
 
   const fetchData = async () => {
     try {
+      // Check cache first for index data
+      const indexCacheKey = getCacheKey('index');
+      const cachedIndex = getCachedData<{
+        categories: Category[];
+        imams: Imam[];
+        recentPieces: Piece[];
+        popularPieces: Piece[];
+        artists: Array<{ name: string; count: number; image_url: string | null }>;
+        siteSettings: SiteSettings | null;
+        stats: { categories: number; pieces: number };
+      }>(indexCacheKey);
+
+      // If we have cached data and it's not stale, use it
+      if (cachedIndex) {
+        // Check if cache is stale by comparing table versions
+        const [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion] = await Promise.all([
+          getTableVersion('categories'),
+          getTableVersion('pieces'),
+          getTableVersion('imams'),
+          getTableVersion('site_settings'),
+        ]);
+
+        const latestVersion = [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0];
+
+        if (latestVersion && cachedIndex.version && latestVersion <= cachedIndex.version) {
+          // Cache is still valid
+          logger.debug('Using cached index data');
+          setCategories(cachedIndex.data.categories);
+          setImams(cachedIndex.data.imams);
+          setRecentPieces(cachedIndex.data.recentPieces);
+          setPopularPieces(cachedIndex.data.popularPieces);
+          setArtists(cachedIndex.data.artists);
+          setSiteSettings(cachedIndex.data.siteSettings);
+          setStats(cachedIndex.data.stats);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Cache miss or stale - fetch from API
       // Optimized: Select only needed fields instead of * to reduce payload size
       const [catRes, recentRes, popularRes, imamRes, artistsRes, siteSettingsRes] = await Promise.all([
         safeQuery(async () => await supabase.from('categories').select('id, name, slug, description, icon, bg_image_url, bg_image_opacity, bg_image_blur, bg_image_position, bg_image_size, bg_image_scale').order('name')),
@@ -173,6 +218,77 @@ export function useIndexData(): IndexData {
         logger.error('Error fetching site settings:', siteSettingsRes.error);
       } else if (siteSettingsRes.data) {
         setSiteSettings(siteSettingsRes.data as unknown as SiteSettings);
+      }
+
+      // Cache the complete index data
+      if (catRes.data && recentRes.data && imamRes.data && siteSettingsRes.data) {
+        const categoriesData = catRes.data as Category[];
+        const recentPiecesData = recentRes.data as unknown as Piece[];
+        const popularPiecesData = popularRes.data as unknown as Piece[];
+        const imamsData = imamRes.data as unknown as Imam[];
+        const siteSettingsData = siteSettingsRes.data as unknown as SiteSettings;
+
+        // Process artists data
+        let artistsArray: Array<{ name: string; count: number; image_url: string | null }> = [];
+        if (artistsRes.data) {
+          const reciterCounts = new Map<string, number>();
+          artistsRes.data.forEach((piece: any) => {
+            if (piece.reciter && piece.reciter.trim() !== '') {
+              reciterCounts.set(piece.reciter, (reciterCounts.get(piece.reciter) || 0) + 1);
+            }
+          });
+
+          const uniqueReciters = Array.from(reciterCounts.keys());
+          const artistesRes = await safeQuery(async () => 
+            await (supabase as any).from('artistes').select('name, image_url').in('name', uniqueReciters)
+          );
+
+          const artistesMap = new Map<string, { image_url: string | null }>();
+          if (artistesRes.data) {
+            (artistesRes.data as any[]).forEach((artiste: any) => {
+              artistesMap.set(artiste.name, { image_url: artiste.image_url });
+            });
+          }
+
+          artistsArray = Array.from(reciterCounts.entries())
+            .map(([name, count]) => ({ 
+              name, 
+              count,
+              image_url: artistesMap.get(name)?.image_url || null
+            }))
+            .sort((a, b) => b.count - a.count);
+        }
+
+        // Get latest version for cache
+        const [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion] = await Promise.all([
+          getTableVersion('categories'),
+          getTableVersion('pieces'),
+          getTableVersion('imams'),
+          getTableVersion('site_settings'),
+        ]);
+
+        const latestVersion = [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0] || null;
+
+        // Store in cache
+        setCachedData(
+          indexCacheKey,
+          {
+            categories: categoriesData,
+            imams: imamsData,
+            recentPieces: recentPiecesData,
+            popularPieces: popularPiecesData,
+            artists: artistsArray,
+            siteSettings: siteSettingsData,
+            stats: {
+              categories: categoriesData.length,
+              pieces: recentPiecesData.length,
+            },
+          },
+          latestVersion
+        );
       }
     } catch (error) {
       logger.error('Unexpected error in fetchData:', error);

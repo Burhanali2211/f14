@@ -34,6 +34,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder } from '@/lib/utils';
+import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
+import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Category, Piece } from '@/lib/supabase-types';
 
 type SortOption = 'title' | 'recent' | 'popular' | 'reciter';
@@ -61,6 +63,37 @@ export default function CategoryPage() {
 
   const fetchCategory = async () => {
     try {
+      // Check cache first
+      const cacheKey = getCacheKey('category', { slug });
+      const cached = getCachedData<{ category: Category; pieces: Piece[] }>(cacheKey);
+
+      if (cached) {
+        // Check if cache is stale
+        const [piecesVersion, categoriesVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('categories'),
+        ]);
+
+        const latestVersion = [piecesVersion, categoriesVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0];
+
+        if (latestVersion && cached.version && latestVersion <= cached.version) {
+          // Cache is still valid
+          logger.debug('Using cached category data');
+          setCategory(cached.data.category);
+          setPieces(cached.data.pieces);
+          const uniqueLanguages = [...new Set(cached.data.pieces.map(p => p.language))];
+          setLanguages(uniqueLanguages);
+          const uniqueReciters = [...new Set(cached.data.pieces.filter(p => p.reciter).map(p => p.reciter!))];
+          setReciters(uniqueReciters);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Cache miss or stale - fetch from API
       const { data: catData, error: catError } = await safeQuery(async () =>
         await supabase
           .from('categories')
@@ -95,6 +128,23 @@ export default function CategoryPage() {
       } else if (piecesData) {
         const typedPieces = piecesData as Piece[];
         setPieces(typedPieces);
+
+        // Cache the data
+        const [piecesVersion, categoriesVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('categories'),
+        ]);
+
+        const latestVersion = [piecesVersion, categoriesVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0] || null;
+
+        setCachedData(
+          cacheKey,
+          { category: catData as Category, pieces: typedPieces },
+          latestVersion
+        );
         
         const uniqueLanguages = [...new Set(typedPieces.map(p => p.language))];
         setLanguages(uniqueLanguages);

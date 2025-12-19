@@ -56,6 +56,8 @@ import { NotificationPermissionPrompt } from "@/components/NotificationPermissio
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { toast } from "@/hooks/use-toast";
 import { login as testLogin } from "@/lib/auth-utils";
+import { initializeCacheRealtimeSubscriptions } from "@/lib/realtime-cache-manager";
+import { clearExpiredCache } from "@/lib/data-cache";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -813,6 +815,36 @@ function BackendHealthCheck() {
   return null;
 }
 
+// Cache system initializer - sets up Realtime subscriptions and cleans expired cache
+function CacheSystemInitializer() {
+  useEffect(() => {
+    // Clear expired cache entries on app start
+    const cleared = clearExpiredCache();
+    if (cleared > 0) {
+      logger.debug(`Cleared ${cleared} expired cache entries on app start`);
+    }
+
+    // Initialize Realtime subscriptions for cache invalidation
+    const cleanup = initializeCacheRealtimeSubscriptions();
+
+    // Cleanup on unmount
+    return () => {
+      cleanup();
+    };
+  }, []);
+
+  // Periodic cleanup of expired cache (every 5 minutes)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      clearExpiredCache();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return null;
+}
+
 const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -833,6 +865,7 @@ const App = () => (
                   >
                     <ScrollToTop />
                     <BackendHealthCheck />
+                    <CacheSystemInitializer />
                     <ServiceWorkerHandler />
                     <NotificationPermissionPrompt />
                     <Suspense fallback={<PageLoader />}>

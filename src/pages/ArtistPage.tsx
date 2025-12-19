@@ -9,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { generateBreadcrumbStructuredData } from '@/lib/seo-utils';
+import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
+import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Piece, Artiste } from '@/lib/supabase-types';
 
 export default function ArtistPage() {
@@ -26,6 +28,33 @@ export default function ArtistPage() {
       const decodedName = decodeURIComponent(reciterName);
       setArtistName(decodedName);
 
+      // Check cache first
+      const cacheKey = getCacheKey('artist', { reciterName: decodedName });
+      const cached = getCachedData<{ artiste: Artiste | null; pieces: Piece[] }>(cacheKey);
+
+      if (cached) {
+        // Check if cache is stale
+        const [piecesVersion, artistesVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('artistes'),
+        ]);
+
+        const latestVersion = [piecesVersion, artistesVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0];
+
+        if (latestVersion && cached.version && latestVersion <= cached.version) {
+          // Cache is still valid
+          logger.debug('Using cached artist data');
+          setArtiste(cached.data.artiste);
+          setPieces(cached.data.pieces);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // Cache miss or stale - fetch from API
       // Fetch artiste data and pieces in parallel
       const [artisteRes, piecesRes] = await Promise.all([
         safeQuery(async () =>
@@ -53,7 +82,25 @@ export default function ArtistPage() {
       if (piecesRes.error) {
         logger.error('Error fetching artist recitations:', piecesRes.error);
       } else if (piecesRes.data) {
-        setPieces(piecesRes.data as Piece[]);
+        const pieces = piecesRes.data as Piece[];
+        setPieces(pieces);
+
+        // Cache the data
+        const [piecesVersion, artistesVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('artistes'),
+        ]);
+
+        const latestVersion = [piecesVersion, artistesVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0] || null;
+
+        setCachedData(
+          cacheKey,
+          { artiste: artisteRes.data as Artiste | null, pieces },
+          latestVersion
+        );
       }
 
       setLoading(false);

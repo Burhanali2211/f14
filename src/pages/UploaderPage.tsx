@@ -49,6 +49,8 @@ import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { getKarbalaPlaceholder } from '@/lib/utils';
+import { getCachedData, setCachedData, getCacheKey, invalidateCache } from '@/lib/data-cache';
+import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 
 const ITEMS_PER_PAGE = 20;
@@ -241,8 +243,6 @@ export default function UploaderPage() {
   const [imams, setImams] = useState<Imam[]>([]);
   const [permissions, setPermissions] = useState<{ categoryIds: string[]; imamIds: string[] }>({ categoryIds: [], imamIds: [] });
   const [loading, setLoading] = useState(true);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
   const [deleting, setDeleting] = useState<string | null>(null);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
@@ -332,7 +332,10 @@ export default function UploaderPage() {
           description: 'Recitation restored successfully',
         });
         // Invalidate cache
-        setLastFetchTime(0);
+        const user = getCurrentUser();
+        if (user) {
+          invalidateCache(`uploader:data:userId=${user.id}*`);
+        }
       }
     } catch (error: any) {
       logger.error('Unexpected error undoing delete:', error);
@@ -515,12 +518,6 @@ export default function UploaderPage() {
   };
 
   const fetchData = async (isRetry = false, forceRefresh = false) => {
-    // Check cache if not forcing refresh
-    const now = Date.now();
-    if (!forceRefresh && !isRetry && now - lastFetchTime < CACHE_DURATION && allPieces.length > 0) {
-      return;
-    }
-
     if (!isRetry) {
       setLoading(true);
       setError(null);
@@ -536,8 +533,44 @@ export default function UploaderPage() {
         return;
       }
 
+      // Check cache for uploader data (user-specific)
+      const cacheKey = getCacheKey('uploader:data', { userId: user.id, role });
       let categoryIds: string[] = [];
       let imamIds: string[] = [];
+
+      if (!forceRefresh) {
+        const cached = getCachedData<{
+          categories: Category[];
+          imams: Imam[];
+          pieces: Piece[];
+          permissions: { categoryIds: string[]; imamIds: string[] };
+        }>(cacheKey);
+
+        if (cached) {
+          // Check if cache is stale
+          const [piecesVersion, categoriesVersion, imamsVersion] = await Promise.all([
+            getTableVersion('pieces'),
+            getTableVersion('categories'),
+            getTableVersion('imams'),
+          ]);
+
+          const latestVersion = [piecesVersion, categoriesVersion, imamsVersion]
+            .filter((v): v is string => v !== null)
+            .sort()
+            .reverse()[0];
+
+          if (latestVersion && cached.version && latestVersion <= cached.version) {
+            // Cache is still valid
+            logger.debug('Using cached uploader data');
+            setCategories(cached.data.categories);
+            setImams(cached.data.imams);
+            setAllPieces(cached.data.pieces);
+            setPermissions(cached.data.permissions);
+            setLoading(false);
+            return;
+          }
+        }
+      }
 
       // Only fetch permissions for uploaders (admins have access to everything)
       if (role === 'uploader') {
@@ -607,7 +640,29 @@ export default function UploaderPage() {
         });
         
         setAllPieces(accessiblePieces);
-        setLastFetchTime(now);
+
+        // Cache the data
+        const [piecesVersion, categoriesVersion, imamsVersion] = await Promise.all([
+          getTableVersion('pieces'),
+          getTableVersion('categories'),
+          getTableVersion('imams'),
+        ]);
+
+        const latestVersion = [piecesVersion, categoriesVersion, imamsVersion]
+          .filter((v): v is string => v !== null)
+          .sort()
+          .reverse()[0] || null;
+
+        setCachedData(
+          cacheKey,
+          {
+            categories: catRes.data as Category[],
+            imams: figureRes.data as Imam[],
+            pieces: accessiblePieces,
+            permissions: { categoryIds, imamIds },
+          },
+          latestVersion
+        );
       }
     } catch (error) {
       logger.error('Unexpected error in fetchData:', error);
@@ -843,7 +898,10 @@ export default function UploaderPage() {
           setCurrentPage(currentPage - 1);
         }
         // Invalidate cache
-        setLastFetchTime(0);
+        const user = getCurrentUser();
+        if (user) {
+          invalidateCache(`uploader:data:userId=${user.id}*`);
+        }
       } else {
         toast({
           title: 'Error',
@@ -930,7 +988,10 @@ export default function UploaderPage() {
           setCurrentPage(currentPage - 1);
         }
         // Invalidate cache
-        setLastFetchTime(0);
+        const user = getCurrentUser();
+        if (user) {
+          invalidateCache(`uploader:data:userId=${user.id}*`);
+        }
         
         // Show undo toast
         toast({
