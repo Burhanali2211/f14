@@ -3,6 +3,60 @@ import App from "./App.tsx";
 import "./index.css";
 import { performanceMonitor } from "./lib/error-tracking";
 
+// Filter out known third-party warnings from YouTube/Google scripts
+// These are harmless warnings from external resources we can't control
+// Can be disabled by setting localStorage.setItem('showYoutubeWarnings', 'true')
+if (typeof window !== 'undefined') {
+  const showYoutubeWarnings = localStorage.getItem('showYoutubeWarnings') === 'true';
+  
+  if (!showYoutubeWarnings) {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  // Patterns to filter (YouTube/Google third-party scripts)
+  const filterPatterns = [
+    /www-player\.css/i,
+    /www-embed-player/i,
+    /Unknown property.*-moz-/i,
+    /Unknown pseudo-class.*-moz-/i,
+    /Unknown pseudo-class.*-ms-/i,
+    /Error in parsing value/i,
+    /Declaration dropped/i,
+    /Ruleset ignored/i,
+    /r43BVKpqVNByaR4gLMQgR4Bxv0Q6w9Dzv0MAphxEz80\.js/i,
+    /unreachable code after return statement/i,
+    /doubleclick\.net/i,
+    /googleads\.g\.doubleclick\.net/i,
+    /Partitioned cookie or storage access/i,
+    /Invalid URI.*Load of media resource/i,
+  ];
+  
+  const shouldFilter = (message: string): boolean => {
+    return filterPatterns.some(pattern => pattern.test(message));
+  };
+  
+  console.error = (...args: any[]) => {
+    const message = args.map(arg => 
+      typeof arg === 'string' ? arg : JSON.stringify(arg)
+    ).join(' ');
+    
+    if (!shouldFilter(message)) {
+      originalError.apply(console, args);
+    }
+  };
+  
+  console.warn = (...args: any[]) => {
+    const message = args.map(arg => 
+      typeof arg === 'string' ? arg : JSON.stringify(arg)
+    ).join(' ');
+    
+    if (!shouldFilter(message)) {
+      originalWarn.apply(console, args);
+    }
+  };
+  }
+}
+
 // Function to get current zoom level - only use reliable methods
 const getZoomLevel = (): number => {
   // Method 1: Visual Viewport API (most accurate, works on mobile and modern desktop browsers)

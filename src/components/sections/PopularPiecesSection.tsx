@@ -1,5 +1,5 @@
 import { TrendingUp } from 'lucide-react';
-import { PieceCard } from '@/components/PieceCard';
+import { PopularPieceCard } from '@/components/cards/PopularPieceCard';
 import type { Piece } from '@/lib/supabase-types';
 
 interface PopularPiecesSectionProps {
@@ -10,22 +10,27 @@ export function PopularPiecesSection({ pieces }: PopularPiecesSectionProps) {
   if (pieces.length === 0) return null;
 
   return (
-    <section className="py-12">
-      <div className="flex items-center justify-between mb-8">
+    <section className="py-8 sm:py-12 md:py-16">
+      <div className="mb-6 sm:mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-            <TrendingUp className="w-5 h-5 text-accent" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">Most Popular</h2>
-            <p className="text-sm text-muted-foreground">Top viewed recitations</p>
-          </div>
+          <TrendingUp className="w-5 h-5 text-muted-foreground" />
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-semibold text-foreground">
+            Most Popular
+          </h2>
         </div>
+        <p className="text-sm text-muted-foreground mt-1.5 ml-8">
+          Widely read recitations
+        </p>
       </div>
       
-      <div className="grid md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
         {pieces.map((piece, i) => (
-          <PieceCard key={piece.id} piece={piece} index={i} />
+          <PopularPieceCard 
+            key={piece.id} 
+            piece={piece} 
+            index={i}
+            totalItems={pieces.length}
+          />
         ))}
       </div>
     </section>

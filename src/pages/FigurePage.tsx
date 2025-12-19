@@ -57,34 +57,7 @@ export default function FigurePage() {
     fetchData();
   }, [slug]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <div className="flex items-center justify-center h-[60vh]">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!imam) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="container py-12">
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-foreground mb-4">Holy Personality not found</h1>
-            <Link to="/" className="text-primary hover:underline">
-              Go back home
-            </Link>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // Generate SEO data
+  // Generate SEO data - MUST be called before any conditional returns (Rules of Hooks)
   const seoData = useMemo(() => {
     if (!imam) return null;
     
@@ -154,6 +127,33 @@ export default function FigurePage() {
       canonicalUrl: figureUrl,
     };
   }, [imam, pieces]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="flex items-center justify-center h-[60vh]">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!imam) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container py-12">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-foreground mb-4">Holy Personality not found</h1>
+            <Link to="/" className="text-primary hover:underline">
+              Go back home
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

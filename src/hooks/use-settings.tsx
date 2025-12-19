@@ -5,7 +5,7 @@ export interface AppSettings {
   fontSize: number;
   lineHeight: number;
   letterSpacing: number;
-  fontFamily: 'amiri' | 'noto-nastaliq' | 'scheherazade';
+  fontFamily: 'amiri' | 'noto-nastaliq' | 'gulzar' | 'scheherazade' | 'lateef' | 'noto-sans-arabic' | 'reem-kufi';
   textAlign: 'right' | 'center' | 'justify';
   
   // Display settings

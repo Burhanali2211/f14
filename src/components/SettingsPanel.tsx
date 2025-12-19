@@ -32,7 +32,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
         <SheetHeader className="pb-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between gap-2 sm:gap-0">
             <SheetTitle className="font-display text-xl">Settings</SheetTitle>
             <Button variant="ghost" size="sm" onClick={resetSettings} className="text-muted-foreground">
               <RotateCcw className="w-4 h-4 mr-2" />
@@ -116,9 +116,13 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="amiri">Amiri (Classic)</SelectItem>
-                    <SelectItem value="noto-nastaliq">Noto Nastaliq (Urdu)</SelectItem>
-                    <SelectItem value="scheherazade">Scheherazade (Arabic)</SelectItem>
+                    <SelectItem value="amiri">Amiri (Classic Arabic)</SelectItem>
+                    <SelectItem value="noto-nastaliq">Noto Nastaliq Urdu (Traditional Nastaliq)</SelectItem>
+                    <SelectItem value="gulzar">Gulzar (Modern Nastaliq)</SelectItem>
+                    <SelectItem value="lateef">Lateef (Elegant Urdu)</SelectItem>
+                    <SelectItem value="noto-sans-arabic">Noto Sans Arabic (Modern Urdu)</SelectItem>
+                    <SelectItem value="reem-kufi">Reem Kufi (Contemporary Urdu)</SelectItem>
+                    <SelectItem value="scheherazade">Scheherazade New (Modern Arabic)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -17,7 +17,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
-import { safeQuery } from '@/lib/db-utils';
+import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { optimizeLogoImage, optimizeHeroImage, formatFileSize } from '@/lib/image-optimizer';
 import type { SiteSettings } from '@/lib/supabase-types';
@@ -425,38 +425,77 @@ export default function SiteSettingsPage() {
       return;
     }
 
-    const { error } = await supabase
-      .from('site_settings')
-      .update({
-        site_name: siteSettingsForm.site_name.trim(),
-        site_tagline: siteSettingsForm.site_tagline?.trim() || null,
-        logo_url: siteSettingsForm.logo_url?.trim() || null,
-        hero_image_url: siteSettingsForm.hero_image_url?.trim() || null,
-        hero_gradient_opacity: siteSettingsForm.hero_gradient_opacity ?? 1.0,
-        hero_image_opacity: siteSettingsForm.hero_image_opacity ?? 1.0,
-        hero_gradient_preset: siteSettingsForm.hero_gradient_preset || 'default',
-        hero_badge_text: siteSettingsForm.hero_badge_text?.trim() || null,
-        hero_heading_line1: siteSettingsForm.hero_heading_line1?.trim() || null,
-        hero_heading_line2: siteSettingsForm.hero_heading_line2?.trim() || null,
-        hero_description: siteSettingsForm.hero_description?.trim() || null,
-        hero_text_color_mode: siteSettingsForm.hero_text_color_mode || 'auto',
-      })
-      .eq('id', '00000000-0000-0000-0000-000000000000');
+    logger.debug('SiteSettings: Saving settings', {
+      hero_image_url: siteSettingsForm.hero_image_url?.substring(0, 50) || 'empty',
+      logo_url: siteSettingsForm.logo_url?.substring(0, 50) || 'empty',
+    });
+
+    const updateData = {
+      site_name: siteSettingsForm.site_name.trim(),
+      site_tagline: siteSettingsForm.site_tagline?.trim() || null,
+      logo_url: siteSettingsForm.logo_url?.trim() || null,
+      hero_image_url: siteSettingsForm.hero_image_url?.trim() || null,
+      hero_gradient_opacity: siteSettingsForm.hero_gradient_opacity ?? 1.0,
+      hero_image_opacity: siteSettingsForm.hero_image_opacity ?? 1.0,
+      hero_gradient_preset: siteSettingsForm.hero_gradient_preset || 'default',
+      hero_badge_text: siteSettingsForm.hero_badge_text?.trim() || null,
+      hero_heading_line1: siteSettingsForm.hero_heading_line1?.trim() || null,
+      hero_heading_line2: siteSettingsForm.hero_heading_line2?.trim() || null,
+      hero_description: siteSettingsForm.hero_description?.trim() || null,
+      hero_text_color_mode: siteSettingsForm.hero_text_color_mode || 'auto',
+    };
+
+    // Use upsert to handle both insert and update cases
+    // This ensures the row exists even if it was deleted or never created
+    const { data: updatedData, error } = await authenticatedQuery(async () => {
+      const result = await supabase
+        .from('site_settings')
+        .upsert({
+          id: '00000000-0000-0000-0000-000000000000',
+          ...updateData,
+        }, {
+          onConflict: 'id'
+        })
+        .select()
+        .single();
+      
+      return result;
+    });
 
     if (error) {
+      logger.error('SiteSettings: Error updating settings:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to update site settings. Please refresh the page and try again.',
         variant: 'destructive',
       });
-    } else {
+      return;
+    }
+
+    if (!updatedData) {
+      logger.error('SiteSettings: Update returned no data');
       toast({
-        title: 'Success',
-        description: 'Site settings updated successfully',
+        title: 'Error',
+        description: 'Update completed but could not verify. Please refresh the page.',
+        variant: 'destructive',
       });
       fetchSiteSettings();
-      setTimeout(() => window.location.reload(), 1000);
+      return;
     }
+
+    logger.debug('SiteSettings: Settings updated successfully', {
+      hero_image_url: updatedData.hero_image_url?.substring(0, 50) || 'empty',
+      logo_url: updatedData.logo_url?.substring(0, 50) || 'empty',
+    });
+
+    toast({
+      title: 'Success',
+      description: 'Site settings updated successfully',
+    });
+    
+    // Refresh the settings and reload after a short delay
+    await fetchSiteSettings();
+    setTimeout(() => window.location.reload(), 1000);
   };
 
   if (loading || roleLoading) {

@@ -57,14 +57,17 @@ self.addEventListener('push', (event) => {
       data: notificationData.data,
       requireInteraction: notificationData.requireInteraction,
       vibrate: [200, 100, 200],
+      silent: false,
       actions: [
         {
           action: 'view',
-          title: 'View Event'
+          title: 'View Recitations',
+          icon: '/main.png'
         },
         {
-          action: 'dismiss',
-          title: 'Dismiss'
+          action: 'subscribe',
+          title: 'Subscribe',
+          icon: '/main.png'
         }
       ]
     })
@@ -75,13 +78,48 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  if (event.action === 'dismiss') {
+  const notificationData = event.notification.data || {};
+  const action = event.action || 'view';
+
+  // Handle Subscribe action
+  if (action === 'subscribe') {
+    event.waitUntil(
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        // Find existing window or open new one
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            // Send message to handle subscription
+            client.postMessage({
+              type: 'SUBSCRIBE_NOTIFICATIONS',
+              imamId: notificationData.imamId,
+              imamSlug: notificationData.imamSlug,
+              announcementId: notificationData.announcementId
+            });
+            return client.focus();
+          }
+        }
+        // Open new window to settings page for subscription
+        if (clients.openWindow) {
+          return clients.openWindow('/settings?subscribe=true');
+        }
+      })
+    );
     return;
   }
 
-  // Default action or 'view' action
-  const notificationData = event.notification.data || {};
-  const urlToOpen = notificationData.url || (notificationData.type === 'announcement' ? '/' : '/calendar');
+  // Handle View action (default)
+  // Determine URL: if imam slug exists, navigate to their recitations page
+  let urlToOpen = notificationData.url || '/';
+  
+  // If we have imam slug, navigate to their page
+  if (notificationData.imamSlug) {
+    urlToOpen = `/figure/${notificationData.imamSlug}`;
+  } else if (notificationData.type === 'announcement') {
+    // For announcements without imam, go to calendar or home
+    urlToOpen = notificationData.eventType && notificationData.eventType !== 'general' ? '/calendar' : '/';
+  } else {
+    urlToOpen = '/calendar';
+  }
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
@@ -91,7 +129,9 @@ self.addEventListener('notificationclick', (event) => {
           // Send message to navigate
           client.postMessage({
             type: 'NAVIGATE',
-            url: urlToOpen
+            url: urlToOpen,
+            announcementId: notificationData.announcementId,
+            imamSlug: notificationData.imamSlug
           });
           return client.focus();
         }
@@ -149,10 +189,17 @@ self.addEventListener('message', (event) => {
         data: data || {},
         requireInteraction: false,
         vibrate: [200, 100, 200],
+        silent: false,
         actions: [
           {
             action: 'view',
-            title: 'View Event'
+            title: 'View Recitations',
+            icon: '/main.png'
+          },
+          {
+            action: 'subscribe',
+            title: 'Subscribe',
+            icon: '/main.png'
           }
         ]
       }).catch((error) => {

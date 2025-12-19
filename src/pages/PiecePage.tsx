@@ -272,6 +272,10 @@ export default function PiecePage() {
   const getFontFamily = () => {
     switch (settings.fontFamily) {
       case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
+      case 'gulzar': return "'Gulzar', serif";
+      case 'lateef': return "'Lateef', serif";
+      case 'noto-sans-arabic': return "'Noto Sans Arabic', sans-serif";
+      case 'reem-kufi': return "'Reem Kufi', sans-serif";
       case 'scheherazade': return "'Scheherazade New', serif";
       default: return "'Amiri', serif";
     }

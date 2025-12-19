@@ -25,6 +25,11 @@ export function VideoPlayer({ src, title }: VideoPlayerProps) {
   const youtubeId = getYouTubeId(sanitizedUrl);
 
   if (youtubeId) {
+    // Note: YouTube's embedded player may generate console warnings/errors from their
+    // third-party CSS and JavaScript files. These are harmless and cannot be fixed
+    // from our codebase. A console filter in main.tsx suppresses most of these warnings.
+    // To see all warnings for debugging, run: localStorage.setItem('showYoutubeWarnings', 'true')
+    
     // Build YouTube embed URL with parameters to hide UI elements
     const embedParams = new URLSearchParams({
       autoplay: '0',
@@ -47,10 +52,16 @@ export function VideoPlayer({ src, title }: VideoPlayerProps) {
           <iframe
             src={`https://www.youtube.com/embed/${youtubeId}?${embedParams.toString()}`}
             title={title || 'Video'}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allow="encrypted-media; picture-in-picture; fullscreen"
             allowFullScreen
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
             className="w-full h-full border-0"
             style={{ display: 'block' }}
+            onError={(e) => {
+              // Silently handle iframe errors - YouTube's player handles its own errors
+              console.debug('YouTube iframe error (this is normal):', e);
+            }}
           />
         </div>
       </div>

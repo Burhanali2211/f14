@@ -414,7 +414,8 @@ async function fetchWithRetry(
 // Sign in user
 export async function signIn(
   email: string,
-  password: string
+  password: string,
+  options?: { suppressErrorLog?: boolean }
 ): Promise<AuthResponse> {
   try {
     // Use the anon key (JWT) for Edge Functions with verify_jwt: true
@@ -549,12 +550,15 @@ export async function signIn(
         errorCode = 'AUTH_GATEWAY_401';
       }
 
-      logger.error('Login failed:', {
-        status: response.status,
-        error: errorMessage,
-        errorCode,
-        responseHeaders: Object.fromEntries(response.headers.entries()),
-      });
+      // Only log error if not suppressed (e.g., for healthcheck calls)
+      if (!options?.suppressErrorLog) {
+        logger.error('Login failed:', {
+          status: response.status,
+          error: errorMessage,
+          errorCode,
+          responseHeaders: Object.fromEntries(response.headers.entries()),
+        });
+      }
 
       return { success: false, user: null, error: errorMessage, errorCode };
     }
@@ -583,9 +587,10 @@ export async function signIn(
 // High-level login helper with normalized result shape
 export async function login(
   email: string,
-  password: string
+  password: string,
+  options?: { suppressErrorLog?: boolean }
 ): Promise<AuthResult> {
-  const result = await signIn(email, password);
+  const result = await signIn(email, password, options);
   return {
     success: !!result.user && !result.error,
     user: result.user,

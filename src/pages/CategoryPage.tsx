@@ -180,47 +180,7 @@ export default function CategoryPage() {
     totalViews: filteredPieces.reduce((sum, p) => sum + p.view_count, 0),
   }), [filteredPieces]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <main className="container py-8 flex-1">
-          <Skeleton className="h-6 w-32 mb-6" />
-          <Skeleton className="h-10 w-64 mb-2" />
-          <Skeleton className="h-6 w-96 mb-8" />
-          <div className="flex gap-4 mb-8">
-            <Skeleton className="h-12 flex-1" />
-            <Skeleton className="h-12 w-32" />
-          </div>
-          <div className="grid gap-4">
-            {[...Array(5)].map((_, i) => (
-              <Skeleton key={i} className="h-32 rounded-xl" />
-            ))}
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  if (!category) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <main className="container py-16 text-center flex-1">
-          <h1 className="font-display text-2xl font-semibold mb-4">Category Not Found</h1>
-          <Button asChild>
-            <Link to="/">
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              Back to Home
-            </Link>
-          </Button>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  // Generate SEO data for category page
+  // Generate SEO data for category page - must be called before early returns
   const seoData = useMemo(() => {
     if (!category) return null;
     
@@ -265,6 +225,46 @@ export default function CategoryPage() {
       canonicalUrl: categoryUrl,
     };
   }, [category, filteredPieces]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="container py-8 flex-1">
+          <Skeleton className="h-6 w-32 mb-6" />
+          <Skeleton className="h-10 w-64 mb-2" />
+          <Skeleton className="h-6 w-96 mb-8" />
+          <div className="flex gap-4 mb-8">
+            <Skeleton className="h-12 flex-1" />
+            <Skeleton className="h-12 w-32" />
+          </div>
+          <div className="grid gap-4">
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!category) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <Header />
+        <main className="container py-16 text-center flex-1">
+          <h1 className="font-display text-2xl font-semibold mb-4">Category Not Found</h1>
+          <Button asChild>
+            <Link to="/">
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Back to Home
+            </Link>
+          </Button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

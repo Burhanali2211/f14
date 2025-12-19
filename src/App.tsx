@@ -81,9 +81,50 @@ function ServiceWorkerHandler() {
     // Handle service worker messages (only for navigation, not announcements)
     // Announcements are handled via Realtime database listeners
     if ('serviceWorker' in navigator) {
-      const handleMessage = (event: MessageEvent) => {
+      const handleMessage = async (event: MessageEvent) => {
         if (event.data && event.data.type === 'NAVIGATE') {
           navigate(event.data.url);
+        } else if (event.data && event.data.type === 'SUBSCRIBE_NOTIFICATIONS') {
+          // Handle subscription request
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              // Update user profile to enable notifications for this imam
+              const { error } = await supabase
+                .from('profiles')
+                .update({ 
+                  notifications_enabled: true,
+                  notification_permission_granted: true 
+                })
+                .eq('id', user.id);
+              
+              if (!error) {
+                toast({
+                  title: 'Subscribed!',
+                  description: 'You will receive notifications for this holy personality.',
+                });
+                // Navigate to settings page to show subscription status
+                navigate('/settings');
+              } else {
+                logger.error('Error updating notification preferences:', error);
+                toast({
+                  title: 'Error',
+                  description: 'Could not update notification preferences.',
+                  variant: 'destructive',
+                });
+              }
+            } else {
+              // User not logged in, navigate to auth page
+              navigate('/auth');
+            }
+          } catch (error) {
+            logger.error('Error handling subscription:', error);
+            toast({
+              title: 'Error',
+              description: 'Could not process subscription request.',
+              variant: 'destructive',
+            });
+          }
         }
         // Removed ANNOUNCEMENT_NOTIFICATION handler - using Realtime instead
       };
@@ -206,6 +247,24 @@ function ServiceWorkerHandler() {
             markNotificationAsShown(announcement.id);
             shownNotificationIds.add(announcement.id);
             
+            // Fetch imam slug if imam_id exists
+            let imamSlug: string | null = null;
+            if (announcement.imam_id) {
+              try {
+                const { data: imamData } = await supabase
+                  .from('imams')
+                  .select('slug')
+                  .eq('id', announcement.imam_id)
+                  .maybeSingle();
+                
+                if (imamData) {
+                  imamSlug = imamData.slug;
+                }
+              } catch (error) {
+                logger.warn('Error fetching imam slug for notification:', error);
+              }
+            }
+            
             // Get notification template based on event type
             const { getNotificationTemplate } = await import('@/lib/notification-templates');
             const template = getNotificationTemplate({
@@ -213,10 +272,51 @@ function ServiceWorkerHandler() {
               message: announcement.message,
               eventType: (announcement.event_type as any) || 'general',
               imamName: announcement.template_data?.imamName || '',
+              imamId: announcement.imam_id || null,
+              imamSlug: imamSlug,
               eventDate: announcement.event_date || '',
               hijriDate: announcement.hijri_date || '',
               thumbnailUrl: announcement.thumbnail_url || null,
             }, announcement.id);
+            
+            // Play notification sound using Web Audio API (works even if file doesn't exist)
+            try {
+              // Try to play a simple notification sound
+              const playNotificationSound = () => {
+                try {
+                  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  const oscillator = audioContext.createOscillator();
+                  const gainNode = audioContext.createGain();
+                  
+                  oscillator.connect(gainNode);
+                  gainNode.connect(audioContext.destination);
+                  
+                  oscillator.frequency.value = 800; // Pleasant notification tone
+                  oscillator.type = 'sine';
+                  
+                  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                  
+                  oscillator.start(audioContext.currentTime);
+                  oscillator.stop(audioContext.currentTime + 0.3);
+                } catch (webAudioError) {
+                  // Fallback: try to play an audio file if it exists
+                  try {
+                    const audio = new Audio('/notification-sound.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(() => {
+                      // Silent fail if audio file doesn't exist
+                    });
+                  } catch (audioError) {
+                    // Silent fail - browser will use default notification sound
+                  }
+                }
+              };
+              
+              playNotificationSound();
+            } catch (error) {
+              // Silent fail - browser will use default notification sound
+            }
             
             if ('serviceWorker' in navigator) {
               try {
@@ -233,9 +333,18 @@ function ServiceWorkerHandler() {
                   actions: [
                     {
                       action: 'view',
-                      title: 'View'
+                      title: 'View Recitations',
+                      icon: '/main.png'
+                    },
+                    {
+                      action: 'subscribe',
+                      title: 'Subscribe',
+                      icon: '/main.png'
                     }
-                  ]
+                  ],
+                  silent: false, // Ensure browser default sound plays
+                  renotify: true, // Show notification even if one with same tag exists
+                  timestamp: Date.now()
                 });
                 logger.info('Notification shown successfully via service worker with template');
               } catch (error) {
@@ -449,6 +558,59 @@ function ServiceWorkerHandler() {
             markNotificationAsShown(data.id);
             shownNotificationIds.add(data.id);
 
+            // Fetch imam slug if imam_id exists
+            let imamSlug: string | null = null;
+            if (data.imam_id) {
+              try {
+                const { data: imamData } = await supabase
+                  .from('imams')
+                  .select('slug')
+                  .eq('id', data.imam_id)
+                  .maybeSingle();
+                
+                if (imamData) {
+                  imamSlug = imamData.slug;
+                }
+              } catch (error) {
+                logger.warn('Error fetching imam slug for notification:', error);
+              }
+            }
+
+            // Play notification sound
+            try {
+              const playNotificationSound = () => {
+                try {
+                  const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                  const oscillator = audioContext.createOscillator();
+                  const gainNode = audioContext.createGain();
+                  
+                  oscillator.connect(gainNode);
+                  gainNode.connect(audioContext.destination);
+                  
+                  oscillator.frequency.value = 800;
+                  oscillator.type = 'sine';
+                  
+                  gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                  gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                  
+                  oscillator.start(audioContext.currentTime);
+                  oscillator.stop(audioContext.currentTime + 0.3);
+                } catch (webAudioError) {
+                  try {
+                    const audio = new Audio('/notification-sound.mp3');
+                    audio.volume = 0.5;
+                    audio.play().catch(() => {});
+                  } catch (audioError) {
+                    // Silent fail
+                  }
+                }
+              };
+              
+              playNotificationSound();
+            } catch (error) {
+              // Silent fail
+            }
+
             // Get notification template
             const { getNotificationTemplate } = await import('@/lib/notification-templates');
             const template = getNotificationTemplate({
@@ -456,6 +618,8 @@ function ServiceWorkerHandler() {
               message: data.message,
               eventType: (data.event_type as any) || 'general',
               imamName: data.template_data?.imamName || '',
+              imamId: data.imam_id || null,
+              imamSlug: imamSlug,
               eventDate: data.event_date || '',
               hijriDate: data.hijri_date || '',
               thumbnailUrl: data.thumbnail_url || null,
@@ -473,12 +637,21 @@ function ServiceWorkerHandler() {
                   data: template.data,
                   requireInteraction: template.requireInteraction,
                   vibrate: template.vibrate,
+                  silent: false,
                   actions: [
                     {
                       action: 'view',
-                      title: 'View'
+                      title: 'View Recitations',
+                      icon: '/main.png'
+                    },
+                    {
+                      action: 'subscribe',
+                      title: 'Subscribe',
+                      icon: '/main.png'
                     }
-                  ]
+                  ],
+                  renotify: true,
+                  timestamp: Date.now()
                 });
               } catch (error) {
                 logger.error('Error showing notification via polling:', error);
@@ -508,11 +681,12 @@ function BackendHealthCheck() {
     const run = async () => {
       try {
         // Try a very cheap auth call with obviously invalid credentials
-        const result = await testLogin("healthcheck@example.com", "invalid-password");
+        // Suppress error logs for healthcheck to avoid console noise
+        const result = await testLogin("healthcheck@example.com", "invalid-password", { suppressErrorLog: true });
 
         // If we get back a structured auth error, backend is reachable
         if (!result.success && result.error) {
-          logger.info("Auth healthcheck: backend reachable", {
+          logger.debug("Auth healthcheck: backend reachable", {
             error: result.error,
             errorCode: result.errorCode,
           });

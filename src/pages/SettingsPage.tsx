@@ -152,8 +152,12 @@ export default function SettingsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="amiri">Amiri (Classic Arabic)</SelectItem>
-                    <SelectItem value="noto-nastaliq">Noto Nastaliq (Urdu)</SelectItem>
-                    <SelectItem value="scheherazade">Scheherazade (Modern)</SelectItem>
+                    <SelectItem value="noto-nastaliq">Noto Nastaliq Urdu (Traditional Nastaliq)</SelectItem>
+                    <SelectItem value="gulzar">Gulzar (Modern Nastaliq)</SelectItem>
+                    <SelectItem value="lateef">Lateef (Elegant Urdu)</SelectItem>
+                    <SelectItem value="noto-sans-arabic">Noto Sans Arabic (Modern Urdu)</SelectItem>
+                    <SelectItem value="reem-kufi">Reem Kufi (Contemporary Urdu)</SelectItem>
+                    <SelectItem value="scheherazade">Scheherazade New (Modern Arabic)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

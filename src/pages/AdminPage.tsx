@@ -507,17 +507,29 @@ export default function AdminPage() {
     };
 
     if (editingImam) {
-      const { error } = await authenticatedQuery(async () =>
+      const { data: updatedData, error } = await authenticatedQuery(async () =>
         await (supabase as any)
           .from('imams')
           .update(data)
           .eq('id', editingImam.id)
+          .select()
+          .single()
       );
 
       if (error) {
+        logger.error('Admin: Error updating imam:', error);
         toast({ title: 'Error', description: error.message || 'Failed to update. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
+
+      if (!updatedData) {
+        logger.error('Admin: Update returned no data for imam:', editingImam.id);
+        toast({ title: 'Error', description: 'Update completed but could not verify. Please refresh the page.', variant: 'destructive' });
+        fetchData();
+        return;
+      }
+
+      logger.debug('Admin: Imam updated successfully:', updatedData);
       toast({ title: 'Success', description: 'Holy Personality updated' });
     } else {
       const { error } = await authenticatedQuery(async () =>
@@ -583,17 +595,29 @@ export default function AdminPage() {
     };
 
     if (editingPiece) {
-      const { error } = await authenticatedQuery(async () =>
+      const { data: updatedData, error } = await authenticatedQuery(async () =>
         await supabase
           .from('pieces')
           .update(data)
           .eq('id', editingPiece.id)
+          .select()
+          .single()
       );
 
       if (error) {
+        logger.error('Admin: Error updating piece:', error);
         toast({ title: 'Error', description: error.message || 'Failed to update recitation. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
+
+      if (!updatedData) {
+        logger.error('Admin: Update returned no data for piece:', editingPiece.id);
+        toast({ title: 'Error', description: 'Update completed but could not verify. Please refresh the page.', variant: 'destructive' });
+        fetchData();
+        return;
+      }
+
+      logger.debug('Admin: Piece updated successfully:', updatedData);
       toast({ title: 'Success', description: 'Recitation updated' });
     } else {
       const { error } = await authenticatedQuery(async () =>
@@ -752,25 +776,59 @@ export default function AdminPage() {
       piece: 'pieces',
       imam: 'imams',
       event: 'ahlul_bait_events',
+      artiste: 'artistes',
+      user: 'users',
+      announcement: 'announcements',
     };
     const table = tableMap[deleteDialog.type] || 'categories';
     
-    const { error } = await authenticatedQuery(async () =>
-      await (supabase as any).from(table).delete().eq('id', deleteDialog.id)
-    );
+    try {
+      const { data, error } = await authenticatedQuery(async () =>
+        await (supabase as any).from(table).delete().eq('id', deleteDialog.id).select()
+      );
 
-    if (error) {
+      if (error) {
+        logger.error(`Error deleting ${deleteDialog.type}:`, error);
+        toast({ 
+          title: 'Error', 
+          description: error.message || `Failed to delete ${deleteDialog.type}. Please refresh the page and try again.`, 
+          variant: 'destructive' 
+        });
+        setDeleteDialog(null);
+        return;
+      }
+
+      // Verify the delete actually happened by checking if data is returned
+      // Supabase returns the deleted row(s) in the data field
+      if (data && data.length > 0) {
+        logger.debug(`Successfully deleted ${deleteDialog.type}:`, data);
+        toast({ 
+          title: 'Success', 
+          description: `${deleteDialog.type} deleted successfully` 
+        });
+        // Refresh data to reflect the deletion
+        fetchData();
+      } else {
+        // No data returned - delete might have failed silently
+        logger.warn(`Delete operation returned no data for ${deleteDialog.type} with id ${deleteDialog.id}`);
+        toast({ 
+          title: 'Warning', 
+          description: `Delete operation completed but could not verify. Please refresh the page.`,
+          variant: 'destructive'
+        });
+        // Still refresh to check if item was actually deleted
+        fetchData();
+      }
+    } catch (error: any) {
+      logger.error(`Unexpected error deleting ${deleteDialog.type}:`, error);
       toast({ 
         title: 'Error', 
-        description: error.message || 'Failed to delete. Please refresh the page and try again.', 
+        description: error?.message || `An unexpected error occurred while deleting ${deleteDialog.type}. Please try again.`, 
         variant: 'destructive' 
       });
-    } else {
-      toast({ title: 'Success', description: `${deleteDialog.type} deleted` });
-      fetchData();
+    } finally {
+      setDeleteDialog(null);
     }
-
-    setDeleteDialog(null);
   };
 
   // User Management Functions
@@ -911,11 +969,13 @@ export default function AdminPage() {
         updateData.password_hash = await hashPassword(userForm.password);
       }
 
-      const { error } = await authenticatedQuery(async () =>
+      const { data: updatedData, error } = await authenticatedQuery(async () =>
         await (supabase as any)
           .from('users')
           .update(updateData)
           .eq('id', editingUser.id)
+          .select('id, email, full_name, phone_number, address, role, is_active, created_at, updated_at')
+          .single()
       );
 
       if (error) {
@@ -924,6 +984,14 @@ export default function AdminPage() {
         return;
       }
 
+      if (!updatedData) {
+        logger.error('Admin: Update returned no data for user:', editingUser.id);
+        toast({ title: 'Error', description: 'Update completed but could not verify. Please refresh the page.', variant: 'destructive' });
+        fetchData();
+        return;
+      }
+
+      logger.debug('Admin: User updated successfully:', updatedData);
       toast({ title: 'Success', description: 'User updated successfully' });
       setUserDialogOpen(false);
       fetchData();
@@ -1078,17 +1146,29 @@ export default function AdminPage() {
     };
 
     if (editingEvent) {
-      const { error } = await authenticatedQuery(async () =>
+      const { data: updatedData, error } = await authenticatedQuery(async () =>
         await (supabase as any)
           .from('ahlul_bait_events')
           .update(data)
           .eq('id', editingEvent.id)
+          .select()
+          .single()
       );
 
       if (error) {
+        logger.error('Admin: Error updating event:', error);
         toast({ title: 'Error', description: error.message || 'Failed to update. Please refresh the page and try again.', variant: 'destructive' });
         return;
       }
+
+      if (!updatedData) {
+        logger.error('Admin: Update returned no data for event:', editingEvent.id);
+        toast({ title: 'Error', description: 'Update completed but could not verify. Please refresh the page.', variant: 'destructive' });
+        fetchData();
+        return;
+      }
+
+      logger.debug('Admin: Event updated successfully:', updatedData);
       toast({ title: 'Success', description: 'Event updated' });
     } else {
       const { error } = await authenticatedQuery(async () =>

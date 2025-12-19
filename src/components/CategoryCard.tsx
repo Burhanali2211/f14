@@ -67,15 +67,17 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
   return (
     <Link
       to={`/category/${category.slug}`}
-      className="group relative overflow-hidden rounded-2xl bg-card p-5 shadow-soft transition-all duration-500 hover:shadow-elevated hover:-translate-y-2 animate-slide-up opacity-0"
+      className="group relative overflow-hidden rounded-xl sm:rounded-2xl bg-card p-4 sm:p-5 md:p-6 shadow-sm sm:shadow-soft transition-all duration-500 hover:shadow-lg sm:hover:shadow-elevated active:scale-[0.98] sm:hover:-translate-y-2 animate-slide-up opacity-0 min-h-[140px] sm:min-h-[160px] md:min-h-[180px] lg:min-h-[200px] flex flex-col justify-between"
       style={{ 
         animationDelay: `${index * 0.08}s`,
         willChange: 'transform, opacity', // GPU acceleration hint
       }}
+      tabIndex={0}
+      aria-label={`Explore ${category.name} category`}
     >
       {/* Background image with configurable settings - only shown if bg_image_url exists */}
       {category.bg_image_url && (
-        <div className="absolute inset-0 overflow-hidden rounded-2xl z-0" style={{ zIndex: 0 }}>
+        <div className="absolute inset-0 overflow-hidden rounded-xl sm:rounded-2xl z-0" style={{ zIndex: 0 }}>
           <img
             src={category.bg_image_url}
             alt={category.name}
@@ -109,38 +111,38 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
       
       {/* Gradient background on hover - only if no bg_image_url */}
       {!category.bg_image_url && (
-        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+        <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-0 group-hover:opacity-100 group-active:opacity-50 transition-opacity duration-500`} />
       )}
       
       {/* Decorative corner accent */}
-      <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-accent/10 to-transparent rounded-bl-[80px] opacity-60" />
+      <div className="absolute top-0 right-0 w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-accent/10 to-transparent rounded-bl-[60px] sm:rounded-bl-[80px] opacity-60" />
       
-      <div className="relative" style={{ zIndex: 10, position: 'relative' }}>
+      <div className="relative flex-1 flex flex-col" style={{ zIndex: 10, position: 'relative' }}>
         {/* Icon container */}
-        <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-          <Icon className={`w-7 h-7 ${iconColor}`} />
+        <div className={`w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-xl sm:rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-3 sm:mb-4 group-hover:scale-110 group-active:scale-105 transition-transform duration-300`}>
+          <Icon className={`w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 ${iconColor}`} />
         </div>
         
         {/* Content */}
-        <h3 className="font-display text-lg font-bold text-foreground mb-1.5 group-hover:text-primary transition-colors duration-300">
+        <h3 className="font-display text-base sm:text-lg md:text-xl font-bold text-foreground mb-1.5 sm:mb-2 group-hover:text-primary group-active:text-primary transition-colors duration-300 leading-tight">
           {category.name}
         </h3>
         
         {category.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+          <p className="text-xs sm:text-sm md:text-base text-muted-foreground line-clamp-2 sm:line-clamp-3 leading-relaxed flex-1">
             {category.description}
           </p>
         )}
         
         {/* Explore indicator */}
-        <div className="mt-4 flex items-center gap-2 text-xs font-semibold text-primary opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-[-8px] group-hover:translate-x-0">
+        <div className="mt-3 sm:mt-4 flex items-center gap-2 text-xs sm:text-sm font-semibold text-primary opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-all duration-300 translate-x-[-8px] group-hover:translate-x-0 group-active:translate-x-0">
           <span>Explore</span>
-          <ArrowRight className="w-3.5 h-3.5" />
+          <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </div>
       </div>
       
       {/* Bottom gradient line */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-accent to-primary scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+      <div className="absolute bottom-0 left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r from-primary via-accent to-primary scale-x-0 group-hover:scale-x-100 group-active:scale-x-100 transition-transform duration-500 origin-left" />
     </Link>
   );
 });

@@ -21,6 +21,14 @@ export default {
         "2xl": "1280px",
       },
     },
+    screens: {
+      'xs': '475px',
+      'sm': '640px',
+      'md': '768px',
+      'lg': '1024px',
+      'xl': '1280px',
+      '2xl': '1536px',
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -83,7 +91,7 @@ export default {
       },
       fontFamily: {
         display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        arabic: ['Amiri', 'Noto Nastaliq Urdu', 'serif'],
+        arabic: ['Noto Nastaliq Urdu', 'Gulzar', 'Lateef', 'Noto Sans Arabic', 'Reem Kufi', 'Amiri', 'Scheherazade New', 'serif'],
         body: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
       borderRadius: {

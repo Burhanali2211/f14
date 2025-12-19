@@ -22,6 +22,8 @@ export interface AnnouncementData {
   message: string;
   eventType?: EventType | 'general';
   imamName?: string;
+  imamId?: string | null;
+  imamSlug?: string | null;
   eventDate?: string;
   hijriDate?: string;
   additionalInfo?: string;
@@ -37,25 +39,27 @@ export function getNotificationTemplate(
 ): NotificationTemplate {
   const eventType = announcement.eventType || 'general';
   const imamName = announcement.imamName || '';
+  const imamId = announcement.imamId || null;
+  const imamSlug = announcement.imamSlug || null;
   const eventDate = announcement.eventDate || '';
   const hijriDate = announcement.hijriDate || '';
   const thumbnailUrl = announcement.thumbnailUrl;
 
   switch (eventType) {
     case 'birthday':
-      return getBirthdayTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
+      return getBirthdayTemplate(announcement, announcementId, imamName, imamId, imamSlug, eventDate, hijriDate, thumbnailUrl);
     
     case 'martyrdom':
-      return getMartyrdomTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
+      return getMartyrdomTemplate(announcement, announcementId, imamName, imamId, imamSlug, eventDate, hijriDate, thumbnailUrl);
     
     case 'death':
-      return getDeathTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
+      return getDeathTemplate(announcement, announcementId, imamName, imamId, imamSlug, eventDate, hijriDate, thumbnailUrl);
     
     case 'other':
-      return getOtherEventTemplate(announcement, announcementId, imamName, eventDate, hijriDate, thumbnailUrl);
+      return getOtherEventTemplate(announcement, announcementId, imamName, imamId, imamSlug, eventDate, hijriDate, thumbnailUrl);
     
     default:
-      return getGeneralTemplate(announcement, announcementId, thumbnailUrl);
+      return getGeneralTemplate(announcement, announcementId, imamId, imamSlug, thumbnailUrl);
   }
 }
 
@@ -63,23 +67,28 @@ function getBirthdayTemplate(
   announcement: AnnouncementData,
   id: string,
   imamName: string,
+  imamId: string | null,
+  imamSlug: string | null,
   eventDate: string,
   hijriDate: string,
   thumbnailUrl?: string | null
 ): NotificationTemplate {
   const title = imamName 
-    ? `Birth Anniversary: ${imamName}`
+    ? `🎂 Birth Anniversary: ${imamName}`
     : announcement.title || 'Birth Anniversary';
   
   let body = announcement.message;
   if (imamName && eventDate) {
     body = `${imamName}'s birth anniversary is approaching.\n\n${announcement.message}`;
     if (hijriDate) {
-      body += `\n\nDate: ${eventDate} (${hijriDate})`;
+      body += `\n\n📅 Date: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
-      body += `\n\nDate: ${eventDate}`;
+      body += `\n\n📅 Date: ${eventDate}`;
     }
   }
+
+  // Determine URL: if imam slug exists, navigate to their recitations page
+  const url = imamSlug ? `/figure/${imamSlug}` : '/calendar';
 
   return {
     title,
@@ -91,10 +100,12 @@ function getBirthdayTemplate(
     vibrate: [200, 100, 200, 100, 200],
     requireInteraction: false,
     data: {
-      url: '/calendar',
+      url,
       type: 'announcement',
       eventType: 'birthday',
       announcementId: id,
+      imamId,
+      imamSlug,
       imamName,
       eventDate,
       hijriDate
@@ -106,23 +117,28 @@ function getMartyrdomTemplate(
   announcement: AnnouncementData,
   id: string,
   imamName: string,
+  imamId: string | null,
+  imamSlug: string | null,
   eventDate: string,
   hijriDate: string,
   thumbnailUrl?: string | null
 ): NotificationTemplate {
   const title = imamName
-    ? `Martyrdom: ${imamName}`
+    ? `🕊️ Martyrdom: ${imamName}`
     : announcement.title || 'Martyrdom Commemoration';
   
   let body = announcement.message;
   if (imamName && eventDate) {
     body = `Commemorating the martyrdom of ${imamName}.\n\n${announcement.message}`;
     if (hijriDate) {
-      body += `\n\nDate: ${eventDate} (${hijriDate})`;
+      body += `\n\n📅 Date: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
-      body += `\n\nDate: ${eventDate}`;
+      body += `\n\n📅 Date: ${eventDate}`;
     }
   }
+
+  // Determine URL: if imam slug exists, navigate to their recitations page
+  const url = imamSlug ? `/figure/${imamSlug}` : '/calendar';
 
   return {
     title,
@@ -134,10 +150,12 @@ function getMartyrdomTemplate(
     vibrate: [300, 200, 300],
     requireInteraction: false,
     data: {
-      url: '/calendar',
+      url,
       type: 'announcement',
       eventType: 'martyrdom',
       announcementId: id,
+      imamId,
+      imamSlug,
       imamName,
       eventDate,
       hijriDate
@@ -149,23 +167,28 @@ function getDeathTemplate(
   announcement: AnnouncementData,
   id: string,
   imamName: string,
+  imamId: string | null,
+  imamSlug: string | null,
   eventDate: string,
   hijriDate: string,
   thumbnailUrl?: string | null
 ): NotificationTemplate {
   const title = imamName
-    ? `Passing: ${imamName}`
+    ? `🕯️ Passing: ${imamName}`
     : announcement.title || 'Commemoration';
   
   let body = announcement.message;
   if (imamName && eventDate) {
     body = `Commemorating the passing of ${imamName}.\n\n${announcement.message}`;
     if (hijriDate) {
-      body += `\n\nDate: ${eventDate} (${hijriDate})`;
+      body += `\n\n📅 Date: ${eventDate} (${hijriDate})`;
     } else if (eventDate) {
-      body += `\n\nDate: ${eventDate}`;
+      body += `\n\n📅 Date: ${eventDate}`;
     }
   }
+
+  // Determine URL: if imam slug exists, navigate to their recitations page
+  const url = imamSlug ? `/figure/${imamSlug}` : '/calendar';
 
   return {
     title,
@@ -177,10 +200,12 @@ function getDeathTemplate(
     vibrate: [200, 100, 200],
     requireInteraction: false,
     data: {
-      url: '/calendar',
+      url,
       type: 'announcement',
       eventType: 'death',
       announcementId: id,
+      imamId,
+      imamSlug,
       imamName,
       eventDate,
       hijriDate
@@ -192,11 +217,13 @@ function getOtherEventTemplate(
   announcement: AnnouncementData,
   id: string,
   imamName: string,
+  imamId: string | null,
+  imamSlug: string | null,
   eventDate: string,
   hijriDate: string,
   thumbnailUrl?: string | null
 ): NotificationTemplate {
-  const title = announcement.title || 'Important Event';
+  const title = announcement.title || '📢 Important Event';
   
   let body = announcement.message;
   if (imamName) {
@@ -204,11 +231,14 @@ function getOtherEventTemplate(
   }
   if (eventDate) {
     if (hijriDate) {
-      body += `\n\nDate: ${eventDate} (${hijriDate})`;
+      body += `\n\n📅 Date: ${eventDate} (${hijriDate})`;
     } else {
-      body += `\n\nDate: ${eventDate}`;
+      body += `\n\n📅 Date: ${eventDate}`;
     }
   }
+
+  // Determine URL: if imam slug exists, navigate to their recitations page
+  const url = imamSlug ? `/figure/${imamSlug}` : '/calendar';
 
   return {
     title,
@@ -220,10 +250,12 @@ function getOtherEventTemplate(
     vibrate: [200, 100, 200],
     requireInteraction: false,
     data: {
-      url: '/calendar',
+      url,
       type: 'announcement',
       eventType: 'other',
       announcementId: id,
+      imamId,
+      imamSlug,
       imamName,
       eventDate,
       hijriDate
@@ -234,10 +266,15 @@ function getOtherEventTemplate(
 function getGeneralTemplate(
   announcement: AnnouncementData,
   id: string,
+  imamId: string | null,
+  imamSlug: string | null,
   thumbnailUrl?: string | null
 ): NotificationTemplate {
+  // Determine URL: if imam slug exists, navigate to their recitations page
+  const url = imamSlug ? `/figure/${imamSlug}` : '/';
+
   return {
-    title: announcement.title || 'Announcement',
+    title: announcement.title || '📢 Announcement',
     body: announcement.message,
     icon: thumbnailUrl || '/main.png',
     badge: '/main.png',
@@ -246,10 +283,12 @@ function getGeneralTemplate(
     vibrate: [200, 100, 200],
     requireInteraction: false,
     data: {
-      url: '/',
+      url,
       type: 'announcement',
       eventType: 'general',
-      announcementId: id
+      announcementId: id,
+      imamId,
+      imamSlug
     }
   };
 }

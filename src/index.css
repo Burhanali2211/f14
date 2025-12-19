@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Scheherazade+New:wght@400;700&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Gulzar:wght@400&family=Scheherazade+New:wght@400;700&family=Lateef:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@400;500;600;700&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 /* Font optimization - ensure fonts use swap display */
 @font-face {
@@ -12,7 +12,27 @@
 }
 
 @font-face {
+  font-family: 'Gulzar';
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'Scheherazade New';
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Lateef';
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans Arabic';
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Reem Kufi';
   font-display: swap;
 }
 
@@ -156,7 +176,7 @@
 
     /* Typography */
     --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
-    --font-arabic: 'Noto Nastaliq Urdu', 'Amiri', serif;
+    --font-arabic: 'Noto Nastaliq Urdu', 'Gulzar', 'Lateef', 'Noto Sans Arabic', 'Reem Kufi', 'Amiri', 'Scheherazade New', serif;
     --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
 
     --sidebar-background: 0 0% 100%;
@@ -747,8 +767,24 @@
     font-family: 'Noto Nastaliq Urdu', serif !important;
   }
 
+  .font-gulzar {
+    font-family: 'Gulzar', serif !important;
+  }
+
   .font-scheherazade {
     font-family: 'Scheherazade New', serif !important;
+  }
+
+  .font-lateef {
+    font-family: 'Lateef', serif !important;
+  }
+
+  .font-noto-sans-arabic {
+    font-family: 'Noto Sans Arabic', sans-serif !important;
+  }
+
+  .font-reem-kufi {
+    font-family: 'Reem Kufi', sans-serif !important;
   }
 
   /* Safe Area Insets for PWA on mobile devices */

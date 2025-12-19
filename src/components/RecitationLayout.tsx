@@ -196,7 +196,7 @@ export function RecitationLayout({
       data-recitation-layout
       className={`space-y-0 ${className}`}
       style={{ 
-        fontSize: `${safeFontSize}px !important` as any,
+        fontSize: `${safeFontSize}px`,
         lineHeight: lineHeight,
         fontFamily: fontFamily,
         // Many Nastaliq / Arabic fonts ignore pure letter-spacing, so we
@@ -204,14 +204,11 @@ export function RecitationLayout({
         letterSpacing: `${letterSpacing ?? 0}em`,
         wordSpacing: `${(letterSpacing ?? 0) * 2}em`,
         // Prevent browser zoom from affecting font size - use all vendor prefixes
-        textSizeAdjust: '100% !important' as any,
-        WebkitTextSizeAdjust: '100% !important' as any,
-        MozTextSizeAdjust: '100% !important' as any,
-        msTextSizeAdjust: '100% !important' as any,
-        // Force font size to be exactly what we set, regardless of zoom
-        minFontSize: `${safeFontSize}px` as any,
-        maxFontSize: `${safeFontSize}px` as any,
-      }}
+        textSizeAdjust: '100%',
+        WebkitTextSizeAdjust: '100%',
+        MozTextSizeAdjust: '100%',
+        msTextSizeAdjust: '100%',
+      } as React.CSSProperties}
       dir="rtl"
     >
       {/* Optional internal header block.

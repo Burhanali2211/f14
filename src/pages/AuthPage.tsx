@@ -363,17 +363,17 @@ export default function AuthPage() {
       {/* Content Container - Compact Layout */}
       <div className="w-full max-w-md relative z-10">
         <div className="p-4 md:p-6 animate-fade-in">
-          {/* Go to Home Button - Compact */}
-          <div className="flex justify-end mb-4">
+          {/* Go to Home Button - Prominent */}
+          <div className="flex justify-start mb-4">
             <Button
               type="button"
-              variant="ghost"
-              size="sm"
+              variant="outline"
+              size="default"
               onClick={() => navigate('/')}
-              className="text-muted-foreground hover:text-foreground hover:bg-muted/50 dark:hover:bg-muted/30 rounded-full transition-colors h-8"
+              className="text-foreground bg-background/80 backdrop-blur-sm border-2 border-primary/30 hover:border-primary hover:bg-primary/10 dark:hover:bg-primary/20 rounded-lg transition-all shadow-sm hover:shadow-md h-11 px-4 font-medium min-h-[44px] touch-manipulation"
             >
-              <Home className="w-4 h-4 md:mr-2" />
-              <span className="hidden md:inline">Home</span>
+              <Home className="w-5 h-5 mr-2 stroke-[2]" />
+              <span>Home</span>
             </Button>
           </div>
 
