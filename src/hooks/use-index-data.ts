@@ -99,7 +99,6 @@ export function useIndexData(): IndexData {
         safeQuery(async () => await supabase.from('pieces').select('reciter').not('reciter', 'is', null)),
         safeQuery(async () => await (supabase as any).from('site_settings').select('id, site_name, site_tagline, logo_url, hero_image_url, hero_text_color_mode, hero_gradient_preset, hero_gradient_opacity, hero_image_opacity, hero_heading_line1, hero_heading_line2, hero_description, hero_badge_text').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle()),
       ]);
-      });
 
       if (catRes.error) {
         logger.error('Error fetching categories:', catRes.error);
