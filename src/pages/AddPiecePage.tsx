@@ -37,6 +37,7 @@ import { getCurrentUser } from '@/lib/auth-utils';
 import { optimizeRecitationImage, formatFileSize } from '@/lib/image-optimizer';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
+import { RecitationEditor } from '@/components/RecitationEditor';
 
 export default function AddPiecePage() {
   const navigate = useNavigate();
@@ -840,20 +841,21 @@ export default function AddPiecePage() {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container py-8 max-w-4xl">
+      <main className="container py-4 sm:py-6 md:py-8 max-w-7xl px-4 sm:px-6">
         <Link 
           to={role === 'admin' ? '/admin' : '/uploader'}
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6"
+          className="inline-flex items-center gap-2 text-sm sm:text-base text-muted-foreground hover:text-foreground transition-colors mb-4 sm:mb-6"
         >
           <ChevronLeft className="w-4 h-4" />
-          Back to {role === 'admin' ? 'Admin' : 'Uploader'} Dashboard
+          <span className="hidden sm:inline">Back to {role === 'admin' ? 'Admin' : 'Uploader'} Dashboard</span>
+          <span className="sm:hidden">Back</span>
         </Link>
 
-        <h1 className="font-display text-3xl font-bold text-foreground mb-8">
+        <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground mb-6 sm:mb-8">
           {isEditing ? 'Edit Recitation' : 'Add New Recitation'}
         </h1>
 
-        <div className="space-y-6 bg-card p-6 rounded-lg shadow-soft">
+        <div className="space-y-6 bg-card p-4 sm:p-6 md:p-8 rounded-lg shadow-soft border border-border/50">
           <div>
             <Label htmlFor="piece-title">Title</Label>
             <Input
@@ -865,7 +867,7 @@ export default function AddPiecePage() {
             />
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="piece-cat">Category (Type)</Label>
               <Select
@@ -901,7 +903,7 @@ export default function AddPiecePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="piece-lang">Language</Label>
               <Select
@@ -992,78 +994,14 @@ export default function AddPiecePage() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <Label htmlFor="piece-text">Text Content</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setFetchDialogOpen(true)}
-                  className="gap-2"
-                  title="Fetch content from website"
-                >
-                  <Globe className="w-4 h-4" />
-                  Fetch from Website
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAiDialogOpen(true)}
-                  disabled={!pieceForm.text_content.trim()}
-                  className="gap-2"
-                  title="AI enhancements"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  AI Enhance
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={openBreakPointDialog}
-                  className="gap-2"
-                  title="Add paragraph/shaair break point with layout style"
-                >
-                  <Scissors className="w-4 h-4" />
-                  Add Break
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setTemplateDialogOpen(true)}
-                  className="gap-2"
-                  title="Apply layout template to break points"
-                >
-                  <LayoutTemplate className="w-4 h-4" />
-                  Template
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={translateText}
-                  disabled={translating || !pieceForm.text_content.trim()}
-                  className="gap-2"
-                >
-                  {translating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Languages className="w-4 h-4" />
-                  )}
-                  Translate
-                </Button>
-              </div>
-            </div>
+            <Label className="text-base font-semibold mb-4 block">Text Content</Label>
             
-            {/* Translation Language Selection */}
-            <div className="grid grid-cols-2 gap-2 mb-2">
+            {/* Translation Language Selection - Moved above editor */}
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <div>
-                <Label htmlFor="source-lang" className="text-xs">From</Label>
+                <Label htmlFor="source-lang" className="text-xs">Translate From</Label>
                 <Select value={sourceLanguage} onValueChange={setSourceLanguage}>
-                  <SelectTrigger id="source-lang" className="h-8 text-xs">
+                  <SelectTrigger id="source-lang" className="h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1077,9 +1015,9 @@ export default function AddPiecePage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="target-lang" className="text-xs">To</Label>
+                <Label htmlFor="target-lang" className="text-xs">Translate To</Label>
                 <Select value={targetLanguage} onValueChange={setTargetLanguage}>
-                  <SelectTrigger id="target-lang" className="h-8 text-xs">
+                  <SelectTrigger id="target-lang" className="h-9 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -1093,25 +1031,22 @@ export default function AddPiecePage() {
                 </Select>
               </div>
             </div>
-            
-            <Textarea
-              id="piece-text"
+
+            <RecitationEditor
               value={pieceForm.text_content}
-              onChange={(e) => setPieceForm(f => ({ ...f, text_content: e.target.value }))}
-              placeholder="Enter text here. Use 'Add Break' button to mark paragraph/shaair endings for better formatting."
-              className={`min-h-[300px] font-arabic ${targetLanguage === 'Kashmiri' || targetLanguage === 'Urdu' || targetLanguage === 'Arabic' ? 'text-right' : 'text-left'}`}
-              dir={targetLanguage === 'Kashmiri' || targetLanguage === 'Urdu' || targetLanguage === 'Arabic' ? 'rtl' : 'ltr'}
+              onChange={(value) => setPieceForm(f => ({ ...f, text_content: value }))}
+              language={targetLanguage}
+              title={pieceForm.title}
+              reciter={pieceForm.reciter}
+              placeholder="Enter your recitation text here. Each line will be treated as a separate line. Empty lines create natural breaks between verses."
+              showPreview={true}
+              onTranslate={translateText}
+              onAiEnhance={() => setAiDialogOpen(true)}
+              onFetchFromWebsite={() => setFetchDialogOpen(true)}
+              translating={translating}
+              aiEnhancing={aiEnhancing}
+              fetchingContent={fetchingContent}
             />
-            <div className="mt-2 p-3 bg-primary/5 rounded-lg border border-primary/20">
-              <p className="text-xs font-medium text-foreground mb-1">💡 How to use Break Points:</p>
-              <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
-                <li>Place your cursor where you want to add a separator line</li>
-                <li>Click "Add Break" button above</li>
-                <li>Choose the alignment style for text after the break</li>
-                <li>A bold horizontal line will appear between sections</li>
-                <li>This makes your recitation easier to read and organize</li>
-              </ul>
-            </div>
           </div>
           
           <div>
@@ -1125,14 +1060,18 @@ export default function AddPiecePage() {
             />
           </div>
 
-          <div className="flex justify-end gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row justify-end gap-3 sm:gap-4 pt-4 border-t border-border">
             <Button 
               variant="outline" 
               onClick={() => navigate(role === 'admin' ? '/admin' : '/uploader')}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
-            <Button onClick={savePiece}>
+            <Button 
+              onClick={savePiece}
+              className="w-full sm:w-auto"
+            >
               {isEditing ? 'Update' : 'Create'} Recitation
             </Button>
           </div>

@@ -410,6 +410,20 @@
     background-color: hsl(var(--primary) / 0.2);
     color: hsl(var(--foreground));
   }
+
+  /* Prevent text selection on recitation content for better PWA experience */
+  [data-recitation-layout],
+  [data-recitation-layout] *,
+  [data-recitation-layout] p,
+  [data-recitation-layout] span,
+  [data-recitation-layout] div {
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+    user-select: none !important;
+    -webkit-touch-callout: none !important;
+    cursor: default;
+  }
 }
 
 @layer components {

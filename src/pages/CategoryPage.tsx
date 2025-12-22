@@ -395,12 +395,12 @@ export default function CategoryPage() {
             
             <div className="flex gap-2">
               {/* View Mode Toggle */}
-              <div className="inline-flex bg-card rounded-xl p-1 border border-border/50 shadow-soft">
+              <div className="inline-flex justify-center items-center bg-card rounded-xl p-1 border border-border/50 shadow-soft">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className={`h-9 px-4 transition-all duration-200 ${
+                  className={`h-9 px-4 transition-all duration-200 !justify-center ${
                     viewMode === 'list' 
                       ? 'bg-primary text-primary-foreground shadow-sm' 
                       : 'hover:bg-secondary/50 text-muted-foreground'
@@ -413,7 +413,7 @@ export default function CategoryPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setViewMode('grid')}
-                  className={`h-9 px-4 transition-all duration-200 ${
+                  className={`h-9 px-4 transition-all duration-200 !justify-center ${
                     viewMode === 'grid' 
                       ? 'bg-primary text-primary-foreground shadow-sm' 
                       : 'hover:bg-secondary/50 text-muted-foreground'
@@ -519,7 +519,7 @@ export default function CategoryPage() {
             <div 
               className={`transition-all duration-300 ${
                 viewMode === 'grid' 
-                  ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6' 
+                  ? 'grid grid-cols-1 gap-4 md:gap-6' 
                   : 'space-y-2 md:space-y-3'
               }`}
             >

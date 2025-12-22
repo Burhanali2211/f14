@@ -704,14 +704,22 @@ export default function PiecePage() {
           /* Text Content - Reader View with Layout System */
           <article 
             ref={contentRef}
-            className={`rounded-2xl px-4 py-5 md:px-8 md:py-8 lg:px-10 lg:py-10 shadow-card border border-border/40 ${getReaderBgClass()}`}
+            className={`rounded-2xl px-4 py-6 md:px-8 md:py-10 lg:px-12 lg:py-12 shadow-card border border-border/40 select-none ${getReaderBgClass()}`}
+            dir="rtl"
+            style={{
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
+              MozUserSelect: 'none',
+              msUserSelect: 'none',
+              WebkitTouchCallout: 'none',
+            } as React.CSSProperties}
           >
             <RecitationLayout
               textContent={piece.text_content}
               title={piece.title}
               reciter={piece.reciter}
               showHeader={false}
-              className="max-w-3xl mx-auto"
+              className="max-w-4xl mx-auto"
               fontSize={settings.fontSize}
               lineHeight={settings.lineHeight}
               letterSpacing={settings.letterSpacing}
@@ -720,6 +728,7 @@ export default function PiecePage() {
               highlightCurrentVerse={settings.highlightCurrentVerse}
               currentVerse={currentVerse}
               showVerseNumbers={settings.showVerseNumbers}
+              coupletLayout="two-column"
               onSectionMeta={(meta) => {
                 setOutline((prev) => {
                   // Avoid duplicates for same index/title

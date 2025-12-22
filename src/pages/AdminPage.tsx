@@ -47,6 +47,7 @@ import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Category, Piece, Imam, UserProfile, UploaderPermission, SiteSettings, Artiste, AhlulBaitEvent, EventType } from '@/lib/supabase-types';
 import { optimizeArtistImage, optimizeRecitationImage, validateImageFile, formatFileSize } from '@/lib/image-optimizer';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
+import { RecitationEditor } from '@/components/RecitationEditor';
 
 export default function AdminPage() {
   const navigate = useNavigate();
@@ -1884,7 +1885,7 @@ export default function AdminPage() {
 
       {/* Piece Dialog */}
       <Dialog open={pieceDialogOpen} onOpenChange={setPieceDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPiece ? 'Edit Recitation' : 'Add New Recitation'}</DialogTitle>
             <DialogDescription>
@@ -2028,44 +2029,14 @@ export default function AdminPage() {
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="piece-text">Text Content</Label>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addBreakPoint}
-                    className="gap-2"
-                    title="Add paragraph/shaair break point"
-                  >
-                    <Scissors className="w-4 h-4" />
-                    Add Break
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={translateText}
-                    disabled={translating || !pieceForm.text_content.trim()}
-                    className="gap-2"
-                  >
-                    {translating ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Languages className="w-4 h-4" />
-                    )}
-                    Translate
-                  </Button>
-                </div>
-              </div>
+              <Label className="text-base font-semibold mb-4 block">Text Content</Label>
               
               {/* Translation Language Selection */}
-              <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 <div>
-                  <Label htmlFor="source-lang" className="text-xs">From</Label>
+                  <Label htmlFor="source-lang" className="text-xs">Translate From</Label>
                   <Select value={sourceLanguage} onValueChange={setSourceLanguage}>
-                    <SelectTrigger id="source-lang" className="h-8 text-xs">
+                    <SelectTrigger id="source-lang" className="h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2079,9 +2050,9 @@ export default function AdminPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="target-lang" className="text-xs">To</Label>
+                  <Label htmlFor="target-lang" className="text-xs">Translate To</Label>
                   <Select value={targetLanguage} onValueChange={setTargetLanguage}>
-                    <SelectTrigger id="target-lang" className="h-8 text-xs">
+                    <SelectTrigger id="target-lang" className="h-9 text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2095,18 +2066,18 @@ export default function AdminPage() {
                   </Select>
                 </div>
               </div>
-              
-              <Textarea
-                id="piece-text"
+
+              <RecitationEditor
                 value={pieceForm.text_content}
-                onChange={(e) => setPieceForm(f => ({ ...f, text_content: e.target.value }))}
-                placeholder="Enter text here. Use 'Add Break' button to mark paragraph/shaair endings for better formatting."
-                className={`min-h-[250px] font-arabic ${targetLanguage === 'Kashmiri' || targetLanguage === 'Urdu' || targetLanguage === 'Arabic' ? 'text-right' : 'text-left'}`}
-                dir={targetLanguage === 'Kashmiri' || targetLanguage === 'Urdu' || targetLanguage === 'Arabic' ? 'rtl' : 'ltr'}
+                onChange={(value) => setPieceForm(f => ({ ...f, text_content: value }))}
+                language={targetLanguage}
+                title={pieceForm.title}
+                reciter={pieceForm.reciter}
+                placeholder="Enter your recitation text here. Each line will be treated as a separate line. Empty lines create natural breaks between verses."
+                showPreview={true}
+                onTranslate={translateText}
+                translating={translating}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                💡 Tip: Click "Add Break" at the end of each paragraph/shaair for better formatting. Then translate to convert to {targetLanguage}.
-              </p>
             </div>
             
             <div>

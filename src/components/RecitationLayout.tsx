@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 
 export type LayoutStyle = 'right' | 'center' | 'indent' | 'left' | 'header';
+export type CoupletLayout = 'vertical' | 'two-column';
 
 export interface LayoutSection {
   content: string;
@@ -30,6 +31,12 @@ interface RecitationLayoutProps {
   currentVerse?: number;
   showVerseNumbers?: boolean;
   /**
+   * Layout style for couplets (2-line verses)
+   * - 'vertical': Stack lines vertically (default)
+   * - 'two-column': Split couplet into two columns (traditional Urdu style)
+   */
+  coupletLayout?: CoupletLayout;
+  /**
    * Optional callback for building an in-page outline / table of contents.
    * Called once per header or major section with its index and text.
    */
@@ -38,96 +45,163 @@ interface RecitationLayoutProps {
 }
 
 /**
- * Parses text content with layout markers and break points
- * Format:
- * - ||BREAK|| or ||BREAK:style|| for break points with optional style (right|left|center|indent)
- * - ||HEADER|| for header sections
- * - Regular text is right-aligned by default
+ * Intelligently parses text content without requiring manual markers
+ * Auto-detects:
+ * - Couplets (2-line verses) for two-column layout
+ * - Natural breaks (empty lines, double newlines)
+ * - Single-line verses
+ * - Headers (lines that are shorter and appear at the start)
  */
 function parseLayoutContent(textContent: string): LayoutSection[] {
+  if (!textContent || !textContent.trim()) {
+    return [];
+  }
+
   const sections: LayoutSection[] = [];
   
-  // Split by break markers - improved regex to capture style
-  const breakMarkerRegex = /\|\|BREAK(?::(\w+))?\|\||\|\|HEADER\|\|/g;
-  const parts: Array<{ text: string; isMarker: boolean; style?: string }> = [];
-  let lastIndex = 0;
-  let match;
+  // First, check if there are any legacy markers (for backward compatibility)
+  const hasLegacyMarkers = /\|\|BREAK|\|\|HEADER\|\|/.test(textContent);
   
-  // Find all markers and split text
-  while ((match = breakMarkerRegex.exec(textContent)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({ text: textContent.substring(lastIndex, match.index), isMarker: false });
-    }
+  if (hasLegacyMarkers) {
+    // Legacy mode: support old markers but simplify the logic
+    const breakMarkerRegex = /\|\|BREAK(?::(\w+))?\|\||\|\|HEADER\|\|/g;
+    const parts: Array<{ text: string; isMarker: boolean; style?: string }> = [];
+    let lastIndex = 0;
+    let match;
     
-    const marker = match[0];
-    if (marker.startsWith('||BREAK')) {
-      const style = match[1] || 'right';
-      parts.push({ text: marker, isMarker: true, style });
-    } else if (marker === '||HEADER||') {
-      parts.push({ text: marker, isMarker: true });
-    }
-    
-    lastIndex = breakMarkerRegex.lastIndex;
-  }
-  
-  // Add remaining text
-  if (lastIndex < textContent.length) {
-    parts.push({ text: textContent.substring(lastIndex), isMarker: false });
-  }
-  
-  // If no markers found, split by double newlines
-  if (parts.length === 1 && !parts[0].isMarker) {
-    const verses = textContent.split(/\n\n+/).filter(v => v.trim());
-    return verses.map(verse => ({
-      content: verse.trim(),
-      style: 'right' as LayoutStyle,
-    }));
-  }
-  
-  let currentSection: LayoutSection | null = null;
-  let nextStyle: LayoutStyle = 'right';
-  
-  for (const part of parts) {
-    if (part.isMarker) {
-      // Close current section if exists
-      if (currentSection) {
-        sections.push(currentSection);
-        currentSection = null;
+    while ((match = breakMarkerRegex.exec(textContent)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: textContent.substring(lastIndex, match.index), isMarker: false });
       }
       
-      if (part.text.startsWith('||BREAK')) {
-        // Set style for next section (content after this break)
-        nextStyle = (part.style as LayoutStyle) || 'right';
-        // Add break marker for spacing (style doesn't matter for empty breaks)
-        sections.push({
-          content: '',
-          style: 'right', // Break markers themselves don't need style
-          isBreak: true,
-        });
-      } else if (part.text === '||HEADER||') {
-        nextStyle = 'header';
+      const marker = match[0];
+      if (marker.startsWith('||BREAK')) {
+        const style = match[1] || 'right';
+        parts.push({ text: marker, isMarker: true, style });
+      } else if (marker === '||HEADER||') {
+        parts.push({ text: marker, isMarker: true });
       }
-    } else {
-      // Regular content
-      const trimmed = part.text.trim();
-      if (trimmed) {
-        if (!currentSection) {
-          currentSection = {
-            content: trimmed,
-            style: nextStyle,
-            isHeader: nextStyle === 'header',
-          };
-        } else {
-          currentSection.content += '\n' + trimmed;
+      
+      lastIndex = breakMarkerRegex.lastIndex;
+    }
+    
+    if (lastIndex < textContent.length) {
+      parts.push({ text: textContent.substring(lastIndex), isMarker: false });
+    }
+    
+    let currentSection: LayoutSection | null = null;
+    let nextStyle: LayoutStyle = 'right';
+    
+    for (const part of parts) {
+      if (part.isMarker) {
+        if (currentSection) {
+          sections.push(currentSection);
+          currentSection = null;
+        }
+        
+        if (part.text.startsWith('||BREAK')) {
+          nextStyle = (part.style as LayoutStyle) || 'right';
+          sections.push({
+            content: '',
+            style: 'right',
+            isBreak: true,
+          });
+        } else if (part.text === '||HEADER||') {
+          nextStyle = 'header';
+        }
+      } else {
+        const trimmed = part.text.trim();
+        if (trimmed) {
+          if (!currentSection) {
+            currentSection = {
+              content: trimmed,
+              style: nextStyle,
+              isHeader: nextStyle === 'header',
+            };
+          } else {
+            currentSection.content += '\n' + trimmed;
+          }
         }
       }
     }
+    
+    if (currentSection) {
+      sections.push(currentSection);
+    }
+    
+    return sections.length > 0 ? sections : [{
+      content: textContent.trim(),
+      style: 'right' as LayoutStyle,
+    }];
   }
   
-  // Add final section if exists
-  if (currentSection) {
-    sections.push(currentSection);
+  // NEW: Intelligent auto-detection mode (no markers needed)
+  // Split by double newlines or single newlines, preserving structure
+  const lines = textContent.split('\n');
+  const verses: string[] = [];
+  let currentVerse: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    const nextLine = i < lines.length - 1 ? lines[i + 1].trim() : '';
+    const isEmpty = !line;
+    const nextIsEmpty = !nextLine;
+    
+    if (isEmpty) {
+      // Empty line - if we have content, save it as a verse
+      if (currentVerse.length > 0) {
+        verses.push(currentVerse.join('\n'));
+        currentVerse = [];
+      }
+      // Multiple empty lines create a break
+      if (nextIsEmpty && currentVerse.length === 0) {
+        // Skip consecutive empty lines
+        continue;
+      }
+    } else {
+      currentVerse.push(line);
+      
+      // If next line is empty, this verse is complete
+      if (nextIsEmpty && currentVerse.length > 0) {
+        verses.push(currentVerse.join('\n'));
+        currentVerse = [];
+      }
+    }
   }
+  
+  // Add final verse if exists
+  if (currentVerse.length > 0) {
+    verses.push(currentVerse.join('\n'));
+  }
+  
+  // If no verses found (single block of text), treat entire content as one verse
+  if (verses.length === 0) {
+    verses.push(textContent.trim());
+  }
+  
+  // Convert verses to sections with intelligent styling
+  verses.forEach((verse, index) => {
+    const trimmed = verse.trim();
+    if (!trimmed) return;
+    
+    const verseLines = trimmed.split('\n').filter(l => l.trim());
+    const lineCount = verseLines.length;
+    
+    // Detect headers: very short lines (usually titles) at the start
+    const isHeader = index === 0 && lineCount === 1 && trimmed.length < 50;
+    
+    // Auto-detect style based on content
+    let style: LayoutStyle = 'right';
+    if (isHeader) {
+      style = 'header';
+    }
+    
+    sections.push({
+      content: trimmed,
+      style,
+      isHeader,
+    });
+  });
   
   return sections.length > 0 ? sections : [{
     content: textContent.trim(),
@@ -150,6 +224,7 @@ export function RecitationLayout({
   highlightCurrentVerse = false,
   currentVerse,
   showVerseNumbers = false,
+  coupletLayout = 'two-column',
   onSectionMeta,
   onVerseRef,
 }: RecitationLayoutProps) {
@@ -173,11 +248,27 @@ export function RecitationLayout({
         return 'text-right';
     }
   };
+
+  const getTextAlignment = (style: LayoutStyle) => {
+    // For RTL languages, ensure proper alignment
+    switch (style) {
+      case 'center':
+        return 'text-center';
+      case 'left':
+        return 'text-left';
+      case 'right':
+      case 'header':
+      default:
+        return 'text-right';
+    }
+  };
   
-  const getSpacingClass = (isBreak: boolean, isHeader: boolean, hasNextBreak: boolean) => {
+  const getSpacingClass = (isBreak: boolean, isHeader: boolean, hasNextBreak: boolean, isLast: boolean) => {
     if (isHeader) return compactMode ? 'mb-4' : 'mb-6';
     if (isBreak || hasNextBreak) return compactMode ? 'my-6' : 'my-10 md:my-12';
-    return compactMode ? 'mb-3' : 'mb-6';
+    // Natural spacing between verses - no manual breaks needed
+    if (isLast) return compactMode ? 'mb-0' : 'mb-0';
+    return compactMode ? 'mb-4 md:mb-6' : 'mb-6 md:mb-8';
   };
   
   let verseIndex = 0;
@@ -194,7 +285,7 @@ export function RecitationLayout({
   return (
     <div 
       data-recitation-layout
-      className={`space-y-0 ${className}`}
+      className={`space-y-0 w-full select-none ${className}`}
       style={{ 
         fontSize: `${safeFontSize}px`,
         lineHeight: lineHeight,
@@ -208,6 +299,13 @@ export function RecitationLayout({
         WebkitTextSizeAdjust: '100%',
         MozTextSizeAdjust: '100%',
         msTextSizeAdjust: '100%',
+        // Prevent text selection for better PWA experience
+        userSelect: 'none',
+        WebkitUserSelect: 'none',
+        MozUserSelect: 'none',
+        msUserSelect: 'none',
+        // Prevent touch callout on iOS
+        WebkitTouchCallout: 'none',
       } as React.CSSProperties}
       dir="rtl"
     >
@@ -251,6 +349,7 @@ export function RecitationLayout({
         const hasNextBreak = nextSection?.isBreak || false;
         const prevSection = sections[sectionIndex - 1];
         const hasPrevBreak = prevSection?.isBreak || false;
+        const isLast = sectionIndex === sections.length - 1;
         
         // Skip empty break markers - render as a subtle divider spacer
         if (section.isBreak && !section.content) {
@@ -278,8 +377,9 @@ export function RecitationLayout({
           verseIndex++;
         }
         
-        // Determine if this is a couplet (2 lines) for grid layout
-        const isCouplet = lines.length === 2;
+        // Auto-detect couplets: verses with exactly 2 lines automatically get two-column layout
+        // This makes it easy - just paste your text, and couplets are automatically formatted!
+        const isCouplet = lines.length === 2 && !section.isHeader;
 
         // Collect headers and first lines of major sections for TOC/outline;
         // actual callback to parent is fired in an effect after render.
@@ -306,8 +406,8 @@ export function RecitationLayout({
               }}
               data-verse-index={!section.isBreak && !section.isHeader ? currentVerseIndex : undefined}
               className={`
-                ${getSpacingClass(section.isBreak || false, section.isHeader || false, hasNextBreak)}
-                ${section.isHeader ? 'px-2 md:px-4' : 'py-4 px-3 md:px-5 lg:px-6'}
+                ${getSpacingClass(section.isBreak || false, section.isHeader || false, hasNextBreak, isLast)}
+                ${section.isHeader ? 'px-2 md:px-4' : compactMode ? 'py-3 px-4 md:px-6' : 'py-5 px-4 md:px-6 lg:px-8'}
                 rounded-lg
                 transition-colors duration-200
                 ${
@@ -320,44 +420,85 @@ export function RecitationLayout({
             >
               {/* Text content - takes remaining space */}
               <div className={`
-                ${showVerseNumbers && !section.isHeader && !section.isBreak ? 'flex-1' : ''}
+                ${showVerseNumbers && !section.isHeader && !section.isBreak ? 'flex-1' : 'w-full'}
                 ${getAlignmentClass(section.style)}
               `}>
-                {/* Grid layout for couplets (2 lines) - stacked vertically with proper spacing */}
-                {isCouplet ? (
-                  <div className="space-y-3 md:space-y-4">
+                {/* Two-column layout for couplets (traditional Urdu style) */}
+                {isCouplet && coupletLayout === 'two-column' ? (
+                  <div className="grid grid-cols-2 gap-x-4 md:gap-x-6 lg:gap-x-8 gap-y-1 items-baseline">
+                    {/* First line (right column in RTL) - aligns to right edge */}
+                    <div className="text-right pr-2 md:pr-4 select-none">
+                      <p 
+                        className={`
+                          ${section.style === 'header' ? 'font-semibold' : 'font-normal'}
+                          leading-relaxed
+                          break-words
+                          whitespace-normal
+                          select-none
+                        `}
+                        dir="rtl"
+                      >
+                        {lines[0]?.trim()}
+                      </p>
+                    </div>
+                    {/* Second line (left column in RTL) - aligns to right edge */}
+                    <div className="text-right pr-2 md:pr-4 select-none">
+                      <p 
+                        className={`
+                          ${section.style === 'header' ? 'font-semibold' : 'font-normal'}
+                          leading-relaxed
+                          break-words
+                          whitespace-normal
+                          select-none
+                        `}
+                        dir="rtl"
+                      >
+                        {lines[1]?.trim()}
+                      </p>
+                    </div>
+                  </div>
+                ) : isCouplet ? (
+                  // Vertical layout for couplets (stacked)
+                  <div className="space-y-3 md:space-y-4 select-none">
                     {lines.map((line, lineIndex) => (
                       <p 
                         key={`line-${lineIndex}`}
                         className={`
-                          ${section.style === 'header' ? 'font-semibold' : ''}
+                          ${section.style === 'header' ? 'font-semibold' : 'font-normal'}
                           leading-relaxed
-                          ${lineIndex === 0 ? 'mb-1' : ''}
+                          break-words
+                          ${getTextAlignment(section.style)}
+                          select-none
                         `}
+                        dir="rtl"
                       >
                         {line.trim()}
                       </p>
                     ))}
                   </div>
                 ) : (
-                  // Regular layout for other sections
-                  <div className="space-y-2 md:space-y-3">
+                  // Regular layout for other sections (single column, properly aligned)
+                  <div className="space-y-2 md:space-y-3 select-none">
                     {lines.map((line, lineIndex) => (
                       <p 
                         key={`line-${lineIndex}`}
                         className={`
-                          ${section.style === 'header' ? 'font-semibold' : ''}
+                          ${section.style === 'header' ? 'font-semibold' : 'font-normal'}
                           leading-relaxed
+                          break-words
+                          ${getTextAlignment(section.style)}
+                          select-none
                         `}
+                        dir="rtl"
                       >
                         {line.trim()}
                       </p>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
               </div>
               
-              {/* Verse number on the right side (RTL) - separate from text */}
+              {/* Verse number on the left side (RTL) - separate from text */}
               {showVerseNumbers && !section.isHeader && !section.isBreak && (
                 <div className="flex-shrink-0 pt-1">
                   <span className="inline-flex items-center justify-center text-xs font-medium text-muted-foreground bg-muted rounded-full w-7 h-7 border border-border/50">
