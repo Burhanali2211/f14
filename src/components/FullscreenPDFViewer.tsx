@@ -389,8 +389,15 @@ export function FullscreenPDFViewer({
     
     const currentPos = position.get(currentPage) || { x: 0, y: 0 };
     lastPositionRef.current = { ...currentPos };
+    
+    // Prevent text selection and default behaviors
     e.preventDefault();
     e.stopPropagation();
+    
+    // Prevent container scrolling while dragging
+    if (containerRef.current) {
+      containerRef.current.style.overflow = 'hidden';
+    }
   }, [zoom, currentPage, position]);
 
   // Mouse event listeners for dragging
@@ -431,6 +438,12 @@ export function FullscreenPDFViewer({
         isDraggingRef.current = false;
         hasMovedRef.current = false;
         mouseDownPositionRef.current = null;
+        
+        // Restore container scrolling
+        if (containerRef.current) {
+          containerRef.current.style.overflow = '';
+          containerRef.current.style.overflowX = zoom > 1 ? 'auto' : 'hidden';
+        }
       }
     };
     
@@ -447,12 +460,19 @@ export function FullscreenPDFViewer({
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
       // Two touches - pinch zoom
+      e.preventDefault();
       const distance = getTouchDistance(e.touches);
       const center = getTouchCenter(e.touches);
       touchStartRef.current = { distance, center };
       isDraggingRef.current = false;
+      
+      // Prevent container scrolling during pinch
+      if (containerRef.current) {
+        containerRef.current.style.overflow = 'hidden';
+      }
     } else if (e.touches.length === 1 && zoom > 1) {
       // Single touch - start drag when zoomed
+      e.preventDefault();
       const touch = e.touches[0];
       isDraggingRef.current = true;
       dragStartRef.current = { x: touch.clientX, y: touch.clientY };
@@ -460,6 +480,11 @@ export function FullscreenPDFViewer({
       lastPositionRef.current = { ...currentPos };
       mouseDownPositionRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
       hasMovedRef.current = false;
+      
+      // Prevent container scrolling while dragging
+      if (containerRef.current) {
+        containerRef.current.style.overflow = 'hidden';
+      }
     }
   };
   
@@ -526,6 +551,12 @@ export function FullscreenPDFViewer({
     isDraggingRef.current = false;
     hasMovedRef.current = false;
     mouseDownPositionRef.current = null;
+    
+    // Restore container scrolling
+    if (containerRef.current) {
+      containerRef.current.style.overflow = '';
+      containerRef.current.style.overflowX = zoom > 1 ? 'auto' : 'hidden';
+    }
   };
 
   // Rotate - apply to all pages for consistency
