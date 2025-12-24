@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, User, Globe, Bookmark, Eye,
-  Clock, Users, Maximize2, ArrowUp, ListTree
+  Clock, Users, Maximize2, ArrowUp, ListTree, Loader2, Download
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -32,6 +32,10 @@ import {
 import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
 import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Piece, Category, Imam } from '@/lib/supabase-types';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 export default function PiecePage() {
   const { id } = useParams<{ id: string }>();
@@ -544,14 +548,13 @@ export default function PiecePage() {
 
         {/* Header */}
         <header className="mb-8 text-center">
-          {/* Cover Image - Enhanced */}
-          {currentImageUrl && (
+          {/* Cover Image - Only show if no PDF (PDF has its own display section) */}
+          {currentImageUrl && !pdfUrl && (
             <div 
               className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden mb-6 cursor-pointer group bg-muted/30"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                // Preserve current image index instead of resetting to 0
                 setImageViewerOpen(true);
               }}
               onKeyDown={(e) => {
@@ -774,11 +777,13 @@ export default function PiecePage() {
         {/* PDF Display - Show PDF if available */}
         {pdfUrl && (
           <div className="w-full mb-8" style={{ height: '80vh', minHeight: '600px' }}>
+            {/* Use iframe with mobile-friendly attributes */}
             <iframe
               src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
               className="w-full h-full"
-              title={`${piece.title} - PDF Document`}
               style={{ border: 'none' }}
+              allow="fullscreen"
+              loading="lazy"
             />
           </div>
         )}
@@ -897,6 +902,151 @@ export default function PiecePage() {
           onIndexChange={setCurrentImageIndex}
         />
       )}
+    </div>
+  );
+}
+
+// PDF Viewer Component - handles mobile and desktop
+function PDFViewer({ pdfUrl, title }: { pdfUrl: string; title: string }) {
+  const [pdfPages, setPdfPages] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [useMobileViewer, setUseMobileViewer] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Detect if mobile browser doesn't support PDF embedding
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (isMobile) {
+      // Try to load PDF with PDF.js for mobile
+      const loadPDF = async () => {
+        try {
+          setLoading(true);
+          const response = await fetch(pdfUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const numPages = pdf.numPages;
+          
+          const pages: string[] = [];
+          for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const viewport = page.getViewport({ scale: 2.0 });
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            
+            if (!context) continue;
+            
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            
+            await page.render({
+              canvasContext: context,
+              viewport: viewport,
+              canvas: canvas,
+            }).promise;
+            
+            pages.push(canvas.toDataURL('image/jpeg', 0.9));
+          }
+          
+          setPdfPages(pages);
+          setUseMobileViewer(true);
+        } catch (error) {
+          logger.error('Error loading PDF with PDF.js:', error);
+          setUseMobileViewer(false);
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      loadPDF();
+    } else {
+      setUseMobileViewer(false);
+      setLoading(false);
+    }
+  }, [pdfUrl]);
+
+  const handleDownload = async () => {
+    try {
+      const response = await fetch(pdfUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Use title as filename, sanitize it for filesystem
+      const sanitizedTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      a.download = `${sanitizedTitle}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      logger.error('Error downloading PDF:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="w-full mb-8 flex items-center justify-center" style={{ height: '80vh', minHeight: '600px' }}>
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
+          <p className="text-muted-foreground">Loading PDF...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (useMobileViewer && pdfPages.length > 0) {
+    // Mobile: Render PDF pages as images
+    return (
+      <div className="w-full mb-8" ref={containerRef}>
+        <div className="flex justify-end mb-4">
+          <Button
+            onClick={handleDownload}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <Download className="w-4 h-4" />
+            Download PDF
+          </Button>
+        </div>
+        <div className="flex flex-col items-center gap-4">
+          {pdfPages.map((pageDataUrl, index) => (
+            <div key={index} className="w-full flex justify-center bg-white rounded-lg shadow-lg p-2">
+              <img
+                src={pageDataUrl}
+                alt={`${title} - Page ${index + 1}`}
+                className="w-full h-auto object-contain"
+                loading="lazy"
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop: Use iframe
+  return (
+    <div className="w-full mb-8" style={{ height: '80vh', minHeight: '600px' }}>
+      <div className="flex justify-end mb-4">
+        <Button
+          onClick={handleDownload}
+          variant="outline"
+          size="sm"
+          className="gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Download PDF
+        </Button>
+      </div>
+      <iframe
+        src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+        className="w-full h-full"
+        style={{ border: 'none' }}
+        allow="fullscreen"
+        loading="lazy"
+      />
     </div>
   );
 }
