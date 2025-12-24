@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Filter, Grid3X3, List, SortAsc, 
-  ArrowUpDown, Video, Eye, Calendar, ArrowUpRight, Play
+  ArrowUpDown, Video, Eye, Calendar, ArrowUpRight, Play, X
 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PieceCard } from '@/components/PieceCard';
@@ -13,6 +14,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
 import {
   generateCollectionPageStructuredData,
   generateBreadcrumbStructuredData,
@@ -54,6 +56,8 @@ export default function CategoryPage() {
   const [sortBy, setSortBy] = useState<SortOption>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (slug) {
@@ -400,107 +404,196 @@ export default function CategoryPage() {
                   variant="ghost"
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className={`h-9 px-4 transition-all duration-200 !justify-center ${
+                  className={`${isMobile ? 'h-11 px-3' : 'h-9 px-4'} transition-all duration-200 !justify-center touch-manipulation ${
                     viewMode === 'list' 
                       ? 'bg-primary text-primary-foreground shadow-sm' 
                       : 'hover:bg-secondary/50 text-muted-foreground'
                   }`}
+                  aria-label="List view"
                 >
-                  <List className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">List</span>
+                  <List className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'} ${isMobile ? '' : 'mr-2'}`} />
+                  {!isMobile && <span>List</span>}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setViewMode('grid')}
-                  className={`h-9 px-4 transition-all duration-200 !justify-center ${
+                  className={`${isMobile ? 'h-11 px-3' : 'h-9 px-4'} transition-all duration-200 !justify-center touch-manipulation ${
                     viewMode === 'grid' 
                       ? 'bg-primary text-primary-foreground shadow-sm' 
                       : 'hover:bg-secondary/50 text-muted-foreground'
                   }`}
+                  aria-label="Grid view"
                 >
-                  <Grid3X3 className="w-4 h-4 mr-2" />
-                  <span className="hidden sm:inline">Grid</span>
+                  <Grid3X3 className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'} ${isMobile ? '' : 'mr-2'}`} />
+                  {!isMobile && <span>Grid</span>}
                 </Button>
               </div>
               
               {/* Sort Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-10 gap-2">
-                    <ArrowUpDown className="w-4 h-4" />
-                    Sort
+                  <Button variant="outline" size="sm" className={`${isMobile ? 'h-11 px-4' : 'h-10'} gap-2 touch-manipulation`}>
+                    <ArrowUpDown className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
+                    <span className={isMobile ? 'text-base' : ''}>Sort</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => setSortBy('title')}>
-                    Title (A-Z)
+                <DropdownMenuContent align="end" className="min-w-[180px]">
+                  <DropdownMenuItem onClick={() => setSortBy('title')} className="cursor-pointer min-h-[44px]">
+                    <span className="text-base">Title (A-Z)</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('recent')}>
-                    Recently Added
+                  <DropdownMenuItem onClick={() => setSortBy('recent')} className="cursor-pointer min-h-[44px]">
+                    <span className="text-base">Recently Added</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('popular')}>
-                    Most Popular
+                  <DropdownMenuItem onClick={() => setSortBy('popular')} className="cursor-pointer min-h-[44px]">
+                    <span className="text-base">Most Popular</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('reciter')}>
-                    By Reciter
+                  <DropdownMenuItem onClick={() => setSortBy('reciter')} className="cursor-pointer min-h-[44px]">
+                    <span className="text-base">By Reciter</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </div>
 
-          {/* Filter Row */}
-          <div className="flex flex-wrap gap-3">
-            {languages.length > 1 && (
-              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
-                <SelectTrigger className="w-[140px] h-9">
-                  <SelectValue placeholder="Language" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Languages</SelectItem>
-                  {languages.map(lang => (
-                    <SelectItem key={lang} value={lang}>{lang}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            {reciters.length > 0 && (
-              <Select value={selectedReciter} onValueChange={setSelectedReciter}>
-                <SelectTrigger className="w-[160px] h-9">
-                  <SelectValue placeholder="Reciter" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Reciters</SelectItem>
-                  {reciters.map(reciter => (
-                    <SelectItem key={reciter} value={reciter}>{reciter}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-
-            <Button
-              variant={hasVideo === true ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setHasVideo(hasVideo === true ? null : true)}
-              className="h-9 gap-1.5"
-            >
-              <Video className="w-3.5 h-3.5" />
-              With Video
-            </Button>
-
-            {hasActiveFilters && (
+          {/* Filter Row - Mobile optimized */}
+          {isMobile ? (
+            <div className="space-y-3">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="h-9 text-muted-foreground"
+                variant="outline"
+                onClick={() => setFiltersOpen(!filtersOpen)}
+                className="w-full h-12 justify-between"
               >
-                Clear filters
+                <div className="flex items-center gap-2">
+                  <Filter className="w-5 h-5" />
+                  <span className="text-base font-medium">Filters</span>
+                  {hasActiveFilters && (
+                    <Badge variant="default" className="ml-2">
+                      Active
+                    </Badge>
+                  )}
+                </div>
+                {filtersOpen ? <X className="w-5 h-5" /> : <Filter className="w-5 h-5" />}
               </Button>
-            )}
-          </div>
+              
+              {filtersOpen && (
+                <div className="bg-card rounded-xl p-4 border border-border space-y-4">
+                  {languages.length > 1 && (
+                    <div>
+                      <Label className="text-sm font-semibold mb-2 block">Language</Label>
+                      <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                        <SelectTrigger className="h-12 text-base">
+                          <SelectValue placeholder="All Languages" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all" className="text-base min-h-[44px]">All Languages</SelectItem>
+                          {languages.map(lang => (
+                            <SelectItem key={lang} value={lang} className="text-base min-h-[44px]">{lang}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {reciters.length > 0 && (
+                    <div>
+                      <Label className="text-sm font-semibold mb-2 block">Reciter</Label>
+                      <Select value={selectedReciter} onValueChange={setSelectedReciter}>
+                        <SelectTrigger className="h-12 text-base">
+                          <SelectValue placeholder="All Reciters" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all" className="text-base min-h-[44px]">All Reciters</SelectItem>
+                          {reciters.map(reciter => (
+                            <SelectItem key={reciter} value={reciter} className="text-base min-h-[44px]">{reciter}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-sm font-semibold mb-2 block">Video</Label>
+                    <Button
+                      variant={hasVideo === true ? 'default' : 'outline'}
+                      size="lg"
+                      onClick={() => setHasVideo(hasVideo === true ? null : true)}
+                      className="w-full h-12 gap-2"
+                    >
+                      <Video className="w-5 h-5" />
+                      <span className="text-base">With Video Only</span>
+                    </Button>
+                  </div>
+
+                  {hasActiveFilters && (
+                    <Button
+                      variant="ghost"
+                      size="lg"
+                      onClick={() => {
+                        clearFilters();
+                        setFiltersOpen(false);
+                      }}
+                      className="w-full h-12 gap-2 text-destructive"
+                    >
+                      <X className="w-5 h-5" />
+                      <span className="text-base">Clear All Filters</span>
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
+              {languages.length > 1 && (
+                <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                  <SelectTrigger className="w-[140px] h-9">
+                    <SelectValue placeholder="Language" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Languages</SelectItem>
+                    {languages.map(lang => (
+                      <SelectItem key={lang} value={lang}>{lang}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {reciters.length > 0 && (
+                <Select value={selectedReciter} onValueChange={setSelectedReciter}>
+                  <SelectTrigger className="w-[160px] h-9">
+                    <SelectValue placeholder="Reciter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Reciters</SelectItem>
+                    {reciters.map(reciter => (
+                      <SelectItem key={reciter} value={reciter}>{reciter}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              <Button
+                variant={hasVideo === true ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setHasVideo(hasVideo === true ? null : true)}
+                className="h-9 gap-1.5"
+              >
+                <Video className="w-3.5 h-3.5" />
+                With Video
+              </Button>
+
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-9 text-muted-foreground"
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Pieces - Use virtualization for large lists */}

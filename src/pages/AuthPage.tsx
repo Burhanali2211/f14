@@ -395,7 +395,9 @@ export default function AuthPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-1.5">
-                <Label htmlFor="fullName" className="text-xs font-semibold text-foreground dark:text-foreground">Full Name</Label>
+                <Label htmlFor="fullName" className={`${isMobile ? 'text-sm' : 'text-xs'} font-semibold text-foreground dark:text-foreground`}>
+                  Full Name
+                </Label>
                 <div className="relative group">
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground dark:text-muted-foreground/80 group-focus-within:text-primary dark:group-focus-within:text-emerald transition-colors">
                     <User className="w-4 h-4" />
@@ -406,9 +408,10 @@ export default function AuthPage() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Enter your full name"
-                    className="pl-10 h-11 text-sm bg-white/90 dark:bg-card/90 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-sm dark:shadow-none"
+                    className={`pl-10 ${isMobile ? 'h-14 text-base' : 'h-11 text-sm'} bg-white/90 dark:bg-card/90 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-sm dark:shadow-none`}
                     autoComplete="name"
                     required
+                    aria-label="Full name"
                   />
                 </div>
               </div>
@@ -434,9 +437,10 @@ export default function AuthPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your.email@example.com"
-                  className="pl-10 pr-3 h-11 text-sm bg-white/90 dark:bg-card/90 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-sm dark:shadow-none"
+                  className={`pl-10 pr-3 ${isMobile ? 'h-14 text-base' : 'h-11 text-sm'} bg-white/90 dark:bg-card/90 backdrop-blur-sm border-2 border-input dark:border-border/60 text-foreground dark:text-foreground placeholder:text-muted-foreground/60 dark:placeholder:text-muted-foreground/70 hover:border-primary/70 dark:hover:border-emerald/60 focus-visible:border-primary dark:focus-visible:border-emerald focus-visible:ring-2 focus-visible:ring-primary/25 dark:focus-visible:ring-emerald/25 transition-all duration-200 rounded-xl shadow-sm dark:shadow-none`}
                   autoComplete="email"
                   required
+                  aria-label="Email address"
                 />
               </div>
             </div>

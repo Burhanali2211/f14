@@ -14,6 +14,7 @@ import {
 import { useSettings } from '@/hooks/use-settings';
 import { useFavorites } from '@/hooks/use-favorites';
 import { toast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface ReaderToolbarProps {
   pieceId: string;
@@ -39,6 +40,7 @@ export function ReaderToolbar({
   const { settings, updateSetting } = useSettings();
   const { isFavorite, addFavorite, removeFavorite } = useFavorites();
   const favorite = isFavorite(pieceId);
+  const isMobile = useIsMobile();
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(textContent);
@@ -96,6 +98,125 @@ export function ReaderToolbar({
     updateSetting('lineHeight', 2.2);
   };
 
+  // Mobile layout - simplified with text labels
+  if (isMobile) {
+    return (
+      <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-md border-b border-border print:hidden">
+        {/* Top row - Navigation and Font Size */}
+        <div className="container max-w-4xl flex items-center justify-between gap-2 px-3 py-2">
+          {/* Navigation */}
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onPrevious}
+              disabled={!hasPrevious}
+              className="h-11 w-11"
+              aria-label="Previous recitation"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onNext}
+              disabled={!hasNext}
+              className="h-11 w-11"
+              aria-label="Next recitation"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </Button>
+          </div>
+
+          {/* Font Controls - Larger on mobile */}
+          <div className="flex items-center gap-1 bg-card rounded-lg p-1 shadow-sm">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={decreaseFontSize}
+              className="h-10 w-10"
+              aria-label="Decrease font size"
+            >
+              <Minus className="w-5 h-5" />
+            </Button>
+            
+            <span className="px-3 text-base font-semibold text-foreground min-w-[50px] text-center">
+              {settings.fontSize}
+            </span>
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={increaseFontSize}
+              className="h-10 w-10"
+              aria-label="Increase font size"
+            >
+              <Plus className="w-5 h-5" />
+            </Button>
+            
+            <Separator orientation="vertical" className="h-7 mx-1" />
+            
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={resetFontSize}
+              className="h-10 w-10"
+              aria-label="Reset font size"
+            >
+              <RotateCcw className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Settings button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onSettingsOpen}
+            className="h-11 w-11"
+            aria-label="Open settings"
+          >
+            <Settings className="w-5 h-5" />
+          </Button>
+        </div>
+
+        {/* Bottom row - Actions with labels */}
+        <div className="container max-w-4xl flex items-center justify-around gap-1 px-3 py-2 border-t border-border/50">
+          <Button
+            variant="ghost"
+            onClick={handleFavorite}
+            className={`flex flex-col items-center gap-1 h-auto py-2 px-3 min-h-[60px] flex-1 ${favorite ? 'text-red-500' : ''}`}
+            aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
+          >
+            <Heart className={`w-5 h-5 ${favorite ? 'fill-current' : ''}`} />
+            <span className="text-xs font-medium">{favorite ? 'Saved' : 'Save'}</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            onClick={handleShare}
+            className="flex flex-col items-center gap-1 h-auto py-2 px-3 min-h-[60px] flex-1"
+            aria-label="Share"
+          >
+            <Share2 className="w-5 h-5" />
+            <span className="text-xs font-medium">Share</span>
+          </Button>
+
+          <Button
+            variant="ghost"
+            onClick={handleCopy}
+            className="flex flex-col items-center gap-1 h-auto py-2 px-3 min-h-[60px] flex-1"
+            aria-label="Copy text"
+          >
+            <Copy className="w-5 h-5" />
+            <span className="text-xs font-medium">Copy</span>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Desktop layout - compact with tooltips
   return (
     <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-md border-b border-border py-2 print:hidden">
       <div className="container max-w-4xl flex items-center justify-between gap-2">

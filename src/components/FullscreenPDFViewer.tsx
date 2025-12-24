@@ -444,11 +444,12 @@ export function FullscreenPDFViewer({
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 h-10 w-10 rounded-full"
+            className="text-white hover:bg-white/20 h-11 w-11 sm:h-10 sm:w-10 rounded-full touch-manipulation"
             onClick={onClose}
             title="Close (Esc)"
+            aria-label="Close viewer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-6 h-6 sm:w-5 sm:h-5" />
           </Button>
         </div>
       </div>
@@ -458,31 +459,34 @@ export function FullscreenPDFViewer({
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/20 h-10 w-10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-white hover:bg-white/20 h-11 w-11 sm:h-10 sm:w-10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           onClick={handleZoomIn}
           title="Zoom In (+)"
           disabled={zoom >= 5}
+          aria-label="Zoom in"
         >
-          <ZoomIn className="w-5 h-5" />
+          <ZoomIn className="w-6 h-6 sm:w-5 sm:h-5" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/20 h-10 w-10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+          className="text-white hover:bg-white/20 h-11 w-11 sm:h-10 sm:w-10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           onClick={handleZoomOut}
           title="Zoom Out (-)"
           disabled={zoom <= 1}
+          aria-label="Zoom out"
         >
-          <ZoomOut className="w-5 h-5" />
+          <ZoomOut className="w-6 h-6 sm:w-5 sm:h-5" />
         </Button>
         <Button
           variant="ghost"
           size="icon"
-          className="text-white hover:bg-white/20 h-10 w-10 rounded-full"
+          className="text-white hover:bg-white/20 h-11 w-11 sm:h-10 sm:w-10 rounded-full touch-manipulation"
           onClick={handleRotate}
           title="Rotate (R)"
+          aria-label="Rotate"
         >
-          <RotateCw className="w-5 h-5" />
+          <RotateCw className="w-6 h-6 sm:w-5 sm:h-5" />
         </Button>
       </div>
 

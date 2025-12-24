@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, X, Loader2, BookOpen } from 'lucide-react';
+import { Search, X, Loader2, BookOpen, HelpCircle } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { Piece } from '@/lib/supabase-types';
 
 interface SearchBarProps {
@@ -26,6 +27,7 @@ export function SearchBar({
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<NodeJS.Timeout>();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     setQuery(initialValue);
@@ -102,8 +104,9 @@ export function SearchBar({
               setTimeout(() => setIsFocused(false), 200);
             }}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder}
-            className="pl-12 pr-12 py-6 text-base rounded-2xl bg-card border-border shadow-soft focus:shadow-card transition-all duration-300 focus-visible:ring-2 focus-visible:ring-primary/20"
+            placeholder={isMobile ? "Search recitations..." : placeholder}
+            className={`pl-12 pr-12 ${isMobile ? 'py-7 text-lg' : 'py-6 text-base'} rounded-2xl bg-card border-border shadow-soft focus:shadow-card transition-all duration-300 focus-visible:ring-2 focus-visible:ring-primary/20`}
+            aria-label="Search for recitations"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
             {isLoading && (
@@ -114,9 +117,10 @@ export function SearchBar({
                 variant="ghost"
                 size="sm"
                 onClick={handleClear}
-                className="h-8 w-8 p-0 hover:bg-muted rounded-lg"
+                className={`${isMobile ? 'h-10 w-10' : 'h-8 w-8'} p-0 hover:bg-muted rounded-lg touch-manipulation`}
+                aria-label="Clear search"
               >
-                <X className="w-4 h-4" />
+                <X className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
               </Button>
             )}
           </div>
@@ -143,11 +147,16 @@ export function SearchBar({
                   <Link
                     key={piece.id}
                     to={`/piece/${piece.id}`}
-                    className="block px-4 py-3 rounded-lg hover:bg-secondary transition-colors group"
+                    className={`block ${isMobile ? 'px-4 py-4 min-h-[56px]' : 'px-4 py-3'} rounded-lg hover:bg-secondary active:bg-secondary/80 transition-colors group touch-manipulation`}
                   >
-                    <h3 className="font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                    <h3 className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors`}>
                       {piece.title}
                     </h3>
+                    {piece.reciter && (
+                      <p className={`${isMobile ? 'text-sm' : 'text-xs'} text-muted-foreground mt-1`}>
+                        by {piece.reciter}
+                      </p>
+                    )}
                   </Link>
                 ))}
               </div>
@@ -162,11 +171,36 @@ export function SearchBar({
         </div>
       )}
       
-      {/* Keyboard hint */}
+      {/* Helpful hints */}
       {isFocused && !showResults && (
-        <p className="absolute -bottom-6 left-0 right-0 text-center text-xs text-muted-foreground animate-fade-in">
-          Press <kbd className="px-1.5 py-0.5 rounded bg-muted font-mono text-[10px]">Esc</kbd> to clear
-        </p>
+        <div className="absolute -bottom-8 left-0 right-0 text-center animate-fade-in">
+          {isMobile ? (
+            <p className="text-xs text-muted-foreground">
+              Tap the X button to clear
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Press <kbd className="px-1.5 py-0.5 rounded bg-muted font-mono text-[10px]">Esc</kbd> to clear
+            </p>
+          )}
+        </div>
+      )}
+      
+      {/* Search tips when empty and focused */}
+      {isFocused && !query.trim() && !showResults && (
+        <div className="absolute top-full left-0 right-0 mt-2 p-4 bg-card border border-border rounded-2xl shadow-lg z-50 animate-in fade-in-0 slide-in-from-top-2">
+          <div className="flex items-start gap-3">
+            <HelpCircle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-2">
+              <p className="text-sm font-medium text-foreground">Search Tips</p>
+              <ul className="text-xs text-muted-foreground space-y-1.5 list-disc list-inside">
+                <li>Search by title, reciter name, or category</li>
+                <li>Results appear as you type</li>
+                <li>Tap any result to start reading</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -296,10 +296,10 @@ export function Header() {
               variant="ghost" 
               size="icon" 
               onClick={() => setIsMenuOpen(!isMenuOpen)} 
-              className="lg:hidden rounded-xl h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0"
+              className="lg:hidden rounded-xl h-11 w-11 sm:h-12 sm:w-12 flex-shrink-0 bg-secondary/50 hover:bg-secondary border border-border/50"
               aria-label="Toggle menu"
             >
-              {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </Button>
           </div>
         </div>
@@ -315,58 +315,65 @@ export function Header() {
           />
           {/* Sidebar from right */}
           <nav className="lg:hidden fixed top-0 right-0 h-screen w-3/4 max-w-sm bg-background border-l border-border/50 shadow-xl z-[70] animate-slide-right safe-area-inset-right overflow-y-auto">
-            <div className="flex flex-col gap-3 p-6 pt-24">
+            <div className="flex flex-col gap-2 p-4 pt-20">
+              <div className="px-4 py-2 mb-2 border-b border-border">
+                <h2 className="text-lg font-semibold text-foreground">Menu</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Navigate to different sections</p>
+              </div>
               <Link 
                 to="/" 
                 onClick={closeMenu} 
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
                   isActive('/') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
-                <Home className="w-5 h-5 flex-shrink-0" />
+                <Home className="w-6 h-6 flex-shrink-0" />
                 <span>Home</span>
               </Link>
               <Link 
                 to="/favorites" 
                 onClick={closeMenu} 
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
                   isActive('/favorites') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
-                <Heart className="w-5 h-5 flex-shrink-0" />
-                <span>Favorites</span>
+                <Heart className="w-6 h-6 flex-shrink-0" />
+                <span>My Favorites</span>
               </Link>
               <Link 
                 to="/calendar" 
                 onClick={closeMenu}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
                   isActive('/calendar') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
-                <Calendar className="w-5 h-5 flex-shrink-0" />
-                <span>Calendar</span>
+                <Calendar className="w-6 h-6 flex-shrink-0" />
+                <span>Events Calendar</span>
               </Link>
               <Link 
                 to="/settings" 
                 onClick={closeMenu} 
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
                   isActive('/settings') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                 }`}
               >
-                <Settings className="w-5 h-5 flex-shrink-0" />
-                <span>Settings</span>
+                <Settings className="w-6 h-6 flex-shrink-0" />
+                <span>Reading Settings</span>
               </Link>
               {user ? (
                 <>
+                  <div className="border-t border-border pt-2 mt-2">
+                    <p className="text-xs text-muted-foreground px-4 py-2 uppercase tracking-wide">Account</p>
+                  </div>
                   <Link 
                     to="/profile" 
                     onClick={closeMenu} 
-                    className={`flex items-center gap-3 px-4 py-3 rounded-xl text-base font-medium transition-colors ${
+                    className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
                       isActive('/profile') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
                     }`}
                   >
-                    <User className="w-5 h-5 flex-shrink-0" />
-                    <span>Profile</span>
+                    <User className="w-6 h-6 flex-shrink-0" />
+                    <span>My Profile</span>
                   </Link>
                   {role === 'admin' && (
                     <Link 
@@ -395,9 +402,9 @@ export function Header() {
                   <Button 
                     variant="ghost" 
                     onClick={() => { handleLogout(); closeMenu(); }} 
-                    className="justify-start px-4 py-3 text-destructive hover:text-destructive hover:bg-destructive/10 text-base font-medium mt-2"
+                    className="justify-start px-4 py-4 text-destructive hover:text-destructive hover:bg-destructive/10 text-base font-medium min-h-[52px]"
                   >
-                    <LogOut className="w-5 h-5 mr-3 flex-shrink-0" />
+                    <LogOut className="w-6 h-6 mr-3 flex-shrink-0" />
                     <span>Logout</span>
                   </Button>
                 </>

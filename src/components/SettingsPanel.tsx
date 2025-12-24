@@ -19,6 +19,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSettings } from '@/hooks/use-settings';
 import { Separator } from '@/components/ui/separator';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface SettingsPanelProps {
   open: boolean;
@@ -27,6 +28,7 @@ interface SettingsPanelProps {
 
 export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const { settings, updateSetting, resetSettings } = useSettings();
+  const isMobile = useIsMobile();
 
   const getFontFamily = () => {
     switch (settings.fontFamily) {
@@ -37,6 +39,27 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       case 'reem-kufi': return "'Reem Kufi', sans-serif";
       case 'scheherazade': return "'Scheherazade New', serif";
       default: return "'Amiri', serif";
+    }
+  };
+
+  // Quick presets for non-tech users
+  const applyPreset = (preset: 'small' | 'medium' | 'large') => {
+    switch (preset) {
+      case 'small':
+        updateSetting('fontSize', 18);
+        updateSetting('lineHeight', 1.8);
+        updateSetting('letterSpacing', 0.05);
+        break;
+      case 'medium':
+        updateSetting('fontSize', 24);
+        updateSetting('lineHeight', 2.2);
+        updateSetting('letterSpacing', 0.1);
+        break;
+      case 'large':
+        updateSetting('fontSize', 32);
+        updateSetting('lineHeight', 2.5);
+        updateSetting('letterSpacing', 0.15);
+        break;
     }
   };
 
@@ -55,14 +78,44 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
         <Tabs defaultValue="reading" className="mt-4">
           <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="reading" className="text-xs">
-              <Type className="w-4 h-4" />
+            <TabsTrigger value="reading" className={`text-xs sm:text-sm ${isMobile ? 'px-2' : ''}`}>
+              {isMobile ? (
+                <>
+                  <Type className="w-4 h-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Text</span>
+                </>
+              ) : (
+                <>
+                  <Type className="w-4 h-4 mr-1" />
+                  <span>Text</span>
+                </>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="display" className="text-xs">
-              <Eye className="w-4 h-4" />
+            <TabsTrigger value="display" className={`text-xs sm:text-sm ${isMobile ? 'px-2' : ''}`}>
+              {isMobile ? (
+                <>
+                  <Eye className="w-4 h-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Display</span>
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4 mr-1" />
+                  <span>Display</span>
+                </>
+              )}
             </TabsTrigger>
-            <TabsTrigger value="appearance" className="text-xs">
-              <Palette className="w-4 h-4" />
+            <TabsTrigger value="appearance" className={`text-xs sm:text-sm ${isMobile ? 'px-2' : ''}`}>
+              {isMobile ? (
+                <>
+                  <Palette className="w-4 h-4 sm:mr-1" />
+                  <span className="hidden sm:inline">Theme</span>
+                </>
+              ) : (
+                <>
+                  <Palette className="w-4 h-4 mr-1" />
+                  <span>Theme</span>
+                </>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -143,9 +196,46 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 </p>
               </div>
               
+              {/* Quick Presets - Easy for non-tech users */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">Quick Text Size</Label>
+                <p className="text-xs text-muted-foreground mb-2">Choose a preset size for easier reading</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    variant={settings.fontSize <= 20 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => applyPreset('small')}
+                    className="h-12 text-sm"
+                  >
+                    Small
+                  </Button>
+                  <Button
+                    variant={settings.fontSize > 20 && settings.fontSize <= 28 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => applyPreset('medium')}
+                    className="h-12 text-sm"
+                  >
+                    Medium
+                  </Button>
+                  <Button
+                    variant={settings.fontSize > 28 ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => applyPreset('large')}
+                    className="h-12 text-sm"
+                  >
+                    Large
+                  </Button>
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Font Size: {settings.fontSize}px</Label>
+                  <div>
+                    <Label>Text Size: {settings.fontSize}px</Label>
+                    <p className="text-xs text-muted-foreground mt-0.5">Adjust the size of text</p>
+                  </div>
                 </div>
                 <Slider
                   value={[settings.fontSize]}
@@ -153,16 +243,15 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   max={40}
                   step={2}
                   onValueChange={([v]) => updateSetting('fontSize', v)}
+                  className="mt-2"
                 />
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-0.5">
-                    <Label>Letter / Word Spacing</Label>
-                    <span className="text-xs text-muted-foreground">
-                      Current: {settings.letterSpacing.toFixed(2)}em
-                    </span>
+                    <Label>Space Between Words</Label>
+                    <p className="text-xs text-muted-foreground">Make words closer or farther apart</p>
                   </div>
                 </div>
                 <Slider
@@ -171,12 +260,19 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   max={0.4}
                   step={0.01}
                   onValueChange={([v]) => updateSetting('letterSpacing', v)}
+                  className="mt-2"
                 />
+                <p className="text-xs text-muted-foreground text-right">
+                  Current: {settings.letterSpacing.toFixed(2)}em
+                </p>
               </div>
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Line Height: {settings.lineHeight.toFixed(1)}</Label>
+                  <div className="flex flex-col gap-0.5">
+                    <Label>Space Between Lines</Label>
+                    <p className="text-xs text-muted-foreground">Adjust the gap between text lines</p>
+                  </div>
                 </div>
                 <Slider
                   value={[settings.lineHeight]}
@@ -184,44 +280,50 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   max={3}
                   step={0.1}
                   onValueChange={([v]) => updateSetting('lineHeight', v)}
+                  className="mt-2"
                 />
+                <p className="text-xs text-muted-foreground text-right">
+                  Current: {settings.lineHeight.toFixed(1)}
+                </p>
               </div>
 
               <div className="space-y-2">
-                <Label>Font Family</Label>
+                <Label>Text Style</Label>
+                <p className="text-xs text-muted-foreground mb-2">Choose how the text looks</p>
                 <Select
                   value={settings.fontFamily}
                   onValueChange={(v) => updateSetting('fontFamily', v as any)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cairo">Cairo (Modern & Clean - Recommended)</SelectItem>
-                    <SelectItem value="tajawal">Tajawal (Modern & Readable)</SelectItem>
-                    <SelectItem value="noto-sans-arabic">Noto Sans Arabic (Clean & Modern)</SelectItem>
-                    <SelectItem value="ibm-plex-sans-arabic">IBM Plex Sans Arabic (Professional)</SelectItem>
-                    <SelectItem value="amiri">Amiri (Classic Arabic)</SelectItem>
-                    <SelectItem value="noto-nastaliq">Noto Nastaliq Urdu (Traditional Nastaliq)</SelectItem>
-                    <SelectItem value="lateef">Lateef (Elegant Urdu)</SelectItem>
-                    <SelectItem value="scheherazade">Scheherazade New (Modern Arabic)</SelectItem>
+                    <SelectItem value="cairo">Cairo - Modern & Clean (Recommended)</SelectItem>
+                    <SelectItem value="tajawal">Tajawal - Modern & Readable</SelectItem>
+                    <SelectItem value="noto-sans-arabic">Noto Sans Arabic - Clean & Modern</SelectItem>
+                    <SelectItem value="ibm-plex-sans-arabic">IBM Plex - Professional</SelectItem>
+                    <SelectItem value="amiri">Amiri - Classic Arabic</SelectItem>
+                    <SelectItem value="noto-nastaliq">Noto Nastaliq - Traditional Urdu</SelectItem>
+                    <SelectItem value="lateef">Lateef - Elegant Urdu</SelectItem>
+                    <SelectItem value="scheherazade">Scheherazade - Modern Arabic</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="space-y-2">
-                <Label>Text Alignment</Label>
+                <Label>Text Position</Label>
+                <p className="text-xs text-muted-foreground mb-2">How text is aligned on the page</p>
                 <Select
                   value={settings.textAlign}
                   onValueChange={(v) => updateSetting('textAlign', v as any)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="right">Right (RTL)</SelectItem>
-                    <SelectItem value="center">Center</SelectItem>
-                    <SelectItem value="justify">Justify</SelectItem>
+                    <SelectItem value="right">Right Side (Default)</SelectItem>
+                    <SelectItem value="center">Centered</SelectItem>
+                    <SelectItem value="justify">Justified (Even edges)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -236,68 +338,73 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 Display Options
               </h3>
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Show Verse Numbers</Label>
-                  <p className="text-xs text-muted-foreground">Display numbers before each verse</p>
+              <div className="flex items-center justify-between py-2 min-h-[60px]">
+                <div className="space-y-0.5 flex-1 pr-4">
+                  <Label className="text-base">Show Verse Numbers</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Show numbers before each verse</p>
                 </div>
                 <Switch
                   checked={settings.showVerseNumbers}
                   onCheckedChange={(v) => updateSetting('showVerseNumbers', v)}
+                  className="flex-shrink-0"
                 />
               </div>
 
               <Separator />
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Highlight Current Verse</Label>
-                  <p className="text-xs text-muted-foreground">Highlight current verse while reading</p>
+              <div className="flex items-center justify-between py-2 min-h-[60px]">
+                <div className="space-y-0.5 flex-1 pr-4">
+                  <Label className="text-base">Highlight Current Verse</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Highlight the verse you're reading</p>
                 </div>
                 <Switch
                   checked={settings.highlightCurrentVerse}
                   onCheckedChange={(v) => updateSetting('highlightCurrentVerse', v)}
+                  className="flex-shrink-0"
                 />
               </div>
 
               <Separator />
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Auto-Scroll with Audio</Label>
-                  <p className="text-xs text-muted-foreground">Scroll to current verse while playing</p>
+              <div className="flex items-center justify-between py-2 min-h-[60px]">
+                <div className="space-y-0.5 flex-1 pr-4">
+                  <Label className="text-base">Auto-Scroll with Audio</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Automatically scroll while audio plays</p>
                 </div>
                 <Switch
                   checked={settings.autoScrollWhilePlaying}
                   onCheckedChange={(v) => updateSetting('autoScrollWhilePlaying', v)}
+                  className="flex-shrink-0"
                 />
               </div>
 
               <Separator />
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Remember Reading Position</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Continue where you left off on this piece
+              <div className="flex items-center justify-between py-2 min-h-[60px]">
+                <div className="space-y-0.5 flex-1 pr-4">
+                  <Label className="text-base">Remember Reading Position</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Continue where you left off
                   </p>
                 </div>
                 <Switch
                   checked={settings.rememberReadingPosition}
                   onCheckedChange={(v) => updateSetting('rememberReadingPosition', v)}
+                  className="flex-shrink-0"
                 />
               </div>
 
               <Separator />
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label>Compact Mode</Label>
-                  <p className="text-xs text-muted-foreground">Reduce spacing for more content</p>
+              <div className="flex items-center justify-between py-2 min-h-[60px]">
+                <div className="space-y-0.5 flex-1 pr-4">
+                  <Label className="text-base">Compact Mode</Label>
+                  <p className="text-xs text-muted-foreground mt-1">Show more content with less spacing</p>
                 </div>
                 <Switch
                   checked={settings.compactMode}
                   onCheckedChange={(v) => updateSetting('compactMode', v)}
+                  className="flex-shrink-0"
                 />
               </div>
             </div>

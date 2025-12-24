@@ -1158,7 +1158,7 @@ export function FullscreenImageViewer({
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 active:bg-white/30 h-9 w-9 touch-manipulation"
+            className="text-white hover:bg-white/20 active:bg-white/30 h-11 w-11 sm:h-9 sm:w-9 touch-manipulation"
             onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -1168,8 +1168,9 @@ export function FullscreenImageViewer({
               resetControlsTimeout();
             }}
             title="Reset (0)"
+            aria-label="Reset zoom and rotation"
           >
-            <RotateCw className="w-4 h-4" />
+            <RotateCw className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
 
           <div className="w-px h-6 bg-white/30" />
@@ -1178,7 +1179,7 @@ export function FullscreenImageViewer({
           <Button
             variant="ghost"
             size="icon"
-            className="text-white hover:bg-white/20 active:bg-white/30 h-9 w-9 touch-manipulation"
+            className="text-white hover:bg-white/20 active:bg-white/30 h-11 w-11 sm:h-9 sm:w-9 touch-manipulation"
             onTouchStart={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation();
@@ -1191,8 +1192,9 @@ export function FullscreenImageViewer({
               resetControlsTimeout();
             }}
             title="Rotate (R)"
+            aria-label="Rotate image"
           >
-            <RotateCw className="w-4 h-4" />
+            <RotateCw className="w-5 h-5 sm:w-4 sm:h-4" />
           </Button>
 
           {/* Desktop-only: Fullscreen and Download */}
