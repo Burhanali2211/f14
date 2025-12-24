@@ -34,7 +34,7 @@ export function FullscreenPDFViewer({
   
   // Touch state for pinch zoom
   const touchStartRef = useRef<{ distance: number; center: { x: number; y: number } } | null>(null);
-  
+
   // Drag state for panning when zoomed
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
@@ -43,7 +43,7 @@ export function FullscreenPDFViewer({
   const hasMovedRef = useRef(false);
 
   // Calculate fit-to-screen zoom based on viewport dimensions
-  const calculateFitZoom = (imgWidth: number, imgHeight: number, rotation: number): number => {
+  const calculateFitZoom = useCallback((imgWidth: number, imgHeight: number, rotation: number): number => {
     if (!containerRef.current || imgWidth === 0 || imgHeight === 0) return 1;
     
     const container = containerRef.current;
@@ -57,14 +57,18 @@ export function FullscreenPDFViewer({
     const effectiveImgHeight = isRotated ? imgWidth : imgHeight;
     
     // Calculate zoom to fit viewport (contain mode - no cropping)
-    // Add padding (20px on each side = 40px total)
+    // Account for padding (20px on each side = 40px total for width and height)
     const padding = 40;
-    const scaleX = (viewportWidth - padding) / effectiveImgWidth;
-    const scaleY = (viewportHeight - padding) / effectiveImgHeight;
+    const availableWidth = Math.max(100, viewportWidth - padding);
+    const availableHeight = Math.max(100, viewportHeight - padding);
+    
+    const scaleX = availableWidth / effectiveImgWidth;
+    const scaleY = availableHeight / effectiveImgHeight;
     const fitZoomValue = Math.min(scaleX, scaleY);
     
-    return Math.max(0.5, Math.min(fitZoomValue, 2)); // Clamp between 0.5x and 2x for initial fit
-  };
+    // Ensure fit zoom is at least 0.1 and at most 3 (reasonable bounds)
+    return Math.max(0.1, Math.min(fitZoomValue, 3));
+  }, []);
 
   // Calculate fit zoom when images load or window resizes
   useEffect(() => {
@@ -83,24 +87,17 @@ export function FullscreenPDFViewer({
         setZoom(calculatedFitZoom);
         pageStateRef.current.set(currentPage, { zoom: calculatedFitZoom, rotation });
         
-        // Also set fit zoom for all other pages that don't have saved state
-        images.forEach((_, index) => {
-          if (index !== currentPage) {
-            const otherDims = imageDimensions.get(index);
-            if (otherDims && otherDims.width > 0 && otherDims.height > 0) {
-              const otherFitZoom = calculateFitZoom(otherDims.width, otherDims.height, rotation);
-              const otherPageState = pageStateRef.current.get(index);
-              if (!otherPageState) {
-                pageStateRef.current.set(index, { zoom: otherFitZoom, rotation });
-              }
-            }
-          }
+        // Reset position when setting fit zoom
+        setPosition(prev => {
+          const newMap = new Map(prev);
+          newMap.set(currentPage, { x: 0, y: 0 });
+          return newMap;
         });
       }
     };
     
     // Calculate after a short delay to ensure DOM is ready
-    const timeoutId = setTimeout(calculateForCurrentPage, 200);
+    const timeoutId = setTimeout(calculateForCurrentPage, 100);
     
     const handleResize = () => {
       calculateForCurrentPage();
@@ -111,7 +108,7 @@ export function FullscreenPDFViewer({
       clearTimeout(timeoutId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [isOpen, currentPage, rotation, imageDimensions, images.length]);
+  }, [isOpen, currentPage, rotation, imageDimensions, calculateFitZoom]);
 
   // Reset to initial page when opened
   useEffect(() => {
@@ -124,6 +121,7 @@ export function FullscreenPDFViewer({
       setRotation(0);
       setFitZoom(1);
       setImageDimensions(new Map());
+      setPosition(new Map());
       
       // Scroll to initial page after a brief delay to ensure DOM is ready
       setTimeout(() => {
@@ -246,7 +244,6 @@ export function FullscreenPDFViewer({
     }
   };
 
-
   // Disable body scroll when open - prevent background page from scrolling
   useEffect(() => {
     if (isOpen) {
@@ -305,7 +302,7 @@ export function FullscreenPDFViewer({
       y: (touches[0].clientY + touches[1].clientY) / 2,
     };
   };
-  
+
   // Zoom controls - apply to all pages consistently
   const handleZoomIn = () => {
     const newZoom = Math.min(zoom + 0.25, 5);
@@ -315,16 +312,36 @@ export function FullscreenPDFViewer({
       const pageState = pageStateRef.current.get(index) || { zoom: fitZoom || 1, rotation: 0 };
       pageStateRef.current.set(index, { ...pageState, zoom: newZoom });
     });
+    
+    // Reset position when zooming in significantly
+    if (newZoom > fitZoom) {
+      setPosition(prev => {
+        const newMap = new Map(prev);
+        newMap.set(currentPage, { x: 0, y: 0 });
+        return newMap;
+      });
+    }
   };
 
   const handleZoomOut = () => {
-    const newZoom = Math.max(zoom - 0.25, 0.5);
+    // Allow zooming out to fitZoom or 0.5, whichever is smaller
+    const minZoom = Math.min(fitZoom, 0.5);
+    const newZoom = Math.max(zoom - 0.25, minZoom);
     setZoom(newZoom);
     // Update all pages to use the same zoom for consistency
     images.forEach((_, index) => {
       const pageState = pageStateRef.current.get(index) || { zoom: fitZoom || 1, rotation: 0 };
       pageStateRef.current.set(index, { ...pageState, zoom: newZoom });
     });
+    
+    // Reset position when zooming out to fit or below
+    if (newZoom <= fitZoom) {
+      setPosition(prev => {
+        const newMap = new Map(prev);
+        newMap.set(currentPage, { x: 0, y: 0 });
+        return newMap;
+      });
+    }
   };
 
   const handleResetZoom = () => {
@@ -335,12 +352,19 @@ export function FullscreenPDFViewer({
       const pageState = pageStateRef.current.get(index) || { zoom: fitZoom || 1, rotation: 0 };
       pageStateRef.current.set(index, { ...pageState, zoom: resetZoom });
     });
+    
+    // Reset position
+    setPosition(prev => {
+      const newMap = new Map(prev);
+      newMap.set(currentPage, { x: 0, y: 0 });
+      return newMap;
+    });
   };
   
   // Constrain position to keep image within bounds when zoomed
-  const constrainPosition = (x: number, y: number, currentZoom: number, index: number): { x: number; y: number } => {
+  const constrainPosition = useCallback((x: number, y: number, currentZoom: number, index: number): { x: number; y: number } => {
     const dims = imageDimensions.get(index);
-    if (!dims || !containerRef.current || currentZoom <= 1) {
+    if (!dims || !containerRef.current || currentZoom <= fitZoom) {
       return { x: 0, y: 0 };
     }
     
@@ -357,7 +381,7 @@ export function FullscreenPDFViewer({
     const scaledWidth = effectiveImgWidth * currentZoom;
     const scaledHeight = effectiveImgHeight * currentZoom;
     
-    const PADDING = 5;
+    const PADDING = 10;
     let minX = 0, maxX = 0, minY = 0, maxY = 0;
     
     if (scaledWidth > viewportWidth) {
@@ -376,11 +400,11 @@ export function FullscreenPDFViewer({
       x: Math.max(maxX, Math.min(minX, x)),
       y: Math.max(maxY, Math.min(minY, y))
     };
-  };
+  }, [fitZoom, rotation, imageDimensions]);
 
   // Mouse drag handlers for panning
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0 || zoom <= 1) return; // Only drag when zoomed in
+    if (e.button !== 0 || zoom <= fitZoom) return; // Only drag when zoomed in beyond fit
     
     mouseDownPositionRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
     hasMovedRef.current = false;
@@ -398,14 +422,14 @@ export function FullscreenPDFViewer({
     if (containerRef.current) {
       containerRef.current.style.overflow = 'hidden';
     }
-  }, [zoom, currentPage, position]);
+  }, [zoom, fitZoom, currentPage, position]);
 
   // Mouse event listeners for dragging
   useEffect(() => {
     if (!isOpen) return;
     
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || zoom <= 1) return;
+      if (!isDraggingRef.current || zoom <= fitZoom) return;
       
       const deltaX = e.clientX - (mouseDownPositionRef.current?.x || 0);
       const deltaY = e.clientY - (mouseDownPositionRef.current?.y || 0);
@@ -442,7 +466,7 @@ export function FullscreenPDFViewer({
         // Restore container scrolling
         if (containerRef.current) {
           containerRef.current.style.overflow = '';
-          containerRef.current.style.overflowX = zoom > 1 ? 'auto' : 'hidden';
+          containerRef.current.style.overflowX = zoom > fitZoom ? 'auto' : 'hidden';
         }
       }
     };
@@ -454,7 +478,7 @@ export function FullscreenPDFViewer({
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [isOpen, zoom, currentPage, position]);
+  }, [isOpen, zoom, fitZoom, currentPage, position, constrainPosition]);
 
   // Touch handlers for pinch zoom and drag - apply to all pages
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -470,8 +494,8 @@ export function FullscreenPDFViewer({
       if (containerRef.current) {
         containerRef.current.style.overflow = 'hidden';
       }
-    } else if (e.touches.length === 1 && zoom > 1) {
-      // Single touch - start drag when zoomed
+    } else if (e.touches.length === 1 && zoom > fitZoom) {
+      // Single touch - start drag when zoomed beyond fit
       e.preventDefault();
       const touch = e.touches[0];
       isDraggingRef.current = true;
@@ -496,7 +520,8 @@ export function FullscreenPDFViewer({
       
       if (touchStartRef.current.distance > 0 && currentDistance > 0) {
         const scaleChange = currentDistance / touchStartRef.current.distance;
-        const newZoom = Math.max(0.5, Math.min(5, zoom * scaleChange));
+        const minZoom = Math.min(fitZoom, 0.5);
+        const newZoom = Math.max(minZoom, Math.min(5, zoom * scaleChange));
         setZoom(newZoom);
         
         // Update all pages to use the same zoom for consistency
@@ -505,8 +530,8 @@ export function FullscreenPDFViewer({
           pageStateRef.current.set(index, { ...pageState, zoom: newZoom });
         });
         
-        // Reset position when zoom changes significantly
-        if (Math.abs(newZoom - zoom) > 0.1) {
+        // Reset position when zoom changes to fit or below
+        if (newZoom <= fitZoom) {
           setPosition(prev => {
             const newMap = new Map(prev);
             newMap.set(currentPage, { x: 0, y: 0 });
@@ -516,8 +541,8 @@ export function FullscreenPDFViewer({
         
         touchStartRef.current.distance = currentDistance;
       }
-    } else if (e.touches.length === 1 && isDraggingRef.current && zoom > 1) {
-      // Single touch drag - pan when zoomed
+    } else if (e.touches.length === 1 && isDraggingRef.current && zoom > fitZoom) {
+      // Single touch drag - pan when zoomed beyond fit
       e.preventDefault();
       const touch = e.touches[0];
       const dragDeltaX = touch.clientX - dragStartRef.current.x;
@@ -555,7 +580,7 @@ export function FullscreenPDFViewer({
     // Restore container scrolling
     if (containerRef.current) {
       containerRef.current.style.overflow = '';
-      containerRef.current.style.overflowX = zoom > 1 ? 'auto' : 'hidden';
+      containerRef.current.style.overflowX = zoom > fitZoom ? 'auto' : 'hidden';
     }
   };
 
@@ -590,6 +615,23 @@ export function FullscreenPDFViewer({
       pageStateRef.current.set(index, { ...pageState, rotation: newRotation });
     });
     
+    // Recalculate fit zoom after rotation
+    const dims = imageDimensions.get(currentPage);
+    if (dims) {
+      const newFitZoom = calculateFitZoom(dims.width, dims.height, newRotation);
+      setFitZoom(newFitZoom);
+      // Reset zoom to new fit zoom
+      setZoom(newFitZoom);
+      pageStateRef.current.set(currentPage, { zoom: newFitZoom, rotation: newRotation });
+    }
+    
+    // Reset position
+    setPosition(prev => {
+      const newMap = new Map(prev);
+      newMap.set(currentPage, { x: 0, y: 0 });
+      return newMap;
+    });
+    
     // Wait for DOM to update with new rotation
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
@@ -613,50 +655,6 @@ export function FullscreenPDFViewer({
     });
   };
 
-  // Sync zoom across all pages when changing pages - maintain consistency
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    // Always use current zoom for all pages to maintain consistency
-    // Only load rotation from saved state
-    const pageState = pageStateRef.current.get(currentPage);
-    if (pageState) {
-      // Update rotation if different, but keep current zoom
-      if (pageState.rotation !== rotation) {
-        setRotation(pageState.rotation);
-      }
-      // Update saved state with current zoom to keep all pages in sync
-      pageStateRef.current.set(currentPage, { zoom, rotation: pageState.rotation });
-    } else {
-      // First time viewing this page - use fit zoom if available
-      const dims = imageDimensions.get(currentPage);
-      if (dims) {
-        const calculatedFitZoom = calculateFitZoom(dims.width, dims.height, rotation);
-        if (fitZoom === 1 || Math.abs(calculatedFitZoom - fitZoom) > 0.1) {
-          setFitZoom(calculatedFitZoom);
-          setZoom(calculatedFitZoom);
-        }
-        pageStateRef.current.set(currentPage, { zoom: calculatedFitZoom, rotation });
-      } else if (fitZoom > 1) {
-        setZoom(fitZoom);
-        pageStateRef.current.set(currentPage, { zoom: fitZoom, rotation });
-      }
-    }
-    
-    // Ensure all pages use the same zoom
-    images.forEach((_, index) => {
-      const state = pageStateRef.current.get(index);
-      if (state) {
-        pageStateRef.current.set(index, { zoom, rotation: state.rotation });
-      }
-    });
-  }, [currentPage, isOpen, images.length]);
-  
-  // Save zoom and rotation state when they change
-  useEffect(() => {
-    pageStateRef.current.set(currentPage, { zoom, rotation });
-  }, [currentPage, zoom, rotation]);
-  
   // Reset all page states when viewer is closed
   useEffect(() => {
     if (!isOpen) {
@@ -668,28 +666,16 @@ export function FullscreenPDFViewer({
     }
   }, [isOpen]);
   
-  // Reset position when zoom resets to fit or below 1, or when changing pages
+  // Reset position when zoom resets to fit or below
   useEffect(() => {
-    if (zoom <= 1) {
+    if (zoom <= fitZoom) {
       setPosition(prev => {
         const newMap = new Map(prev);
         newMap.set(currentPage, { x: 0, y: 0 });
         return newMap;
       });
     }
-    
-    // Reset position when changing pages if not zoomed
-    if (zoom <= 1) {
-      const currentPos = position.get(currentPage);
-      if (currentPos && (currentPos.x !== 0 || currentPos.y !== 0)) {
-        setPosition(prev => {
-          const newMap = new Map(prev);
-          newMap.set(currentPage, { x: 0, y: 0 });
-          return newMap;
-        });
-      }
-    }
-  }, [zoom, currentPage]);
+  }, [zoom, fitZoom, currentPage]);
   
   // Handle browser back button - reset states when closing
   useEffect(() => {
@@ -779,9 +765,11 @@ export function FullscreenPDFViewer({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentPage, images.length, onClose, zoom, rotation]);
+  }, [isOpen, currentPage, images.length, onClose, zoom, rotation, fitZoom]);
 
   if (!isOpen) return null;
+
+  const minZoom = Math.min(fitZoom, 0.5);
 
   return (
     <div
@@ -826,7 +814,7 @@ export function FullscreenPDFViewer({
           className="text-white hover:bg-white/20 h-11 w-11 sm:h-10 sm:w-10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation"
           onClick={handleZoomOut}
           title="Zoom Out (-)"
-          disabled={zoom <= 0.5}
+          disabled={zoom <= minZoom}
           aria-label="Zoom out"
         >
           <ZoomOut className="w-6 h-6 sm:w-5 sm:h-5" />
@@ -860,8 +848,8 @@ export function FullscreenPDFViewer({
         className="flex-1 overflow-y-auto"
         style={{
           scrollBehavior: 'smooth',
-          overflowX: zoom > 1 ? 'auto' : 'hidden',
-          touchAction: zoom > 1 ? 'pan-y pan-x pinch-zoom' : 'pan-y',
+          overflowX: zoom > fitZoom ? 'auto' : 'hidden',
+          touchAction: zoom > fitZoom ? 'pan-y pan-x pinch-zoom' : 'pan-y',
         }}
       >
         <div className="flex flex-col items-center gap-6 py-4">
@@ -889,11 +877,11 @@ export function FullscreenPDFViewer({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: zoom > 1 ? (isDraggingRef.current ? 'grabbing' : 'grab') : 'default',
+                  cursor: zoom > fitZoom ? (isDraggingRef.current ? 'grabbing' : 'grab') : 'default',
                   userSelect: 'none',
                   touchAction: 'none',
                 }}
-                onMouseDown={index === currentPage && zoom > 1 ? handleMouseDown : undefined}
+                onMouseDown={index === currentPage && zoom > fitZoom ? handleMouseDown : undefined}
                 onTouchStart={index === currentPage ? handleTouchStart : undefined}
                 onTouchMove={index === currentPage ? handleTouchMove : undefined}
                 onTouchEnd={index === currentPage ? handleTouchEnd : undefined}
@@ -920,7 +908,7 @@ export function FullscreenPDFViewer({
                     transformOrigin: 'center center',
                     transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out',
                     willChange: 'transform',
-                    cursor: zoom > 1 ? (isDraggingRef.current ? 'grabbing' : 'grab') : 'default',
+                    cursor: zoom > fitZoom ? (isDraggingRef.current ? 'grabbing' : 'grab') : 'default',
                     pointerEvents: 'auto',
                   }}
                   loading="lazy"
@@ -942,6 +930,13 @@ export function FullscreenPDFViewer({
                           setFitZoom(calculatedFitZoom);
                           setZoom(calculatedFitZoom);
                           pageStateRef.current.set(index, { zoom: calculatedFitZoom, rotation });
+                          
+                          // Reset position
+                          setPosition(prev => {
+                            const newMap = new Map(prev);
+                            newMap.set(currentPage, { x: 0, y: 0 });
+                            return newMap;
+                          });
                         }, 100);
                       }
                     }
@@ -973,4 +968,3 @@ export function FullscreenPDFViewer({
     </div>
   );
 }
-
