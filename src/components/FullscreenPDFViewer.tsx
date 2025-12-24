@@ -21,8 +21,15 @@ export function FullscreenPDFViewer({
   const [isScrolling, setIsScrolling] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  
+  // Store zoom and rotation per page
+  const pageStateRef = useRef<Map<number, { zoom: number; rotation: number }>>(new Map());
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+  
+  // Touch state for pinch zoom
+  const touchStartRef = useRef<{ distance: number; center: { x: number; y: number } } | null>(null);
 
   // Reset to initial page when opened
   useEffect(() => {
@@ -191,6 +198,25 @@ export function FullscreenPDFViewer({
     };
   }, []);
 
+  // Touch helpers for pinch zoom
+  const getTouchDistance = (touches: TouchList): number => {
+    if (touches.length < 2) return 0;
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+  
+  const getTouchCenter = (touches: TouchList): { x: number; y: number } => {
+    if (touches.length === 0) return { x: 0, y: 0 };
+    if (touches.length === 1) {
+      return { x: touches[0].clientX, y: touches[0].clientY };
+    }
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2,
+    };
+  };
+  
   // Zoom controls - minimum zoom is 1.0 (original size)
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 0.25, 5));
@@ -203,8 +229,39 @@ export function FullscreenPDFViewer({
   const handleResetZoom = () => {
     setZoom(1);
   };
+  
+  // Touch handlers for pinch zoom
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const distance = getTouchDistance(e.touches);
+      const center = getTouchCenter(e.touches);
+      touchStartRef.current = { distance, center };
+    }
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && touchStartRef.current) {
+      e.preventDefault();
+      const currentDistance = getTouchDistance(e.touches);
+      
+      if (touchStartRef.current.distance > 0 && currentDistance > 0) {
+        const scaleChange = currentDistance / touchStartRef.current.distance;
+        setZoom(prev => {
+          const newZoom = prev * scaleChange;
+          return Math.max(1.0, Math.min(5, newZoom));
+        });
+        
+        // Update distance for next move
+        touchStartRef.current.distance = currentDistance;
+      }
+    }
+  };
+  
+  const handleTouchEnd = () => {
+    touchStartRef.current = null;
+  };
 
-  // Rotate - maintain viewport center position
+  // Rotate - maintain visual center of image
   const handleRotate = () => {
     if (!containerRef.current || !pageRefs.current[currentPage]) return;
     
@@ -212,33 +269,45 @@ export function FullscreenPDFViewer({
     const currentPageElement = pageRefs.current[currentPage];
     if (!currentPageElement) return;
     
-    // Store viewport center position relative to the page
-    const containerRect = container.getBoundingClientRect();
-    const pageRect = currentPageElement.getBoundingClientRect();
-    const viewportCenterY = containerRect.height / 2;
-    const pageTop = pageRect.top - containerRect.top + container.scrollTop;
-    const pageCenterY = pageTop + (pageRect.height / 2);
+    // Get the image element inside the page container
+    const imgElement = currentPageElement.querySelector('img') as HTMLImageElement;
+    if (!imgElement) return;
     
-    // Calculate offset from page center
-    const offsetFromCenter = viewportCenterY - pageCenterY;
+    // Store current scroll position and viewport center
+    const scrollTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+    const viewportCenter = scrollTop + (containerHeight / 2);
+    
+    // Get page position
+    const pageTop = currentPageElement.offsetTop;
+    const pageHeight = currentPageElement.offsetHeight;
+    const pageCenter = pageTop + (pageHeight / 2);
+    
+    // Calculate how far the viewport center is from page center
+    const offsetFromPageCenter = viewportCenter - pageCenter;
     
     // Apply rotation
     setRotation(prev => {
       const newRotation = (prev + 90) % 360;
       
-      // Use double requestAnimationFrame to ensure DOM has updated
+      // Wait for DOM to update with new rotation
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           if (container && currentPageElement) {
-            // Recalculate page center after rotation
-            const newPageRect = currentPageElement.getBoundingClientRect();
-            const newContainerRect = container.getBoundingClientRect();
-            const newPageTop = newPageRect.top - newContainerRect.top + container.scrollTop;
-            const newPageCenterY = newPageTop + (newPageRect.height / 2);
+            // Get new page dimensions after rotation
+            const newPageTop = currentPageElement.offsetTop;
+            const newPageHeight = currentPageElement.offsetHeight;
+            const newPageCenter = newPageTop + (newPageHeight / 2);
             
-            // Restore viewport center position
-            const newViewportCenterY = newPageCenterY + offsetFromCenter;
-            container.scrollTop = newViewportCenterY - (containerRect.height / 2);
+            // Calculate new scroll position to maintain the same visual center
+            const newViewportCenter = newPageCenter + offsetFromPageCenter;
+            const newScrollTop = newViewportCenter - (containerHeight / 2);
+            
+            // Smooth scroll to maintain position
+            container.scrollTo({
+              top: Math.max(0, newScrollTop),
+              behavior: 'auto' // Use 'auto' for instant positioning
+            });
           }
         });
       });
@@ -247,11 +316,57 @@ export function FullscreenPDFViewer({
     });
   };
 
-  // Reset zoom and rotation when page changes
+  // Load zoom and rotation state for current page
   useEffect(() => {
-    setZoom(1);
-    setRotation(0);
+    const pageState = pageStateRef.current.get(currentPage);
+    if (pageState) {
+      setZoom(pageState.zoom);
+      setRotation(pageState.rotation);
+    } else {
+      // First time viewing this page - use defaults
+      setZoom(1);
+      setRotation(0);
+    }
   }, [currentPage]);
+  
+  // Save zoom and rotation state when they change
+  useEffect(() => {
+    pageStateRef.current.set(currentPage, { zoom, rotation });
+  }, [currentPage, zoom, rotation]);
+  
+  // Reset all page states when viewer is closed
+  useEffect(() => {
+    if (!isOpen) {
+      pageStateRef.current.clear();
+      setZoom(1);
+      setRotation(0);
+    }
+  }, [isOpen]);
+  
+  // Handle browser back button - reset states when closing
+  useEffect(() => {
+    if (isOpen) {
+      window.history.pushState({ pdfViewerOpen: true }, '');
+      
+      const handlePopState = () => {
+        if (isOpen) {
+          pageStateRef.current.clear();
+          setZoom(1);
+          setRotation(0);
+          onClose();
+        }
+      };
+      
+      window.addEventListener('popstate', handlePopState);
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+        // Clean up history state if component unmounts
+        if (window.history.state?.pdfViewerOpen) {
+          window.history.back();
+        }
+      };
+    }
+  }, [isOpen, onClose]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -380,41 +495,63 @@ export function FullscreenPDFViewer({
           scrollBehavior: 'smooth',
         }}
       >
-        <div className="flex flex-col items-center gap-6 p-6">
-          {images.map((imageUrl, index) => (
-            <div
-              key={index}
-              ref={(el) => {
-                pageRefs.current[index] = el;
-              }}
-              className="w-full flex justify-center bg-white rounded-lg shadow-2xl p-6 transition-all duration-200"
-              style={{
-                minHeight: '800px',
-                maxWidth: '900px',
-              }}
-            >
-              <img
-                src={imageUrl}
-                alt={`${title} - Page ${index + 1}`}
-                className="w-full h-auto object-contain"
-                loading="lazy"
+        <div className="flex flex-col items-center gap-6">
+          {images.map((imageUrl, index) => {
+            // Get zoom and rotation for this specific page
+            const pageState = pageStateRef.current.get(index);
+            const pageZoom = pageState?.zoom ?? (index === currentPage ? zoom : 1);
+            const pageRotation = pageState?.rotation ?? (index === currentPage ? rotation : 0);
+            
+            // Calculate container size based on rotation to prevent overflow
+            const isRotated = pageRotation === 90 || pageRotation === 270;
+            const containerMaxWidth = isRotated ? '1200px' : '900px';
+            const containerMinHeight = isRotated ? '600px' : '800px';
+            
+            return (
+              <div
+                key={index}
+                ref={(el) => {
+                  pageRefs.current[index] = el;
+                }}
+                className="flex justify-center items-center bg-white shadow-2xl w-full"
                 style={{
-                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                  transformOrigin: 'center center',
-                  transition: 'transform 0.2s ease-out',
-                  willChange: 'transform', // Optimize for performance
+                  minHeight: containerMinHeight,
+                  maxWidth: containerMaxWidth,
+                  width: '100%',
+                  overflow: 'hidden', // Prevent image from overflowing
+                  transition: 'min-height 0.2s ease-out, max-width 0.2s ease-out',
+                  padding: 0, // Remove padding to make corners flush with container
                 }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent) {
-                    parent.innerHTML = '<div class="flex items-center justify-center h-full text-white/50">Image unavailable</div>';
-                  }
-                }}
-              />
-            </div>
-          ))}
+                onTouchStart={index === currentPage ? handleTouchStart : undefined}
+                onTouchMove={index === currentPage ? handleTouchMove : undefined}
+                onTouchEnd={index === currentPage ? handleTouchEnd : undefined}
+              >
+                <img
+                  src={imageUrl}
+                  alt={`${title} - Page ${index + 1}`}
+                  className="object-contain w-full h-auto"
+                  style={{
+                    display: 'block', // Remove any default spacing
+                  }}
+                  loading="lazy"
+                  style={{
+                    transform: `scale(${pageZoom}) rotate(${pageRotation}deg)`,
+                    transformOrigin: 'center center',
+                    transition: 'transform 0.2s ease-out',
+                    willChange: 'transform',
+                  }}
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<div class="flex items-center justify-center h-full text-white/50">Image unavailable</div>';
+                    }
+                  }}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
