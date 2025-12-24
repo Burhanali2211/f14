@@ -418,25 +418,44 @@ export function FullscreenPDFViewer({
     });
   };
 
-  // Load zoom and rotation state for current page
+  // Sync zoom across all pages when changing pages - maintain consistency
   useEffect(() => {
+    if (!isOpen) return;
+    
+    // Always use current zoom for all pages to maintain consistency
+    // Only load rotation from saved state
     const pageState = pageStateRef.current.get(currentPage);
     if (pageState) {
-      setZoom(pageState.zoom);
-      setRotation(pageState.rotation);
+      // Update rotation if different, but keep current zoom
+      if (pageState.rotation !== rotation) {
+        setRotation(pageState.rotation);
+      }
+      // Update saved state with current zoom to keep all pages in sync
+      pageStateRef.current.set(currentPage, { zoom, rotation: pageState.rotation });
     } else {
-      // First time viewing this page - use fit zoom if available, otherwise 1
+      // First time viewing this page - use fit zoom if available
       const dims = imageDimensions.get(currentPage);
       if (dims) {
         const calculatedFitZoom = calculateFitZoom(dims.width, dims.height, rotation);
-        setZoom(calculatedFitZoom);
+        if (fitZoom === 1 || Math.abs(calculatedFitZoom - fitZoom) > 0.1) {
+          setFitZoom(calculatedFitZoom);
+          setZoom(calculatedFitZoom);
+        }
         pageStateRef.current.set(currentPage, { zoom: calculatedFitZoom, rotation });
-      } else {
-        setZoom(fitZoom || 1);
-        pageStateRef.current.set(currentPage, { zoom: fitZoom || 1, rotation });
+      } else if (fitZoom > 1) {
+        setZoom(fitZoom);
+        pageStateRef.current.set(currentPage, { zoom: fitZoom, rotation });
       }
     }
-  }, [currentPage, fitZoom, rotation, imageDimensions]);
+    
+    // Ensure all pages use the same zoom
+    images.forEach((_, index) => {
+      const state = pageStateRef.current.get(index);
+      if (state) {
+        pageStateRef.current.set(index, { zoom, rotation: state.rotation });
+      }
+    });
+  }, [currentPage, isOpen, images.length]);
   
   // Save zoom and rotation state when they change
   useEffect(() => {
@@ -625,10 +644,11 @@ export function FullscreenPDFViewer({
       >
         <div className="flex flex-col items-center gap-6 py-4">
           {images.map((imageUrl, index) => {
-            // Get zoom and rotation for this specific page - use current zoom for consistency
+            // Get rotation for this specific page, but always use current zoom for consistency
             const pageState = pageStateRef.current.get(index);
-            // Use current zoom for all pages to maintain consistency, or saved state if exists
-            const pageZoom = pageState?.zoom ?? zoom;
+            // Always use current zoom for all pages to maintain consistency
+            const pageZoom = zoom;
+            // Use saved rotation or current rotation
             const pageRotation = pageState?.rotation ?? rotation;
             
             return (
