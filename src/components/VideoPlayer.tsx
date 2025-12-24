@@ -1,3 +1,4 @@
+import { forwardRef } from 'react';
 import { sanitizeYouTubeUrl, sanitizeUrl } from '@/lib/sanitize';
 
 interface VideoPlayerProps {
@@ -5,7 +6,8 @@ interface VideoPlayerProps {
   title?: string;
 }
 
-export function VideoPlayer({ src, title }: VideoPlayerProps) {
+export const VideoPlayer = forwardRef<HTMLIFrameElement | HTMLVideoElement, VideoPlayerProps>(
+  function VideoPlayer({ src, title }, ref) {
   // Sanitize and validate URL
   const sanitizedUrl = sanitizeYouTubeUrl(src) || sanitizeUrl(src);
   if (!sanitizedUrl) {
@@ -50,6 +52,7 @@ export function VideoPlayer({ src, title }: VideoPlayerProps) {
       <div className="w-full rounded-xl overflow-hidden shadow-soft bg-black">
         <div className="aspect-video w-full">
           <iframe
+            ref={ref as React.Ref<HTMLIFrameElement>}
             src={`https://www.youtube.com/embed/${youtubeId}?${embedParams.toString()}`}
             title={title || 'Video'}
             allow="encrypted-media; picture-in-picture; fullscreen"
@@ -71,6 +74,7 @@ export function VideoPlayer({ src, title }: VideoPlayerProps) {
   return (
     <div className="w-full rounded-xl overflow-hidden shadow-soft bg-black">
       <video
+        ref={ref as React.Ref<HTMLVideoElement>}
         src={sanitizedUrl}
         controls
         className="w-full aspect-video"
@@ -88,4 +92,4 @@ export function VideoPlayer({ src, title }: VideoPlayerProps) {
       </video>
     </div>
   );
-}
+});

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, User, Globe, Bookmark, Eye,
-  Clock, Users, Maximize2, ArrowUp, ListTree, Loader2, Download
+  Clock, Users, Maximize2, ArrowUp, ListTree, Loader2, Download, FileText
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -56,9 +56,39 @@ export default function PiecePage() {
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [outline, setOutline] = useState<{ index: number; title: string; isHeader: boolean }[]>([]);
+  const [pdfWindow, setPdfWindow] = useState<Window | null>(null);
   
   const contentRef = useRef<HTMLDivElement>(null);
   const verseRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const videoRef = useRef<HTMLIFrameElement | HTMLVideoElement | null>(null);
+
+  // Monitor PDF window and pause video when it closes
+  useEffect(() => {
+    if (!pdfWindow || !piece.video_url) return;
+
+    const checkWindow = setInterval(() => {
+      if (pdfWindow.closed) {
+        // PDF window closed - pause video
+        if (videoRef.current) {
+          if (videoRef.current instanceof HTMLIFrameElement) {
+            // YouTube iframe - send pause command
+            try {
+              videoRef.current.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":""}', '*');
+            } catch (e) {
+              // Ignore cross-origin errors
+            }
+          } else if (videoRef.current instanceof HTMLVideoElement) {
+            // Direct video element - pause it
+            videoRef.current.pause();
+          }
+        }
+        setPdfWindow(null);
+        clearInterval(checkWindow);
+      }
+    }, 500);
+
+    return () => clearInterval(checkWindow);
+  }, [pdfWindow, piece.video_url]);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -727,7 +757,7 @@ export default function PiecePage() {
                   <p>Video unavailable offline</p>
                 </div>
               ) : (
-                <VideoPlayer src={piece.video_url} />
+                <VideoPlayer src={piece.video_url} ref={videoRef} />
               )}
             </div>
           </div>
@@ -776,16 +806,11 @@ export default function PiecePage() {
 
         {/* PDF Display - Show PDF if available */}
         {pdfUrl && (
-          <div className="w-full mb-8" style={{ height: '80vh', minHeight: '600px' }}>
-            {/* Use iframe with mobile-friendly attributes */}
-            <iframe
-              src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-              className="w-full h-full"
-              style={{ border: 'none' }}
-              allow="fullscreen"
-              loading="lazy"
-            />
-          </div>
+          <PDFViewer 
+            pdfUrl={pdfUrl} 
+            title={piece.title}
+            onPdfOpen={(window) => setPdfWindow(window)}
+          />
         )}
         
         {/* Text Content - Always show if text exists */}
@@ -907,62 +932,60 @@ export default function PiecePage() {
 }
 
 // PDF Viewer Component - handles mobile and desktop
-function PDFViewer({ pdfUrl, title }: { pdfUrl: string; title: string }) {
+function PDFViewer({ pdfUrl, title, onPdfOpen }: { pdfUrl: string; title: string; onPdfOpen?: (window: Window | null) => void }) {
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [useMobileViewer, setUseMobileViewer] = useState(false);
+  const [fallbackToNewTab, setFallbackToNewTab] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Detect if mobile browser doesn't support PDF embedding
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    
-    if (isMobile) {
-      // Try to load PDF with PDF.js for mobile
-      const loadPDF = async () => {
-        try {
-          setLoading(true);
-          const response = await fetch(pdfUrl);
-          const arrayBuffer = await response.arrayBuffer();
-          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-          const numPages = pdf.numPages;
+    // Always try to load PDF with PDF.js first for better mobile support
+    const loadPDF = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(pdfUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const numPages = pdf.numPages;
+        
+        const pages: string[] = [];
+        for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+          const page = await pdf.getPage(pageNum);
+          const viewport = page.getViewport({ scale: 2.0 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
           
-          const pages: string[] = [];
-          for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 2.0 });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            
-            if (!context) continue;
-            
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            
-            await page.render({
-              canvasContext: context,
-              viewport: viewport,
-              canvas: canvas,
-            }).promise;
-            
-            pages.push(canvas.toDataURL('image/jpeg', 0.9));
-          }
+          if (!context) continue;
           
-          setPdfPages(pages);
-          setUseMobileViewer(true);
-        } catch (error) {
-          logger.error('Error loading PDF with PDF.js:', error);
-          setUseMobileViewer(false);
-        } finally {
-          setLoading(false);
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+          
+          await page.render({
+            canvasContext: context,
+            viewport: viewport,
+            canvas: canvas,
+          }).promise;
+          
+          pages.push(canvas.toDataURL('image/jpeg', 0.9));
         }
-      };
-      
-      loadPDF();
-    } else {
-      setUseMobileViewer(false);
-      setLoading(false);
-    }
+        
+        setPdfPages(pages);
+        setUseMobileViewer(true);
+      } catch (error) {
+        logger.error('Error loading PDF with PDF.js:', error);
+        setUseMobileViewer(false);
+        // On mobile, if PDF.js fails, fallback to opening in new tab
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        if (isMobile) {
+          setFallbackToNewTab(true);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadPDF();
   }, [pdfUrl]);
 
   const handleDownload = async () => {
@@ -990,6 +1013,42 @@ function PDFViewer({ pdfUrl, title }: { pdfUrl: string; title: string }) {
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
           <p className="text-muted-foreground">Loading PDF...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const handleOpenInNewTab = () => {
+    const newWindow = window.open(pdfUrl, '_blank');
+    if (newWindow && onPdfOpen) {
+      onPdfOpen(newWindow);
+    }
+  };
+
+  if (fallbackToNewTab) {
+    // Mobile fallback: Open in new tab with button
+    return (
+      <div className="w-full mb-8 flex flex-col items-center justify-center" style={{ minHeight: '400px' }}>
+        <div className="text-center mb-4">
+          <p className="text-muted-foreground mb-4">PDF will open in a new tab</p>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={handleOpenInNewTab}
+              variant="default"
+              className="gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Open PDF
+            </Button>
+            <Button
+              onClick={handleDownload}
+              variant="outline"
+              className="gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download PDF
+            </Button>
+          </div>
         </div>
       </div>
     );
