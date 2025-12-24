@@ -290,22 +290,6 @@ export function FullscreenImageViewer({
     }
   }, [isOpen]);
 
-  // Cleanup animation frame and timeouts on unmount or close
-  useEffect(() => {
-    return () => {
-      if (wheelAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(wheelAnimationFrameRef.current);
-        wheelAnimationFrameRef.current = null;
-      }
-      if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
-        throttleTimeoutRef.current = null;
-      }
-      wheelDeltaRef.current = 0;
-      pendingZoomRef.current = null;
-      pendingPositionRef.current = null;
-    };
-  }, []);
 
   // Update internal index when currentIndex prop changes
   useEffect(() => {
@@ -333,18 +317,6 @@ export function FullscreenImageViewer({
       isInitialLoadRef.current = true;
       prevRotationRef.current = 0;
       setImageDimensions({ width: 0, height: 0 });
-      // Reset wheel state
-      wheelDeltaRef.current = 0;
-      if (wheelAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(wheelAnimationFrameRef.current);
-        wheelAnimationFrameRef.current = null;
-      }
-      if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
-        throttleTimeoutRef.current = null;
-      }
-      pendingZoomRef.current = null;
-      pendingPositionRef.current = null;
       
       // Clear any existing loading timeout
       if (loadingTimeoutRef.current) {
@@ -416,8 +388,7 @@ export function FullscreenImageViewer({
     };
   }, [isOpen, src, resetControlsTimeout]);
   
-  // Constrain position with 5px padding from image edges to viewport edges
-  // This ensures at least 5px of the image is always visible at each edge
+  // Simple position constraint - keep image within reasonable bounds
   const constrainPosition = useCallback((x: number, y: number, currentZoom: number) => {
     if (!imageRef.current || !imageContainerRef.current || imageDimensions.width === 0) return { x: 0, y: 0 };
     
@@ -426,48 +397,31 @@ export function FullscreenImageViewer({
     const viewportWidth = containerRect.width;
     const viewportHeight = containerRect.height;
     
-    // 5px padding constraint - minimum space between image edge and viewport edge
-    const PADDING = 5;
-    
-    // Account for rotation - when rotated 90/270, width and height swap
+    // Account for rotation
     const isRotated = rotation === 90 || rotation === 270;
     const effectiveImgWidth = isRotated ? imageDimensions.height : imageDimensions.width;
     const effectiveImgHeight = isRotated ? imageDimensions.width : imageDimensions.height;
     
-    // Calculate scaled dimensions after zoom
     const scaledWidth = effectiveImgWidth * currentZoom;
     const scaledHeight = effectiveImgHeight * currentZoom;
     
-    // Calculate pan bounds with 5px padding
-    // Image is centered at (0, 0). When panned by (x, y):
-    // - Image left edge: -scaledWidth/2 + x
-    // - Image right edge: scaledWidth/2 + x
-    // - Viewport left edge: -viewportWidth/2
-    // - Viewport right edge: viewportWidth/2
-    //
-    // For 5px padding:
-    // - Left edge constraint: -scaledWidth/2 + x >= -viewportWidth/2 + PADDING
-    //   => x >= (scaledWidth - viewportWidth)/2 + PADDING
-    // - Right edge constraint: scaledWidth/2 + x <= viewportWidth/2 - PADDING
-    //   => x <= -(scaledWidth - viewportWidth)/2 - PADDING
-    
+    // Simple bounds - allow panning when zoomed in
     let minX = 0, maxX = 0, minY = 0, maxY = 0;
     
     if (scaledWidth > viewportWidth) {
       const halfDiff = (scaledWidth - viewportWidth) / 2;
-      minX = halfDiff + PADDING;  // Pan right to see left edge
-      maxX = -halfDiff - PADDING; // Pan left to see right edge
+      minX = halfDiff;
+      maxX = -halfDiff;
     }
     
     if (scaledHeight > viewportHeight) {
       const halfDiff = (scaledHeight - viewportHeight) / 2;
-      minY = halfDiff + PADDING;  // Pan down to see top edge
-      maxY = -halfDiff - PADDING; // Pan up to see bottom edge
+      minY = halfDiff;
+      maxY = -halfDiff;
     }
     
-    // Apply constraints - clamp position to ensure 5px padding at all edges
     return {
-      x: Math.max(maxX, Math.min(minX, x)), // Note: maxX < minX (maxX is negative, minX is positive)
+      x: Math.max(maxX, Math.min(minX, x)),
       y: Math.max(maxY, Math.min(minY, y))
     };
   }, [imageDimensions, rotation]);
@@ -603,56 +557,31 @@ export function FullscreenImageViewer({
     e.stopPropagation();
     
     if (e.touches.length === 1 && isDraggingRef.current) {
-      // Single touch drag - calculate delta from last touch position for 1:1 movement
+      // Single touch drag
       const deltaX = e.touches[0].clientX - dragStartRef.current.x;
       const deltaY = e.touches[0].clientY - dragStartRef.current.y;
       
-      // Add delta to the last known position
       const newX = lastPositionRef.current.x + deltaX;
       const newY = lastPositionRef.current.y + deltaY;
       
-      // Constrain the position
       const constrained = constrainPosition(newX, newY, zoom);
       setPosition(constrained);
       
-      // Update references for next move event
-      // Update lastPositionRef to the constrained position
       lastPositionRef.current = constrained;
-      // Update dragStartRef to current touch position so next delta is relative to here
       dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
     } else if (e.touches.length === 2 && touchStartRef.current) {
-      // Pinch zoom with smooth scaling towards initial pinch center
+      // Pinch zoom
       const currentDistance = getTouchDistance(e.touches);
       
       if (touchStartRef.current.distance > 0 && currentDistance > 0) {
         const scaleChange = currentDistance / touchStartRef.current.distance;
         const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, zoom * scaleChange));
         
-        if (Math.abs(newZoom - zoom) > 0.001) {
-          // Use the initial pinch center as the zoom point (more natural)
-          if (!imageContainerRef.current || !imageRef.current) return;
-          
-          const containerRect = imageContainerRef.current.getBoundingClientRect();
-          const initialCenter = touchStartRef.current.center;
-          
-          // Calculate zoom center relative to container center
-          const centerX = initialCenter.x - containerRect.left - containerRect.width / 2;
-          const centerY = initialCenter.y - containerRect.top - containerRect.height / 2;
-          
-          // Adjust position to zoom towards the initial pinch center
-          const zoomFactor = newZoom / zoom;
-          const newX = centerX - (centerX - position.x) * zoomFactor;
-          const newY = centerY - (centerY - position.y) * zoomFactor;
-          
-          setZoom(newZoom);
-          
-          // Constrain position after zoom with 5px padding
-          const constrained = constrainPosition(newX, newY, newZoom);
-          setPosition(constrained);
-        }
+        setZoom(newZoom);
+        const constrained = constrainPosition(position.x, position.y, newZoom);
+        setPosition(constrained);
       }
       
-      // Update distance for next move (but keep initial center)
       touchStartRef.current.distance = currentDistance;
     }
   }, [zoom, minZoom, position, constrainPosition]);
@@ -791,7 +720,6 @@ export function FullscreenImageViewer({
           e.preventDefault();
           setZoom(prev => {
             const newZoom = Math.min(MAX_ZOOM, prev + 0.25);
-            // Constrain position with 5px padding after zoom
             const constrained = constrainPosition(position.x, position.y, newZoom);
             setPosition(constrained);
             return newZoom;
@@ -801,7 +729,6 @@ export function FullscreenImageViewer({
           e.preventDefault();
           setZoom(prev => {
             const newZoom = Math.max(minZoom, prev - 0.25);
-            // Constrain position with 5px padding after zoom
             const constrained = constrainPosition(position.x, position.y, newZoom);
             setPosition(constrained);
             return newZoom;
@@ -857,119 +784,32 @@ export function FullscreenImageViewer({
   }, [resetControlsTimeout]);
 
 
-  // Wheel zoom with position constraint - throttled to prevent excessive updates
-  const wheelDeltaRef = useRef(0);
-  const wheelAnimationFrameRef = useRef<number | null>(null);
-  const lastStateUpdateRef = useRef(0);
-  const pendingZoomRef = useRef<number | null>(null);
-  const pendingPositionRef = useRef<{ x: number; y: number } | null>(null);
-  const throttleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const currentZoomRef = useRef(zoom);
-  const currentPositionRef = useRef(position);
-  const STATE_UPDATE_THROTTLE_MS = 50; // Update state at most every 50ms (20fps instead of 60fps)
-  
-  // Keep refs in sync with state
-  useEffect(() => {
-    currentZoomRef.current = zoom;
-    currentPositionRef.current = position;
-  }, [zoom, position]);
-
-
-  // Set up native non-passive wheel listener to avoid passive event listener errors
+  // Simple wheel zoom
   useEffect(() => {
     if (!isOpen || !containerRef.current) return;
 
     const container = containerRef.current;
     
-    // Use native event listener with passive: false to properly preventDefault
-    const nativeHandleWheel = (e: WheelEvent) => {
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
       
-      // Accumulate wheel delta
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      wheelDeltaRef.current += delta;
-      
-      // Throttle updates using requestAnimationFrame - only update once per frame
-      if (wheelAnimationFrameRef.current === null) {
-        wheelAnimationFrameRef.current = requestAnimationFrame(() => {
-          const accumulatedDelta = wheelDeltaRef.current;
-          wheelDeltaRef.current = 0;
-          wheelAnimationFrameRef.current = null;
-          
-          if (Math.abs(accumulatedDelta) > 0.001) {
-            // Calculate new zoom and position but store in refs
-            const currentZoom = pendingZoomRef.current ?? currentZoomRef.current;
-            const currentPos = pendingPositionRef.current ?? currentPositionRef.current;
-            
-            const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, currentZoom + accumulatedDelta));
-            const constrained = constrainPosition(currentPos.x, currentPos.y, newZoom);
-            
-            // Always update pending values (they accumulate)
-            pendingZoomRef.current = newZoom;
-            pendingPositionRef.current = constrained;
-            
-            // Throttle state updates - only update every STATE_UPDATE_THROTTLE_MS
-            const now = Date.now();
-            const timeSinceLastUpdate = now - lastStateUpdateRef.current;
-            
-            if (timeSinceLastUpdate >= STATE_UPDATE_THROTTLE_MS) {
-              // Update immediately
-              setZoom(newZoom);
-              setPosition(constrained);
-              pendingZoomRef.current = null;
-              pendingPositionRef.current = null;
-              lastStateUpdateRef.current = now;
-              resetControlsTimeout();
-              
-              // Cancel any pending delayed update since we just updated
-              if (throttleTimeoutRef.current) {
-                clearTimeout(throttleTimeoutRef.current);
-                throttleTimeoutRef.current = null;
-              }
-            } else {
-              // Clear any existing timeout to prevent cascades
-              if (throttleTimeoutRef.current) {
-                clearTimeout(throttleTimeoutRef.current);
-              }
-              
-              // Schedule a single delayed update (will be canceled if another immediate update happens)
-              const delay = STATE_UPDATE_THROTTLE_MS - timeSinceLastUpdate;
-              throttleTimeoutRef.current = setTimeout(() => {
-                // Only update if we still have pending values (not canceled by immediate update)
-                if (pendingZoomRef.current !== null && pendingPositionRef.current !== null) {
-                  setZoom(pendingZoomRef.current);
-                  setPosition(pendingPositionRef.current);
-                  pendingZoomRef.current = null;
-                  pendingPositionRef.current = null;
-                  lastStateUpdateRef.current = Date.now();
-                  resetControlsTimeout();
-                }
-                throttleTimeoutRef.current = null;
-              }, delay);
-            }
-          }
-        });
-      }
+      setZoom(prev => {
+        const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, prev + delta));
+        const constrained = constrainPosition(position.x, position.y, newZoom);
+        setPosition(constrained);
+        resetControlsTimeout();
+        return newZoom;
+      });
     };
 
-    container.addEventListener('wheel', nativeHandleWheel, { passive: false });
+    container.addEventListener('wheel', handleWheel, { passive: false });
     
     return () => {
-      container.removeEventListener('wheel', nativeHandleWheel);
-      if (wheelAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(wheelAnimationFrameRef.current);
-        wheelAnimationFrameRef.current = null;
-      }
-      if (throttleTimeoutRef.current) {
-        clearTimeout(throttleTimeoutRef.current);
-        throttleTimeoutRef.current = null;
-      }
-      wheelDeltaRef.current = 0;
-      pendingZoomRef.current = null;
-      pendingPositionRef.current = null;
+      container.removeEventListener('wheel', handleWheel);
     };
-  }, [isOpen, minZoom, constrainPosition, resetControlsTimeout]);
+  }, [isOpen, minZoom, position, constrainPosition, resetControlsTimeout]);
 
   // Download image
   const handleDownload = useCallback(async () => {

@@ -31,10 +31,68 @@ import { logger } from '@/lib/logger';
 import type { Category, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
 import * as pdfjsLib from 'pdfjs-dist';
+import jsPDF from 'jspdf';
 
 // Configure PDF.js worker - use local worker file from public directory to avoid CORS issues
 // The worker file is copied to public/pdf.worker.min.mjs during build
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+
+// Helper function to create PDF from images
+async function createPDFFromImages(imageBlobs: Blob[], title: string): Promise<Blob> {
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  for (let i = 0; i < imageBlobs.length; i++) {
+    if (i > 0) {
+      pdf.addPage();
+    }
+
+    const imgData = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(imageBlobs[i]);
+    });
+
+    // Get image dimensions
+    const img = new Image();
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = imgData;
+    });
+
+    // Calculate dimensions to fit A4 page (210mm x 297mm) with margins
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 10;
+    const maxWidth = pageWidth - (margin * 2);
+    const maxHeight = pageHeight - (margin * 2);
+
+    const imgWidth = img.width;
+    const imgHeight = img.height;
+    const imgAspectRatio = imgWidth / imgHeight;
+
+    let width = maxWidth;
+    let height = maxWidth / imgAspectRatio;
+
+    if (height > maxHeight) {
+      height = maxHeight;
+      width = maxHeight * imgAspectRatio;
+    }
+
+    // Center the image on the page
+    const x = (pageWidth - width) / 2;
+    const y = (pageHeight - height) / 2;
+
+    pdf.addImage(imgData, 'JPEG', x, y, width, height);
+  }
+
+  return pdf.output('blob');
+}
 
 interface ExtractedRecitation {
   id: string;
@@ -552,9 +610,8 @@ export default function BulkRecitationUploadPage() {
           continue;
         }
 
-        // Upload ALL images from the group
-        const imageUrls: string[] = [];
-        
+        // Get all image blobs for the group
+        const imageBlobs: Blob[] = [];
         for (const rec of groupRecitations) {
           // Recreate blob from dataUrl if missing
           let imageBlob = rec.imageBlob;
@@ -584,15 +641,32 @@ export default function BulkRecitationUploadPage() {
             continue;
           }
 
+          imageBlobs.push(imageBlob);
+        }
+
+        if (imageBlobs.length === 0) {
+          toast({
+            title: 'Error',
+            description: `Failed to process images for group: ${group.name}`,
+            variant: 'destructive',
+          });
+          continue;
+        }
+
+        // Upload first 2 images as separate images (for display at top)
+        const imageUrls: string[] = [];
+        const imagesToUpload = Math.min(2, imageBlobs.length);
+        
+        for (let i = 0; i < imagesToUpload; i++) {
           try {
-            const imageFile = new File([imageBlob], `group-${group.id}-page-${rec.pageNumber}.jpg`, {
+            const imageFile = new File([imageBlobs[i]], `group-${group.id}-page-${groupRecitations[i].pageNumber}.jpg`, {
               type: 'image/jpeg',
             });
 
             const { optimizeRecitationImage } = await import('@/lib/image-optimizer');
             const optimizedBlob = await optimizeRecitationImage(imageFile);
             
-            const fileName = `bulk-upload-group-${Date.now()}-${group.id}-page-${rec.pageNumber}.webp`;
+            const fileName = `bulk-upload-group-${Date.now()}-${group.id}-page-${groupRecitations[i].pageNumber}.webp`;
             
             const { data: uploadData, error: uploadError } = await supabase.storage
               .from('piece-images')
@@ -623,17 +697,58 @@ export default function BulkRecitationUploadPage() {
           }
         }
 
-        if (imageUrls.length === 0) {
+        // Create PDF from all images in the group
+        let pdfUrl: string | null = null;
+        try {
+          const pdfBlob = await createPDFFromImages(imageBlobs, group.name.trim());
+          const pdfFileName = `bulk-upload-group-${Date.now()}-${group.id}.pdf`;
+          
+          const { data: pdfUploadData, error: pdfUploadError } = await supabase.storage
+            .from('piece-images')
+            .upload(pdfFileName, pdfBlob, {
+              cacheControl: '31536000',
+              upsert: false,
+              contentType: 'application/pdf',
+            });
+
+          if (pdfUploadError) {
+            logger.error('Error uploading PDF:', pdfUploadError);
+            throw pdfUploadError;
+          }
+
+          if (!pdfUploadData?.path) {
+            logger.error('PDF upload succeeded but no path returned');
+            throw new Error('PDF upload failed');
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('piece-images')
+            .getPublicUrl(pdfUploadData.path);
+          
+          pdfUrl = publicUrl;
+        } catch (pdfError: any) {
+          logger.error('Error creating PDF:', pdfError);
           toast({
-            title: 'Error',
-            description: `Failed to upload images for group: ${group.name}`,
+            title: 'PDF Creation Error',
+            description: `Failed to create PDF for ${group.name}. Images will be saved instead.`,
             variant: 'destructive',
           });
-          continue;
+          // Fallback: if PDF creation fails, use all images
+          if (imageUrls.length === 0) {
+            continue;
+          }
         }
 
-        // Create one piece for the group with all image URLs (comma-separated)
+        // Create one piece for the group
         const pageNumbers = groupRecitations.map(r => r.pageNumber).sort((a, b) => a - b);
+        const textContent = pdfUrl 
+          ? `Recitation from PDF pages ${pageNumbers.join(', ')}. PDF document available.`
+          : `Recitation from PDF pages ${pageNumbers.join(', ')}. Contains ${imageBlobs.length} image(s).`;
+        
+        // Store: first 2 images as image_url, PDF URL appended if available
+        const imageUrlString = imageUrls.length > 0 ? imageUrls.join(',') : '';
+        const finalImageUrl = pdfUrl ? (imageUrlString ? `${imageUrlString},${pdfUrl}` : pdfUrl) : imageUrlString;
+
         piecesToInsert.push({
           title: group.name.trim(),
           category_id: metadata.category_id,
@@ -641,8 +756,8 @@ export default function BulkRecitationUploadPage() {
           reciter: metadata.reciter || null,
           language: metadata.language,
           video_url: metadata.video_url || null,
-          text_content: `Recitation from PDF pages ${pageNumbers.join(', ')}. Contains ${imageUrls.length} image(s).`,
-          image_url: imageUrls.join(','), // Store multiple URLs as comma-separated
+          text_content: textContent,
+          image_url: finalImageUrl || null,
           view_count: 0,
         } as any);
       }

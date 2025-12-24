@@ -374,12 +374,30 @@ export default function PiecePage() {
   const wordCount = piece?.text_content ? piece.text_content.split(/\s+/).length : 0;
   const readingTime = Math.ceil(wordCount / 150); // ~150 words per minute for poetry
 
-  // Helper function to split comma-separated image URLs
-  const getImageUrls = useMemo(() => {
-    if (!piece?.image_url) return [];
-    return piece.image_url.split(',').map(url => url.trim()).filter(url => url.length > 0);
+  // Helper function to split comma-separated URLs and separate images from PDFs
+  const { imageUrls, pdfUrl, allUrls } = useMemo(() => {
+    if (!piece?.image_url) return { imageUrls: [], pdfUrl: null, allUrls: [] };
+    
+    const urls = piece.image_url.split(',').map(url => url.trim()).filter(url => url.length > 0);
+    const images: string[] = [];
+    let pdf: string | null = null;
+    
+    for (const url of urls) {
+      if (url.toLowerCase().endsWith('.pdf')) {
+        pdf = url;
+      } else {
+        images.push(url);
+      }
+    }
+    
+    return {
+      imageUrls: images,
+      pdfUrl: pdf,
+      allUrls: urls,
+    };
   }, [piece?.image_url]);
 
+  const getImageUrls = imageUrls;
   const currentImageUrl = getImageUrls[currentImageIndex] || getImageUrls[0] || '';
 
   // Generate SEO data (must be called before early returns to maintain hook order)
@@ -712,96 +730,61 @@ export default function PiecePage() {
           </div>
         )}
 
-        {/* Check if this is a PDF upload (has multiple images and placeholder text) */}
-        {(() => {
-          const isPDFUpload = getImageUrls.length > 1 && 
-            piece.text_content && 
-            piece.text_content.includes('Recitation from PDF pages');
-          
-          // Show PDF-like viewer for multiple images from PDF upload
-          if (isPDFUpload && getImageUrls.length > 1) {
-            return (
-              <article 
-                className={`rounded-2xl p-6 md:p-10 lg:p-12 shadow-card border border-border/50 ${getReaderBgClass()} ${
-                  !settings.animationsEnabled ? '' : 'transition-all duration-300'
-                }`}
-              >
-                <PDFLikeViewer
-                  images={getImageUrls}
-                  title={piece.title}
-                  onImageClick={(index) => {
-                    setCurrentImageIndex(index);
-                    setPdfViewerOpen(true);
-                  }}
-                />
-              </article>
-            );
-          }
-          
-          return null;
-        })()}
-
-        {/* Image-Only Recitation Display (single image) */}
-        {currentImageUrl && 
-         (!piece.text_content || piece.text_content.trim().length < 10) && 
-         !(getImageUrls.length > 1 && piece.text_content && piece.text_content.includes('Recitation from PDF pages')) ? (
+        {/* Images Display - Show first 2 images at top if they exist */}
+        {getImageUrls.length > 0 && (
           <article 
-            className={`rounded-2xl p-6 md:p-10 lg:p-12 shadow-card border border-border/50 ${getReaderBgClass()} ${
+            className={`rounded-2xl p-6 md:p-10 lg:p-12 shadow-card border border-border/50 ${getReaderBgClass()} mb-8 ${
               !settings.animationsEnabled ? '' : 'transition-all duration-300'
             }`}
           >
-            <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-              {getImageUrls.length > 1 && (
-                <div className="flex items-center gap-2 mb-4">
-                  {getImageUrls.map((url, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setCurrentImageIndex(index)}
-                      className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
-                        currentImageIndex === index
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                      }`}
-                    >
-                      Page {index + 1}
-                    </button>
-                  ))}
+            <div className="flex flex-col items-center justify-center space-y-4">
+              {/* Display first 2 images */}
+              {getImageUrls.slice(0, 2).map((imgUrl, idx) => (
+                <div key={idx} className="relative w-full flex justify-center">
+                  <img 
+                    src={imgUrl} 
+                    alt={`${piece.title} - Preview ${idx + 1}${piece.reciter ? ` by ${piece.reciter}` : ''}${category ? ` - ${category.name}` : ''}`}
+                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
+                    onClick={() => {
+                      setCurrentImageIndex(idx);
+                      setImageViewerOpen(true);
+                    }}
+                    loading="lazy"
+                    itemProp="image"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.style.display = 'none';
+                      const parent = target.parentElement;
+                      if (parent) {
+                        parent.innerHTML = '<div class="text-center text-muted-foreground p-8">Image unavailable</div>';
+                      }
+                    }}
+                  />
                 </div>
+              ))}
+              {getImageUrls.length > 0 && (
+                <p className="text-sm text-muted-foreground text-center">
+                  {getImageUrls.length > 1 ? 'Click images to view in full size' : 'Click image to view in full size'}
+                </p>
               )}
-              <div className="relative w-full flex justify-center">
-                <img 
-                  src={currentImageUrl} 
-                  alt={`${piece.title} - Page ${currentImageIndex + 1}${piece.reciter ? ` by ${piece.reciter}` : ''}${category ? ` - ${category.name}` : ''}`}
-                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
-                  onClick={() => {
-                    // Preserve current image index instead of resetting to 0
-                    setImageViewerOpen(true);
-                  }}
-                  loading="lazy"
-                  itemProp="image"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent) {
-                      parent.innerHTML = '<div class="text-center text-muted-foreground p-8">Image unavailable</div>';
-                    }
-                  }}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground mt-4 text-center">
-                {getImageUrls.length > 1 
-                  ? `Click image to view all ${getImageUrls.length} images in full size`
-                  : 'Click image to view in full size'}
-              </p>
             </div>
           </article>
-        ) : null}
+        )}
+
+        {/* PDF Display - Show PDF if available */}
+        {pdfUrl && (
+          <div className="w-full mb-8" style={{ height: '80vh', minHeight: '600px' }}>
+            <iframe
+              src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+              className="w-full h-full"
+              title={`${piece.title} - PDF Document`}
+              style={{ border: 'none' }}
+            />
+          </div>
+        )}
         
-        {/* Text Content - Reader View with Layout System */}
-        {piece.text_content && 
-         piece.text_content.trim().length >= 10 && 
-         !(getImageUrls.length > 1 && piece.text_content.includes('Recitation from PDF pages')) && (
+        {/* Text Content - Always show if text exists */}
+        {piece.text_content && piece.text_content.trim().length >= 10 && (
           <article 
             ref={contentRef}
             className={`rounded-2xl px-4 py-6 md:px-8 md:py-10 lg:px-12 lg:py-12 shadow-card border border-border/40 select-none ${getReaderBgClass()}`}
@@ -891,8 +874,8 @@ export default function PiecePage() {
         onClose={() => setSettingsOpen(false)} 
       />
 
-      {/* Fullscreen PDF Viewer for PDF uploads */}
-      {getImageUrls.length > 1 && piece.text_content && piece.text_content.includes('Recitation from PDF pages') && (
+      {/* Fullscreen PDF Viewer for multiple images */}
+      {getImageUrls.length > 1 && (
         <FullscreenPDFViewer
           images={getImageUrls}
           title={piece.title}
@@ -902,8 +885,8 @@ export default function PiecePage() {
         />
       )}
 
-      {/* Fullscreen Image Viewer for single images */}
-      {currentImageUrl && !(getImageUrls.length > 1 && piece.text_content && piece.text_content.includes('Recitation from PDF pages')) && (
+      {/* Fullscreen Image Viewer for single or multiple images */}
+      {currentImageUrl && (
         <FullscreenImageViewer
           src={currentImageUrl}
           alt={piece.title}
