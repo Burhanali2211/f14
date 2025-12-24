@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, ChevronUp, ChevronDown, Download } from 'lucide-react';
+import { X, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FullscreenPDFViewerProps {
@@ -19,6 +19,8 @@ export function FullscreenPDFViewer({
 }: FullscreenPDFViewerProps) {
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [isScrolling, setIsScrolling] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -148,39 +150,6 @@ export function FullscreenPDFViewer({
     }
   };
 
-  // Keyboard navigation
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      switch (e.key) {
-        case 'Escape':
-          onClose();
-          break;
-        case 'ArrowUp':
-        case 'ArrowLeft':
-          e.preventDefault();
-          scrollToPrevious();
-          break;
-        case 'ArrowDown':
-        case 'ArrowRight':
-          e.preventDefault();
-          scrollToNext();
-          break;
-        case 'Home':
-          e.preventDefault();
-          scrollToPage(0);
-          break;
-        case 'End':
-          e.preventDefault();
-          scrollToPage(images.length - 1);
-          break;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentPage, images.length, onClose]);
 
   // Disable body scroll when open - prevent background page from scrolling
   useEffect(() => {
@@ -222,111 +191,187 @@ export function FullscreenPDFViewer({
     };
   }, []);
 
-  // Download current page
-  const handleDownload = async (index: number) => {
-    try {
-      const response = await fetch(images[index]);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title}-page-${index + 1}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download error:', error);
-    }
+  // Zoom controls - minimum zoom is 1.0 (original size)
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 0.25, 5));
   };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 0.25, 1.0)); // Minimum is 1.0, not 0.5
+  };
+
+  const handleResetZoom = () => {
+    setZoom(1);
+  };
+
+  // Rotate - maintain viewport center position
+  const handleRotate = () => {
+    if (!containerRef.current || !pageRefs.current[currentPage]) return;
+    
+    const container = containerRef.current;
+    const currentPageElement = pageRefs.current[currentPage];
+    if (!currentPageElement) return;
+    
+    // Store viewport center position relative to the page
+    const containerRect = container.getBoundingClientRect();
+    const pageRect = currentPageElement.getBoundingClientRect();
+    const viewportCenterY = containerRect.height / 2;
+    const pageTop = pageRect.top - containerRect.top + container.scrollTop;
+    const pageCenterY = pageTop + (pageRect.height / 2);
+    
+    // Calculate offset from page center
+    const offsetFromCenter = viewportCenterY - pageCenterY;
+    
+    // Apply rotation
+    setRotation(prev => {
+      const newRotation = (prev + 90) % 360;
+      
+      // Use double requestAnimationFrame to ensure DOM has updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (container && currentPageElement) {
+            // Recalculate page center after rotation
+            const newPageRect = currentPageElement.getBoundingClientRect();
+            const newContainerRect = container.getBoundingClientRect();
+            const newPageTop = newPageRect.top - newContainerRect.top + container.scrollTop;
+            const newPageCenterY = newPageTop + (newPageRect.height / 2);
+            
+            // Restore viewport center position
+            const newViewportCenterY = newPageCenterY + offsetFromCenter;
+            container.scrollTop = newViewportCenterY - (containerRect.height / 2);
+          }
+        });
+      });
+      
+      return newRotation;
+    });
+  };
+
+  // Reset zoom and rotation when page changes
+  useEffect(() => {
+    setZoom(1);
+    setRotation(0);
+  }, [currentPage]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't trigger if user is typing in an input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key) {
+        case 'Escape':
+          onClose();
+          break;
+        case 'ArrowUp':
+        case 'ArrowLeft':
+          e.preventDefault();
+          scrollToPrevious();
+          break;
+        case 'ArrowDown':
+        case 'ArrowRight':
+          e.preventDefault();
+          scrollToNext();
+          break;
+        case 'Home':
+          e.preventDefault();
+          scrollToPage(0);
+          break;
+        case 'End':
+          e.preventDefault();
+          scrollToPage(images.length - 1);
+          break;
+        case '+':
+        case '=':
+          if (!e.shiftKey) {
+            e.preventDefault();
+            handleZoomIn();
+          }
+          break;
+        case '-':
+        case '_':
+          e.preventDefault();
+          handleZoomOut();
+          break;
+        case '0':
+          e.preventDefault();
+          handleResetZoom();
+          break;
+        case 'r':
+        case 'R':
+          e.preventDefault();
+          handleRotate();
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, currentPage, images.length, onClose, zoom, rotation]);
 
   if (!isOpen) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[9999] bg-black/95 backdrop-blur-sm flex flex-col"
+      className="fixed inset-0 z-[9999] bg-black flex flex-col"
       style={{
         touchAction: 'none',
         overscrollBehavior: 'none',
       }}
     >
-      {/* Header with Navigation */}
-      <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-md border-b border-white/10 py-3 px-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20 h-9 w-9"
-              onClick={onClose}
-              title="Close (Esc)"
-            >
-              <X className="w-5 h-5" />
-            </Button>
-            
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20 h-9 w-9"
-                onClick={scrollToPrevious}
-                disabled={currentPage === 0}
-                title="Previous page (↑ or ←)"
-              >
-                <ChevronUp className="w-5 h-5" />
-              </Button>
-              <span className="text-white text-sm min-w-[100px] text-center">
-                Page {currentPage + 1} of {images.length}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-white hover:bg-white/20 h-9 w-9"
-                onClick={scrollToNext}
-                disabled={currentPage === images.length - 1}
-                title="Next page (↓ or →)"
-              >
-                <ChevronDown className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-white/70 text-sm">{title}</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-white hover:bg-white/20 h-9 w-9"
-              onClick={() => handleDownload(currentPage)}
-              title="Download current page"
-            >
-              <Download className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Page Thumbnails */}
-        <div className="flex items-center gap-1 overflow-x-auto max-w-full mt-3 hide-scrollbar justify-center">
-          {images.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => scrollToPage(index)}
-              className={`flex-shrink-0 w-10 h-14 rounded border transition-all ${
-                currentPage === index
-                  ? 'border-white bg-white/20'
-                  : 'border-white/30 hover:border-white/50 bg-white/5'
-              }`}
-              title={`Go to page ${index + 1}`}
-            >
-              <div className="w-full h-full flex items-center justify-center text-xs text-white/70">
-                {index + 1}
-              </div>
-            </button>
-          ))}
+      {/* Minimal Header - Only Close Button */}
+      <div className="absolute top-0 left-0 right-0 z-20 flex justify-end p-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20 h-10 w-10 rounded-full"
+            onClick={onClose}
+            title="Close (Esc)"
+          >
+            <X className="w-5 h-5" />
+          </Button>
         </div>
       </div>
 
-      {/* PDF-like Scrollable Container */}
+      {/* Zoom and Rotate Controls - Bottom Right */}
+      <div className="absolute bottom-4 right-4 z-20 flex flex-col gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/20 h-10 w-10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleZoomIn}
+          title="Zoom In (+)"
+          disabled={zoom >= 5}
+        >
+          <ZoomIn className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/20 h-10 w-10 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleZoomOut}
+          title="Zoom Out (-)"
+          disabled={zoom <= 1}
+        >
+          <ZoomOut className="w-5 h-5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-white/20 h-10 w-10 rounded-full"
+          onClick={handleRotate}
+          title="Rotate (R)"
+        >
+          <RotateCw className="w-5 h-5" />
+        </Button>
+      </div>
+
+      {/* PDF-like Scrollable Container with Zoom and Rotate */}
       <div
         ref={containerRef}
         onScroll={handleScroll}
@@ -342,7 +387,7 @@ export function FullscreenPDFViewer({
               ref={(el) => {
                 pageRefs.current[index] = el;
               }}
-              className="w-full flex justify-center bg-white rounded-lg shadow-2xl p-6"
+              className="w-full flex justify-center bg-white rounded-lg shadow-2xl p-6 transition-all duration-200"
               style={{
                 minHeight: '800px',
                 maxWidth: '900px',
@@ -353,6 +398,12 @@ export function FullscreenPDFViewer({
                 alt={`${title} - Page ${index + 1}`}
                 className="w-full h-auto object-contain"
                 loading="lazy"
+                style={{
+                  transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                  transformOrigin: 'center center',
+                  transition: 'transform 0.2s ease-out',
+                  willChange: 'transform', // Optimize for performance
+                }}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';

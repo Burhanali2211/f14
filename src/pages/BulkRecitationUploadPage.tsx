@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { FullscreenImageViewer } from '@/components/FullscreenImageViewer';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
@@ -68,6 +69,8 @@ export default function BulkRecitationUploadPage() {
   const [recitations, setRecitations] = useState<ExtractedRecitation[]>([]);
   const [selectedCount, setSelectedCount] = useState(0);
   const [groups, setGroups] = useState<RecitationGroup[]>([]);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   // Metadata form for selected recitations
   const [metadata, setMetadata] = useState({
@@ -1147,9 +1150,19 @@ export default function BulkRecitationUploadPage() {
                     <CardContent className="space-y-3">
                       {/* Display PDF page as image */}
                       <div
-                        className="w-full rounded-lg overflow-hidden border bg-muted"
+                        className="w-full rounded-lg overflow-hidden border bg-muted cursor-pointer"
                         style={{ height: '320px' }}
-                        onClick={(e) => e.stopPropagation()}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (recitation.imageDataUrl) {
+                            const allImages = recitations
+                              .filter(r => r.imageDataUrl)
+                              .map(r => r.imageDataUrl);
+                            const imageIndex = allImages.indexOf(recitation.imageDataUrl);
+                            setCurrentImageIndex(imageIndex >= 0 ? imageIndex : 0);
+                            setImageViewerOpen(true);
+                          }
+                        }}
                       >
                         {recitation.imageDataUrl ? (
                           <img
@@ -1213,6 +1226,19 @@ export default function BulkRecitationUploadPage() {
           )}
         </div>
       </main>
+
+      {/* Fullscreen Image Viewer */}
+      {imageViewerOpen && recitations.some(r => r.imageDataUrl) && (
+        <FullscreenImageViewer
+          src={recitations.find(r => r.imageDataUrl)?.imageDataUrl || ''}
+          alt={`Page ${recitations[currentImageIndex]?.pageNumber || 1}`}
+          isOpen={imageViewerOpen}
+          onClose={() => setImageViewerOpen(false)}
+          images={recitations.filter(r => r.imageDataUrl).map(r => r.imageDataUrl)}
+          currentIndex={currentImageIndex}
+          onIndexChange={setCurrentImageIndex}
+        />
+      )}
     </div>
   );
 }
