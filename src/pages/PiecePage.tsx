@@ -530,17 +530,29 @@ export default function PiecePage() {
           {currentImageUrl && (
             <div 
               className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden mb-6 cursor-pointer group bg-muted/30"
-              onClick={() => {
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 // Preserve current image index instead of resetting to 0
                 setImageViewerOpen(true);
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setImageViewerOpen(true);
+                }
+              }}
+              tabIndex={0}
+              role="button"
+              aria-label={getImageUrls.length > 1 ? `Click to view ${getImageUrls.length} images in fullscreen` : 'Click to view image in fullscreen'}
             >
               <img 
                 src={currentImageUrl} 
                 alt={`${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}${category ? ` - ${category.name}` : ''}`}
-                className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02]"
+                className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-[1.02] pointer-events-none"
                 loading="lazy"
                 itemProp="image"
+                draggable={false}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -552,14 +564,14 @@ export default function PiecePage() {
                 }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                 <div className="bg-black/50 backdrop-blur-sm rounded-lg p-2 text-white text-xs flex items-center gap-2">
                   <Maximize2 className="w-4 h-4" />
                   {getImageUrls.length > 1 ? `Click to view ${getImageUrls.length} images` : 'Click to view full size'}
                 </div>
               </div>
               {getImageUrls.length > 1 && (
-                <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-xs">
+                <div className="absolute bottom-4 left-4 bg-black/50 backdrop-blur-sm rounded-lg px-3 py-1.5 text-white text-xs pointer-events-none">
                   {getImageUrls.length} {getImageUrls.length === 1 ? 'image' : 'images'}
                 </div>
               )}
