@@ -151,12 +151,13 @@ export default function SettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="cairo">Cairo (Modern & Clean - Recommended)</SelectItem>
+                    <SelectItem value="tajawal">Tajawal (Modern & Readable)</SelectItem>
+                    <SelectItem value="noto-sans-arabic">Noto Sans Arabic (Clean & Modern)</SelectItem>
+                    <SelectItem value="ibm-plex-sans-arabic">IBM Plex Sans Arabic (Professional)</SelectItem>
                     <SelectItem value="amiri">Amiri (Classic Arabic)</SelectItem>
                     <SelectItem value="noto-nastaliq">Noto Nastaliq Urdu (Traditional Nastaliq)</SelectItem>
-                    <SelectItem value="gulzar">Gulzar (Modern Nastaliq)</SelectItem>
                     <SelectItem value="lateef">Lateef (Elegant Urdu)</SelectItem>
-                    <SelectItem value="noto-sans-arabic">Noto Sans Arabic (Modern Urdu)</SelectItem>
-                    <SelectItem value="reem-kufi">Reem Kufi (Contemporary Urdu)</SelectItem>
                     <SelectItem value="scheherazade">Scheherazade New (Modern Arabic)</SelectItem>
                   </SelectContent>
                 </Select>

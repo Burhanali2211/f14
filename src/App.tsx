@@ -33,6 +33,7 @@ const FavoritesPage = lazy(() => import("./pages/FavoritesPage"));
 const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 const CalendarPage = lazy(() => import("./pages/CalendarPage"));
 const AnnouncementsPage = lazy(() => import("./pages/AnnouncementsPage"));
+const BulkRecitationUploadPage = lazy(() => import("./pages/BulkRecitationUploadPage"));
 const ProfilePage = lazy(() => import("./pages/ProfilePage"));
 const SitemapPage = lazy(() => import("./pages/SitemapPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -879,6 +880,7 @@ const App = () => (
                         <Route path="/admin" element={<AdminPage />} />
                         <Route path="/admin/site-settings" element={<SiteSettingsPage />} />
                         <Route path="/admin/announcements" element={<AnnouncementsPage />} />
+                        <Route path="/admin/bulk-upload" element={<BulkRecitationUploadPage />} />
                         <Route path="/admin/category/new" element={<CategoryFormPage />} />
                         <Route path="/admin/category/:id/edit" element={<CategoryFormPage />} />
                         <Route path="/admin/piece/new" element={<AddPiecePage />} />

@@ -51,7 +51,12 @@ export const RecentPieceCard = memo(function RecentPieceCard({ piece, index = 0 
         <div className="flex-1 min-w-0">
           {/* Title */}
           <h3 
-            className={`font-arabic text-base sm:text-lg font-semibold text-foreground mb-2 group-hover:text-primary/90 transition-colors duration-200 leading-relaxed line-clamp-2 ${textAlign}`}
+            className={`font-arabic-heading text-base sm:text-lg font-semibold text-foreground mb-2 group-hover:text-primary/90 transition-colors duration-200 leading-[1.75] line-clamp-2 break-words ${textAlign}`}
+            style={{
+              wordSpacing: '0.15em',
+              letterSpacing: '0.03em',
+              fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+            }}
             dir={getTextDirection(piece.title)}
           >
             {piece.title}

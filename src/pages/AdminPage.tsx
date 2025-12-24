@@ -1325,6 +1325,12 @@ export default function AdminPage() {
                   <span>Users</span>
                   <span className="text-muted-foreground"> ({userProfiles.length})</span>
                 </TabsTrigger>
+                <Link to="/admin/bulk-upload" className="flex-shrink-0">
+                  <Button variant="ghost" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 min-h-[44px] touch-manipulation">
+                    <Upload className="w-4 h-4 flex-shrink-0" />
+                    <span>Bulk Upload</span>
+                  </Button>
+                </Link>
                 <Link to="/admin/announcements" className="flex-shrink-0">
                   <Button variant="ghost" className="gap-2 px-4 py-2.5 text-sm whitespace-nowrap h-11 min-h-[44px] touch-manipulation">
                     <Bell className="w-4 h-4 flex-shrink-0" />
@@ -1371,6 +1377,13 @@ export default function AdminPage() {
                 <span>Users</span>
                 <span className="hidden md:inline"> ({userProfiles.length})</span>
               </TabsTrigger>
+              <Link to="/admin/bulk-upload">
+                <Button variant="ghost" className="gap-2 px-4 text-sm whitespace-nowrap h-10">
+                  <Upload className="w-4 h-4 flex-shrink-0" />
+                  <span className="hidden sm:inline">Bulk Upload</span>
+                  <span className="sm:hidden">Bulk</span>
+                </Button>
+              </Link>
               <Link to="/admin/announcements">
                 <Button variant="ghost" className="gap-2 px-4 text-sm whitespace-nowrap h-10">
                   <Bell className="w-4 h-4 flex-shrink-0" />

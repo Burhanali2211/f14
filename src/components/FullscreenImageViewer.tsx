@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { X, Maximize2, Minimize2, RotateCw, Download } from 'lucide-react';
+import { X, Maximize2, Minimize2, RotateCw, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface FullscreenImageViewerProps {
@@ -7,9 +7,24 @@ interface FullscreenImageViewerProps {
   alt: string;
   isOpen: boolean;
   onClose: () => void;
+  images?: string[];
+  currentIndex?: number;
+  onIndexChange?: (index: number) => void;
 }
 
-export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenImageViewerProps) {
+export function FullscreenImageViewer({ 
+  src, 
+  alt, 
+  isOpen, 
+  onClose, 
+  images, 
+  currentIndex = 0, 
+  onIndexChange 
+}: FullscreenImageViewerProps) {
+  const [internalIndex, setInternalIndex] = useState(currentIndex);
+  const actualIndex = images && onIndexChange ? currentIndex : internalIndex;
+  const actualSrc = images && images.length > 0 ? images[actualIndex] : src;
+  const hasMultipleImages = images && images.length > 1;
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -292,9 +307,16 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     };
   }, []);
 
+  // Update internal index when currentIndex prop changes
+  useEffect(() => {
+    if (images && onIndexChange) {
+      setInternalIndex(currentIndex);
+    }
+  }, [currentIndex, images, onIndexChange]);
+
   // Reset on open and when src changes
   useEffect(() => {
-    if (isOpen && src) {
+    if (isOpen && actualSrc) {
       setRotation(0);
       setPosition({ x: 0, y: 0 });
       setIsLoading(true);
@@ -372,7 +394,7 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
       checkImageLoaded();
       
       // Zoom will be set when image loads
-    } else if (!isOpen || !src) {
+    } else if (!isOpen || !actualSrc) {
       // If no src or viewer is closed, stop loading immediately
       setIsLoading(false);
       if (controlsTimeoutRef.current) {
@@ -722,6 +744,35 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     };
   }, [isOpen, handleMouseMove, handleMouseUp]);
 
+  // Navigate between images
+  const handlePrevious = useCallback(() => {
+    if (!hasMultipleImages || !images) return;
+    const newIndex = actualIndex > 0 ? actualIndex - 1 : images.length - 1;
+    if (onIndexChange) {
+      onIndexChange(newIndex);
+    } else {
+      setInternalIndex(newIndex);
+    }
+    // Reset zoom and position when changing images
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+    setRotation(0);
+  }, [hasMultipleImages, images, actualIndex, onIndexChange]);
+
+  const handleNext = useCallback(() => {
+    if (!hasMultipleImages || !images) return;
+    const newIndex = actualIndex < images.length - 1 ? actualIndex + 1 : 0;
+    if (onIndexChange) {
+      onIndexChange(newIndex);
+    } else {
+      setInternalIndex(newIndex);
+    }
+    // Reset zoom and position when changing images
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+    setRotation(0);
+  }, [hasMultipleImages, images, actualIndex, onIndexChange]);
+
   // Keyboard shortcuts
   useEffect(() => {
     if (!isOpen) return;
@@ -777,12 +828,24 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
           e.preventDefault();
           toggleFullscreen();
           break;
+        case 'ArrowLeft':
+          if (hasMultipleImages) {
+            e.preventDefault();
+            handlePrevious();
+          }
+          break;
+        case 'ArrowRight':
+          if (hasMultipleImages) {
+            e.preventDefault();
+            handleNext();
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, isFullscreen, onClose, toggleFullscreen]);
+  }, [isOpen, isFullscreen, onClose, toggleFullscreen, hasMultipleImages, handlePrevious, handleNext]);
 
   // Handle tap/click to toggle controls on container background (not on image)
   const handleContainerClick = useCallback((e: React.MouseEvent) => {
@@ -911,12 +974,12 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
   // Download image
   const handleDownload = useCallback(async () => {
     try {
-      const response = await fetch(src);
+      const response = await fetch(actualSrc);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = alt || 'image';
+      a.download = `${alt || 'image'}-${actualIndex + 1}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -924,7 +987,7 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
     } catch (error) {
       console.error('Download error:', error);
     }
-  }, [src, alt]);
+  }, [actualSrc, alt, actualIndex]);
 
   if (!isOpen) return null;
 
@@ -978,9 +1041,9 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
         )}
         <img
           ref={imageRef}
-          src={src || ''}
-          alt={alt}
-          key={src}
+          src={actualSrc || ''}
+          alt={`${alt}${hasMultipleImages ? ` - Page ${actualIndex + 1} of ${images?.length}` : ''}`}
+          key={actualSrc}
           className={`${isLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200 cursor-grab active:cursor-grabbing`}
           style={{
             width: imageDimensions.width > 0 ? `${imageDimensions.width}px` : 'auto',
@@ -1047,12 +1110,39 @@ export function FullscreenImageViewer({ src, alt, isOpen, onClose }: FullscreenI
             if (isOpen) {
               setIsLoading(false);
               setError(true);
-              console.error('Image failed to load:', src);
+              console.error('Image failed to load:', actualSrc);
             }
           }}
           draggable={false}
         />
       </div>
+
+      {/* Navigation Arrows for Multiple Images */}
+      {hasMultipleImages && images && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 text-white hover:bg-white/20 active:bg-white/30 h-12 w-12 touch-manipulation"
+            onClick={handlePrevious}
+            title="Previous image (←)"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 text-white hover:bg-white/20 active:bg-white/30 h-12 w-12 touch-manipulation"
+            onClick={handleNext}
+            title="Next image (→)"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </Button>
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-black/80 backdrop-blur-md rounded-lg px-4 py-2 text-white text-sm">
+            {actualIndex + 1} / {images.length}
+          </div>
+        </>
+      )}
 
       {/* Controls */}
       <div 

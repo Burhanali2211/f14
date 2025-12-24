@@ -50,7 +50,12 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
           <div className="relative z-10">
             {/* Title */}
             <h3 
-              className={`font-arabic text-base sm:text-lg md:text-xl font-bold text-foreground mb-2 md:mb-3 group-hover:text-primary transition-colors duration-300 leading-relaxed line-clamp-2 ${textAlign}`}
+              className={`font-arabic-heading text-lg sm:text-xl md:text-2xl font-semibold text-foreground mb-2 md:mb-3 group-hover:text-primary transition-colors duration-300 leading-[1.75] sm:leading-[1.8] md:leading-[1.85] line-clamp-2 break-words ${textAlign}`}
+              style={{
+                wordSpacing: '0.15em',
+                letterSpacing: '0.03em',
+                fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+              }}
               dir={getTextDirection(piece.title)}
             >
               {piece.title}
@@ -123,7 +128,12 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
           <div className={`flex items-start justify-between gap-3 md:gap-4 mb-4 ${isRTL ? 'flex-row-reverse' : ''}`}>
             <div className="flex-1 min-w-0">
               <h3 
-                className={`font-arabic text-lg sm:text-xl md:text-2xl font-bold text-foreground mb-2.5 md:mb-3 group-hover:text-primary transition-colors duration-300 leading-relaxed line-clamp-2 ${textAlign}`}
+                className={`font-arabic-heading text-lg sm:text-xl md:text-2xl font-semibold text-foreground mb-2.5 md:mb-3 group-hover:text-primary transition-colors duration-300 leading-[1.75] sm:leading-[1.8] md:leading-[1.85] line-clamp-2 break-words ${textAlign}`}
+                style={{
+                  wordSpacing: '0.15em',
+                  letterSpacing: '0.03em',
+                  fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+                }}
                 dir={getTextDirection(piece.title)}
               >
                 {piece.title}

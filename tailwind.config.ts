@@ -91,7 +91,8 @@ export default {
       },
       fontFamily: {
         display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
-        arabic: ['Noto Nastaliq Urdu', 'Gulzar', 'Lateef', 'Noto Sans Arabic', 'Reem Kufi', 'Amiri', 'Scheherazade New', 'serif'],
+        arabic: ['Noto Nastaliq Urdu', 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'IBM Plex Sans Arabic', 'Amiri', 'Lateef', 'system-ui', 'sans-serif'],
+        'arabic-heading': ['Noto Nastaliq Urdu', 'Lateef', 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'system-ui', 'sans-serif'],
         body: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
       borderRadius: {

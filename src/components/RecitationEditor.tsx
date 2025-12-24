@@ -86,13 +86,14 @@ export function RecitationEditor({
   // Define getFontFamily function first
   const getFontFamily = useCallback(() => {
     switch (settings.fontFamily) {
-      case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
-      case 'gulzar': return "'Gulzar', serif";
-      case 'lateef': return "'Lateef', serif";
+      case 'cairo': return "'Cairo', sans-serif";
+      case 'tajawal': return "'Tajawal', sans-serif";
       case 'noto-sans-arabic': return "'Noto Sans Arabic', sans-serif";
-      case 'reem-kufi': return "'Reem Kufi', sans-serif";
+      case 'ibm-plex-sans-arabic': return "'IBM Plex Sans Arabic', sans-serif";
+      case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
+      case 'lateef': return "'Lateef', serif";
       case 'scheherazade': return "'Scheherazade New', serif";
-      default: return "'Amiri', serif";
+      default: return "'Cairo', sans-serif";
     }
   }, [settings.fontFamily]);
 

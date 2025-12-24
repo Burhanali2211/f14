@@ -5,7 +5,7 @@ export interface AppSettings {
   fontSize: number;
   lineHeight: number;
   letterSpacing: number;
-  fontFamily: 'amiri' | 'noto-nastaliq' | 'gulzar' | 'scheherazade' | 'lateef' | 'noto-sans-arabic' | 'reem-kufi';
+  fontFamily: 'cairo' | 'tajawal' | 'noto-sans-arabic' | 'ibm-plex-sans-arabic' | 'amiri' | 'noto-nastaliq' | 'lateef' | 'scheherazade';
   textAlign: 'right' | 'center' | 'justify';
   
   // Display settings
@@ -28,7 +28,7 @@ const defaultSettings: AppSettings = {
   fontSize: 24,
   lineHeight: 2.2,
   letterSpacing: 0,
-  fontFamily: 'noto-nastaliq',
+  fontFamily: 'cairo',
   textAlign: 'right',
   showVerseNumbers: true,
   highlightCurrentVerse: true,

@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'main.png', 'robots.txt'],
+      includeAssets: ['favicon.ico', 'main.png', 'robots.txt', 'pdf.worker.min.mjs'],
       manifest: {
         name: 'Kalam Reader - Islamic Poetry & Content Reader',
         short_name: 'Kalam Reader',
