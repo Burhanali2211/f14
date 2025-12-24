@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, ZoomIn, ZoomOut, RotateCw, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -23,6 +23,7 @@ export function FullscreenPDFViewer({
   const [rotation, setRotation] = useState(0);
   const [fitZoom, setFitZoom] = useState(1);
   const [imageDimensions, setImageDimensions] = useState<Map<number, { width: number; height: number }>>(new Map());
+  const [position, setPosition] = useState<Map<number, { x: number; y: number }>>(new Map());
   
   // Store zoom and rotation per page
   const pageStateRef = useRef<Map<number, { zoom: number; rotation: number }>>(new Map());
@@ -33,6 +34,13 @@ export function FullscreenPDFViewer({
   
   // Touch state for pinch zoom
   const touchStartRef = useRef<{ distance: number; center: { x: number; y: number } } | null>(null);
+  
+  // Drag state for panning when zoomed
+  const isDraggingRef = useRef(false);
+  const dragStartRef = useRef({ x: 0, y: 0 });
+  const lastPositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const mouseDownPositionRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const hasMovedRef = useRef(false);
 
   // Calculate fit-to-screen zoom based on viewport dimensions
   const calculateFitZoom = (imgWidth: number, imgHeight: number, rotation: number): number => {
@@ -329,17 +337,135 @@ export function FullscreenPDFViewer({
     });
   };
   
-  // Touch handlers for pinch zoom - apply to all pages
+  // Constrain position to keep image within bounds when zoomed
+  const constrainPosition = (x: number, y: number, currentZoom: number, index: number): { x: number; y: number } => {
+    const dims = imageDimensions.get(index);
+    if (!dims || !containerRef.current || currentZoom <= 1) {
+      return { x: 0, y: 0 };
+    }
+    
+    const container = containerRef.current;
+    const containerRect = container.getBoundingClientRect();
+    const viewportWidth = containerRect.width;
+    const viewportHeight = containerRect.height;
+    
+    // Account for rotation
+    const isRotated = rotation === 90 || rotation === 270;
+    const effectiveImgWidth = isRotated ? dims.height : dims.width;
+    const effectiveImgHeight = isRotated ? dims.width : dims.height;
+    
+    const scaledWidth = effectiveImgWidth * currentZoom;
+    const scaledHeight = effectiveImgHeight * currentZoom;
+    
+    const PADDING = 5;
+    let minX = 0, maxX = 0, minY = 0, maxY = 0;
+    
+    if (scaledWidth > viewportWidth) {
+      const halfDiff = (scaledWidth - viewportWidth) / 2;
+      minX = halfDiff + PADDING;
+      maxX = -halfDiff - PADDING;
+    }
+    
+    if (scaledHeight > viewportHeight) {
+      const halfDiff = (scaledHeight - viewportHeight) / 2;
+      minY = halfDiff + PADDING;
+      maxY = -halfDiff - PADDING;
+    }
+    
+    return {
+      x: Math.max(maxX, Math.min(minX, x)),
+      y: Math.max(maxY, Math.min(minY, y))
+    };
+  };
+
+  // Mouse drag handlers for panning
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0 || zoom <= 1) return; // Only drag when zoomed in
+    
+    mouseDownPositionRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
+    hasMovedRef.current = false;
+    isDraggingRef.current = true;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    
+    const currentPos = position.get(currentPage) || { x: 0, y: 0 };
+    lastPositionRef.current = { ...currentPos };
+    e.preventDefault();
+    e.stopPropagation();
+  }, [zoom, currentPage, position]);
+
+  // Mouse event listeners for dragging
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || zoom <= 1) return;
+      
+      const deltaX = e.clientX - (mouseDownPositionRef.current?.x || 0);
+      const deltaY = e.clientY - (mouseDownPositionRef.current?.y || 0);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      
+      if (distance > 5) {
+        hasMovedRef.current = true;
+      }
+      
+      const dragDeltaX = e.clientX - dragStartRef.current.x;
+      const dragDeltaY = e.clientY - dragStartRef.current.y;
+      
+      const currentPos = position.get(currentPage) || { x: 0, y: 0 };
+      const newX = lastPositionRef.current.x + dragDeltaX;
+      const newY = lastPositionRef.current.y + dragDeltaY;
+      
+      const constrained = constrainPosition(newX, newY, zoom, currentPage);
+      setPosition(prev => {
+        const newMap = new Map(prev);
+        newMap.set(currentPage, constrained);
+        return newMap;
+      });
+      
+      lastPositionRef.current = constrained;
+      dragStartRef.current = { x: e.clientX, y: e.clientY };
+    };
+    
+    const handleGlobalMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        hasMovedRef.current = false;
+        mouseDownPositionRef.current = null;
+      }
+    };
+    
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    
+    return () => {
+      window.removeEventListener('mousemove', handleGlobalMouseMove);
+      window.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isOpen, zoom, currentPage, position]);
+
+  // Touch handlers for pinch zoom and drag - apply to all pages
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 2) {
+      // Two touches - pinch zoom
       const distance = getTouchDistance(e.touches);
       const center = getTouchCenter(e.touches);
       touchStartRef.current = { distance, center };
+      isDraggingRef.current = false;
+    } else if (e.touches.length === 1 && zoom > 1) {
+      // Single touch - start drag when zoomed
+      const touch = e.touches[0];
+      isDraggingRef.current = true;
+      dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+      const currentPos = position.get(currentPage) || { x: 0, y: 0 };
+      lastPositionRef.current = { ...currentPos };
+      mouseDownPositionRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      hasMovedRef.current = false;
     }
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
     if (e.touches.length === 2 && touchStartRef.current) {
+      // Pinch zoom
       e.preventDefault();
       const currentDistance = getTouchDistance(e.touches);
       
@@ -354,14 +480,52 @@ export function FullscreenPDFViewer({
           pageStateRef.current.set(index, { ...pageState, zoom: newZoom });
         });
         
-        // Update distance for next move
+        // Reset position when zoom changes significantly
+        if (Math.abs(newZoom - zoom) > 0.1) {
+          setPosition(prev => {
+            const newMap = new Map(prev);
+            newMap.set(currentPage, { x: 0, y: 0 });
+            return newMap;
+          });
+        }
+        
         touchStartRef.current.distance = currentDistance;
+      }
+    } else if (e.touches.length === 1 && isDraggingRef.current && zoom > 1) {
+      // Single touch drag - pan when zoomed
+      e.preventDefault();
+      const touch = e.touches[0];
+      const dragDeltaX = touch.clientX - dragStartRef.current.x;
+      const dragDeltaY = touch.clientY - dragStartRef.current.y;
+      
+      const currentPos = position.get(currentPage) || { x: 0, y: 0 };
+      const newX = lastPositionRef.current.x + dragDeltaX;
+      const newY = lastPositionRef.current.y + dragDeltaY;
+      
+      const constrained = constrainPosition(newX, newY, zoom, currentPage);
+      setPosition(prev => {
+        const newMap = new Map(prev);
+        newMap.set(currentPage, constrained);
+        return newMap;
+      });
+      
+      lastPositionRef.current = constrained;
+      dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+      
+      const deltaX = touch.clientX - (mouseDownPositionRef.current?.x || 0);
+      const deltaY = touch.clientY - (mouseDownPositionRef.current?.y || 0);
+      const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+      if (distance > 5) {
+        hasMovedRef.current = true;
       }
     }
   };
   
   const handleTouchEnd = () => {
     touchStartRef.current = null;
+    isDraggingRef.current = false;
+    hasMovedRef.current = false;
+    mouseDownPositionRef.current = null;
   };
 
   // Rotate - apply to all pages for consistency
@@ -468,8 +632,33 @@ export function FullscreenPDFViewer({
       pageStateRef.current.clear();
       setZoom(1);
       setRotation(0);
+      setPosition(new Map());
+      isDraggingRef.current = false;
     }
   }, [isOpen]);
+  
+  // Reset position when zoom resets to fit or below 1, or when changing pages
+  useEffect(() => {
+    if (zoom <= 1) {
+      setPosition(prev => {
+        const newMap = new Map(prev);
+        newMap.set(currentPage, { x: 0, y: 0 });
+        return newMap;
+      });
+    }
+    
+    // Reset position when changing pages if not zoomed
+    if (zoom <= 1) {
+      const currentPos = position.get(currentPage);
+      if (currentPos && (currentPos.x !== 0 || currentPos.y !== 0)) {
+        setPosition(prev => {
+          const newMap = new Map(prev);
+          newMap.set(currentPage, { x: 0, y: 0 });
+          return newMap;
+        });
+      }
+    }
+  }, [zoom, currentPage]);
   
   // Handle browser back button - reset states when closing
   useEffect(() => {
@@ -637,9 +826,11 @@ export function FullscreenPDFViewer({
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto overflow-x-hidden"
+        className="flex-1 overflow-y-auto"
         style={{
           scrollBehavior: 'smooth',
+          overflowX: zoom > 1 ? 'auto' : 'hidden',
+          touchAction: zoom > 1 ? 'pan-y pan-x pinch-zoom' : 'pan-y',
         }}
       >
         <div className="flex flex-col items-center gap-6 py-4">
@@ -661,13 +852,17 @@ export function FullscreenPDFViewer({
                 style={{
                   width: '100%',
                   maxWidth: '100%',
-                  overflow: 'hidden',
+                  overflow: 'visible',
                   padding: '20px',
                   minHeight: '100vh',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  cursor: zoom > 1 ? (isDraggingRef.current ? 'grabbing' : 'grab') : 'default',
+                  userSelect: 'none',
+                  touchAction: 'none',
                 }}
+                onMouseDown={index === currentPage && zoom > 1 ? handleMouseDown : undefined}
                 onTouchStart={index === currentPage ? handleTouchStart : undefined}
                 onTouchMove={index === currentPage ? handleTouchMove : undefined}
                 onTouchEnd={index === currentPage ? handleTouchEnd : undefined}
@@ -679,16 +874,23 @@ export function FullscreenPDFViewer({
                   src={imageUrl}
                   alt={`${title} - Page ${index + 1}`}
                   className="object-contain"
+                  draggable={false}
                   style={{
                     display: 'block',
-                    maxWidth: '100%',
-                    maxHeight: '100%',
+                    maxWidth: 'none',
+                    maxHeight: 'none',
                     width: 'auto',
                     height: 'auto',
-                    transform: `scale(${pageZoom}) rotate(${pageRotation}deg)`,
+                    transform: `scale(${pageZoom}) rotate(${pageRotation}deg) translate(${
+                      index === currentPage ? (position.get(currentPage)?.x || 0) : 0
+                    }px, ${
+                      index === currentPage ? (position.get(currentPage)?.y || 0) : 0
+                    }px)`,
                     transformOrigin: 'center center',
-                    transition: 'transform 0.2s ease-out',
+                    transition: isDraggingRef.current ? 'none' : 'transform 0.1s ease-out',
                     willChange: 'transform',
+                    cursor: zoom > 1 ? (isDraggingRef.current ? 'grabbing' : 'grab') : 'default',
+                    pointerEvents: 'auto',
                   }}
                   loading="lazy"
                   onLoad={(e) => {
