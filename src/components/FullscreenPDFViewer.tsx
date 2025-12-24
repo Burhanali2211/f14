@@ -346,10 +346,14 @@ export function FullscreenPDFViewer({
   // Handle browser back button - reset states when closing
   useEffect(() => {
     if (isOpen) {
-      window.history.pushState({ pdfViewerOpen: true }, '');
+      // Only push state if we don't already have one
+      if (!window.history.state?.pdfViewerOpen) {
+        window.history.pushState({ pdfViewerOpen: true }, '');
+      }
       
-      const handlePopState = () => {
-        if (isOpen) {
+      const handlePopState = (e: PopStateEvent) => {
+        // Only close if the state indicates the viewer should be closed
+        if (isOpen && !e.state?.pdfViewerOpen) {
           pageStateRef.current.clear();
           setZoom(1);
           setRotation(0);
@@ -360,10 +364,6 @@ export function FullscreenPDFViewer({
       window.addEventListener('popstate', handlePopState);
       return () => {
         window.removeEventListener('popstate', handlePopState);
-        // Clean up history state if component unmounts
-        if (window.history.state?.pdfViewerOpen) {
-          window.history.back();
-        }
       };
     }
   }, [isOpen, onClose]);

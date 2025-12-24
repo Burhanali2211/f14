@@ -531,7 +531,7 @@ export default function PiecePage() {
             <div 
               className="relative w-full aspect-[16/9] rounded-2xl overflow-hidden mb-6 cursor-pointer group bg-muted/30"
               onClick={() => {
-                setCurrentImageIndex(0);
+                // Preserve current image index instead of resetting to 0
                 setImageViewerOpen(true);
               }}
             >
@@ -717,7 +717,8 @@ export default function PiecePage() {
                 <PDFLikeViewer
                   images={getImageUrls}
                   title={piece.title}
-                  onImageClick={() => {
+                  onImageClick={(index) => {
+                    setCurrentImageIndex(index);
                     setPdfViewerOpen(true);
                   }}
                 />
@@ -761,7 +762,7 @@ export default function PiecePage() {
                   alt={`${piece.title} - Page ${currentImageIndex + 1}${piece.reciter ? ` by ${piece.reciter}` : ''}${category ? ` - ${category.name}` : ''}`}
                   className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
                   onClick={() => {
-                    setCurrentImageIndex(0);
+                    // Preserve current image index instead of resetting to 0
                     setImageViewerOpen(true);
                   }}
                   loading="lazy"
