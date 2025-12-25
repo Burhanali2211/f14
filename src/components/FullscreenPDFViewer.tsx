@@ -427,6 +427,11 @@ export function FullscreenPDFViewer({
 
   // Touch handlers for pinch zoom and drag - apply to all pages
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Only handle touch events when zoomed in - allow normal scrolling when at fit zoom
+    if (zoom <= 1.0) {
+      return; // Let the browser handle scrolling naturally
+    }
+    
     if (e.touches.length === 2) {
       // Two touches - pinch zoom
       e.preventDefault();
@@ -458,6 +463,11 @@ export function FullscreenPDFViewer({
   };
   
   const handleTouchMove = (e: React.TouchEvent) => {
+    // Only handle touch events when zoomed in - allow normal scrolling when at fit zoom
+    if (zoom <= 1.0) {
+      return; // Let the browser handle scrolling naturally
+    }
+    
     if (e.touches.length === 2 && touchStartRef.current) {
       // Pinch zoom
       e.preventDefault();
@@ -705,7 +715,8 @@ export function FullscreenPDFViewer({
     <div
       className="fixed inset-0 z-[9999] bg-black flex flex-col"
       style={{
-        touchAction: 'none',
+        // Allow vertical scrolling when not zoomed, prevent only when zoomed
+        touchAction: zoom > 1.0 ? 'none' : 'pan-y',
         overscrollBehavior: 'none',
       }}
     >
@@ -779,7 +790,9 @@ export function FullscreenPDFViewer({
         style={{
           scrollBehavior: 'smooth',
           overflowX: zoom > 1.0 ? 'auto' : 'hidden',
+          // Allow vertical scrolling on mobile when not zoomed
           touchAction: zoom > 1.0 ? 'pan-y pan-x pinch-zoom' : 'pan-y',
+          WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
         }}
       >
         <div className="flex flex-col items-center" style={{ gap: zoom > 1.0 ? '20px' : '0' }}>
@@ -803,19 +816,21 @@ export function FullscreenPDFViewer({
                   maxWidth: '100%',
                   overflow: 'visible',
                   padding: '0',
-                  minHeight: zoom > 1.0 ? 'auto' : '100vh',
+                  // Don't force 100vh on mobile - let content determine height for proper scrolling
+                  minHeight: zoom > 1.0 ? 'auto' : 'auto',
                   marginBottom: zoom > 1.0 ? '20px' : '0',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: zoom > 1.0 ? (isDraggingRef.current ? 'grabbing' : 'grab') : 'default',
                   userSelect: 'none',
-                  touchAction: 'none',
+                  // Only prevent touch actions when zoomed in - allow scrolling when at fit zoom
+                  touchAction: zoom > 1.0 ? 'none' : 'pan-y',
                 }}
                 onMouseDown={index === currentPage && zoom > 1.0 ? handleMouseDown : undefined}
-                onTouchStart={index === currentPage ? handleTouchStart : undefined}
-                onTouchMove={index === currentPage ? handleTouchMove : undefined}
-                onTouchEnd={index === currentPage ? handleTouchEnd : undefined}
+                onTouchStart={index === currentPage && zoom > 1.0 ? handleTouchStart : undefined}
+                onTouchMove={index === currentPage && zoom > 1.0 ? handleTouchMove : undefined}
+                onTouchEnd={index === currentPage && zoom > 1.0 ? handleTouchEnd : undefined}
               >
                 <img
                   ref={(el) => {
@@ -830,7 +845,7 @@ export function FullscreenPDFViewer({
                     width: '100%',
                     maxWidth: '100%',
                     height: 'auto',
-                    maxHeight: '100vh',
+                    maxHeight: 'none', // Remove maxHeight constraint to allow full page display
                     objectFit: 'contain',
                     transform: pageZoom !== 1.0 ? `scale(${pageZoom}) rotate(${pageRotation}deg) translate(${
                       index === currentPage ? (position.get(currentPage)?.x || 0) : 0
