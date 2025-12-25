@@ -63,6 +63,10 @@ export function FullscreenImageViewer({
   const touchStartRef = useRef<{ distance: number; center: { x: number; y: number } } | null>(null);
   const initialTouchRef = useRef<{ x: number; y: number; time: number } | null>(null);
   
+  // Swipe detection for navigation
+  const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const isSwipeRef = useRef(false);
+  
   // Track previous rotation to detect changes
   const prevRotationRef = useRef(0);
   const isInitialLoadRef = useRef(true);
@@ -310,6 +314,8 @@ export function FullscreenImageViewer({
       isDraggingRef.current = false;
       touchStartRef.current = null;
       initialTouchRef.current = null;
+      swipeStartRef.current = null;
+      isSwipeRef.current = false;
       hasMovedRef.current = false;
       mouseDownPositionRef.current = { x: 0, y: 0, time: 0 };
       lastClickTimeRef.current = 0;
@@ -537,10 +543,21 @@ export function FullscreenImageViewer({
       // Store initial touch for tap detection
       initialTouchRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
       
-      // Single touch - start drag
-      isDraggingRef.current = true;
-      dragStartRef.current = { x: touch.clientX, y: touch.clientY };
-      lastPositionRef.current = { ...position };
+      // Store swipe start position for navigation
+      swipeStartRef.current = { x: touch.clientX, y: touch.clientY, time: Date.now() };
+      isSwipeRef.current = false;
+      
+      // If zoomed in, allow dragging for panning
+      // If not zoomed (or near fit zoom), allow swiping for navigation
+      if (zoom > fitZoom * 1.1) {
+        // Zoomed in - start drag for panning
+        isDraggingRef.current = true;
+        dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+        lastPositionRef.current = { ...position };
+      } else {
+        // Not zoomed - prepare for swipe navigation
+        isDraggingRef.current = false;
+      }
     } else if (e.touches.length === 2) {
       // Two touches - start pinch zoom
       const distance = getTouchDistance(e.touches);
@@ -548,27 +565,46 @@ export function FullscreenImageViewer({
       touchStartRef.current = { distance, center };
       isDraggingRef.current = false;
       initialTouchRef.current = null;
+      swipeStartRef.current = null;
+      isSwipeRef.current = false;
     }
     resetControlsTimeout();
-  }, [position, resetControlsTimeout]);
+  }, [position, resetControlsTimeout, zoom, fitZoom]);
   
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    if (e.touches.length === 1 && isDraggingRef.current) {
-      // Single touch drag
-      const deltaX = e.touches[0].clientX - dragStartRef.current.x;
-      const deltaY = e.touches[0].clientY - dragStartRef.current.y;
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
       
-      const newX = lastPositionRef.current.x + deltaX;
-      const newY = lastPositionRef.current.y + deltaY;
+      // Check if this is a horizontal swipe (for navigation)
+      if (swipeStartRef.current && !isDraggingRef.current && zoom <= fitZoom * 1.1) {
+        const deltaX = touch.clientX - swipeStartRef.current.x;
+        const deltaY = touch.clientY - swipeStartRef.current.y;
+        const absDeltaX = Math.abs(deltaX);
+        const absDeltaY = Math.abs(deltaY);
+        
+        // If horizontal movement is significantly more than vertical, it's a swipe
+        if (absDeltaX > 20 && absDeltaX > absDeltaY * 1.5) {
+          isSwipeRef.current = true;
+        }
+      }
       
-      const constrained = constrainPosition(newX, newY, zoom);
-      setPosition(constrained);
-      
-      lastPositionRef.current = constrained;
-      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      // If zoomed in and dragging, handle panning
+      if (isDraggingRef.current && zoom > fitZoom * 1.1) {
+        const deltaX = touch.clientX - dragStartRef.current.x;
+        const deltaY = touch.clientY - dragStartRef.current.y;
+        
+        const newX = lastPositionRef.current.x + deltaX;
+        const newY = lastPositionRef.current.y + deltaY;
+        
+        const constrained = constrainPosition(newX, newY, zoom);
+        setPosition(constrained);
+        
+        lastPositionRef.current = constrained;
+        dragStartRef.current = { x: touch.clientX, y: touch.clientY };
+      }
     } else if (e.touches.length === 2 && touchStartRef.current) {
       // Pinch zoom
       const currentDistance = getTouchDistance(e.touches);
@@ -583,8 +619,9 @@ export function FullscreenImageViewer({
       }
       
       touchStartRef.current.distance = currentDistance;
+      isSwipeRef.current = false;
     }
-  }, [zoom, minZoom, position, constrainPosition]);
+  }, [zoom, minZoom, position, constrainPosition, fitZoom]);
   
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
@@ -596,16 +633,38 @@ export function FullscreenImageViewer({
       dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       lastPositionRef.current = { ...position };
       touchStartRef.current = null;
+      swipeStartRef.current = null;
+      isSwipeRef.current = false;
     } else if (e.touches.length === 0) {
-      // No touches left - check if it was a tap
+      // No touches left - check if it was a swipe, tap, drag, or pinch
       const wasDragging = isDraggingRef.current;
       const wasPinching = touchStartRef.current !== null;
+      const wasSwipe = isSwipeRef.current;
+      
+      // Handle swipe navigation
+      if (wasSwipe && swipeStartRef.current && e.changedTouches.length > 0 && hasMultipleImages) {
+        const touch = e.changedTouches[0];
+        const swipeStart = swipeStartRef.current;
+        const deltaX = touch.clientX - swipeStart.x;
+        const threshold = 50; // Minimum swipe distance
+        
+        if (Math.abs(deltaX) > threshold) {
+          if (deltaX > 0) {
+            // Swipe right - go to previous image
+            handlePrevious();
+          } else {
+            // Swipe left - go to next image
+            handleNext();
+          }
+        }
+      }
       
       isDraggingRef.current = false;
       touchStartRef.current = null;
+      isSwipeRef.current = false;
       
-      // Check if it was a tap (not a drag or pinch)
-      if (!wasDragging && !wasPinching && initialTouchRef.current && e.changedTouches.length > 0) {
+      // Check if it was a tap (not a drag, pinch, or swipe)
+      if (!wasDragging && !wasPinching && !wasSwipe && initialTouchRef.current && e.changedTouches.length > 0) {
         const touch = e.changedTouches[0];
         const initialTouch = initialTouchRef.current;
         
@@ -646,8 +705,9 @@ export function FullscreenImageViewer({
       }
       
       initialTouchRef.current = null;
+      swipeStartRef.current = null;
     }
-  }, [zoom, position, resetControlsTimeout, controlsVisible]);
+  }, [zoom, position, resetControlsTimeout, controlsVisible, hasMultipleImages, handlePrevious, handleNext]);
   
   // Global mouse event listeners for drag
   useEffect(() => {
