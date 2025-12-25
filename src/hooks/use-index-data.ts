@@ -107,14 +107,15 @@ export function useIndexData(): IndexData {
       // If we have cached data and it's not stale, use it
       if (cachedIndex) {
         // Check if cache is stale by comparing table versions
-        const [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion] = await Promise.all([
+        const [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion, artistesVersion] = await Promise.all([
           getTableVersion('categories'),
           getTableVersion('pieces'),
           getTableVersion('imams'),
           getTableVersion('site_settings'),
+          getTableVersion('artistes'),
         ]);
 
-        const latestVersion = [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion]
+        const latestVersion = [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion, artistesVersion]
           .filter((v): v is string => v !== null)
           .sort()
           .reverse()[0];
@@ -136,13 +137,14 @@ export function useIndexData(): IndexData {
 
       // Cache miss or stale - fetch from API
       // Optimized: Select only needed fields instead of * to reduce payload size
-      const [catRes, recentRes, popularRes, imamRes, artistsRes, siteSettingsRes] = await Promise.all([
+      const [catRes, recentRes, popularRes, imamRes, artistesRes, piecesCountRes, siteSettingsRes] = await Promise.all([
         safeQuery(async () => await supabase.from('categories').select('id, name, slug, description, icon, bg_image_url, bg_image_opacity, bg_image_blur, bg_image_position, bg_image_size, bg_image_scale').order('name')),
         safeQuery(async () => await supabase.from('pieces').select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id').order('created_at', { ascending: false }).limit(6)),
         safeQuery(async () => await supabase.from('pieces').select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id').order('view_count', { ascending: false }).limit(4)),
         safeQuery(async () => await (supabase as any).from('imams').select('id, name, slug, title, description, order_index').order('order_index, name')),
+        safeQuery(async () => await (supabase as any).from('artistes').select('name, image_url').order('name')),
         safeQuery(async () => await supabase.from('pieces').select('reciter').not('reciter', 'is', null)),
-        safeQuery(async () => await (supabase as any).from('site_settings').select('id, site_name, site_tagline, logo_url, hero_image_url, hero_text_color_mode, hero_gradient_preset, hero_gradient_opacity, hero_image_opacity, hero_heading_line1, hero_heading_line2, hero_description, hero_badge_text').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle()),
+        safeQuery(async () => await (supabase as any).from('site_settings').select('id, site_name, site_tagline, logo_url, hero_image_url, hero_text_color_mode, hero_gradient_preset, hero_gradient_opacity, hero_image_opacity, hero_heading_line1, hero_heading_line2, hero_description, hero_badge_text, hero_arabic_font').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle()),
       ]);
 
       if (catRes.error) {
@@ -172,44 +174,39 @@ export function useIndexData(): IndexData {
         setImams(imamRes.data as unknown as Imam[]);
       }
 
-      // Process artists/reciters - get all unique reciters from pieces (source of truth)
-      // Database triggers automatically sync to artistes table
-      if (artistsRes.error) {
-        logger.error('Error fetching artists:', artistsRes.error);
-      } else if (artistsRes.data) {
-        // Count pieces per reciter (from pieces table - this is the source of truth)
+      // Process artists - fetch ALL artists from artistes table, then count their pieces
+      let artistsArray: Array<{ name: string; count: number; image_url: string | null }> = [];
+      if (artistesRes.error) {
+        logger.error('Error fetching artistes:', artistesRes.error);
+      } else if (artistesRes.data) {
+        // Get all artists from artistes table
+        const allArtistes = artistesRes.data as Array<{ name: string; image_url: string | null }>;
+        
+        // Count pieces per artist (from pieces table)
         const reciterCounts = new Map<string, number>();
-        artistsRes.data.forEach((piece: any) => {
-          if (piece.reciter && piece.reciter.trim() !== '') {
-            reciterCounts.set(piece.reciter, (reciterCounts.get(piece.reciter) || 0) + 1);
-          }
-        });
-        
-        // Get all unique reciter names
-        const uniqueReciters = Array.from(reciterCounts.keys());
-        
-        // Fetch artistes with images (triggers ensure they exist)
-        const artistesRes = await safeQuery(async () => 
-          await (supabase as any).from('artistes').select('name, image_url').in('name', uniqueReciters)
-        );
-        
-        // Get artiste data for images
-        const artistesMap = new Map<string, { image_url: string | null }>();
-        if (artistesRes.data) {
-          (artistesRes.data as any[]).forEach((artiste: any) => {
-            artistesMap.set(artiste.name, { image_url: artiste.image_url });
+        if (piecesCountRes.data) {
+          piecesCountRes.data.forEach((piece: any) => {
+            if (piece.reciter && piece.reciter.trim() !== '') {
+              reciterCounts.set(piece.reciter, (reciterCounts.get(piece.reciter) || 0) + 1);
+            }
           });
         }
         
-        // Convert to array and sort by count (descending)
-        // Show all artists who have recitations
-        const artistsArray = Array.from(reciterCounts.entries())
-          .map(([name, count]) => ({ 
-            name, 
-            count,
-            image_url: artistesMap.get(name)?.image_url || null
+        // Create artists array with ALL artists from artistes table
+        // Include artists even if they have 0 pieces
+        artistsArray = allArtistes
+          .map((artiste) => ({
+            name: artiste.name,
+            count: reciterCounts.get(artiste.name) || 0,
+            image_url: artiste.image_url,
           }))
-          .sort((a, b) => b.count - a.count);
+          .sort((a, b) => {
+            // Sort by count first (descending), then by name (ascending)
+            if (b.count !== a.count) {
+              return b.count - a.count;
+            }
+            return a.name.localeCompare(b.name);
+          });
         
         setArtists(artistsArray);
       }
@@ -221,75 +218,35 @@ export function useIndexData(): IndexData {
       }
 
       // Cache the complete index data
-      if (catRes.data && recentRes.data && imamRes.data && siteSettingsRes.data) {
-        const categoriesData = catRes.data as Category[];
-        const recentPiecesData = recentRes.data as unknown as Piece[];
-        const popularPiecesData = popularRes.data as unknown as Piece[];
-        const imamsData = imamRes.data as unknown as Imam[];
-        const siteSettingsData = siteSettingsRes.data as unknown as SiteSettings;
+      const [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion, artistesVersion] = await Promise.all([
+        getTableVersion('categories'),
+        getTableVersion('pieces'),
+        getTableVersion('imams'),
+        getTableVersion('site_settings'),
+        getTableVersion('artistes'),
+      ]);
 
-        // Process artists data
-        let artistsArray: Array<{ name: string; count: number; image_url: string | null }> = [];
-        if (artistsRes.data) {
-          const reciterCounts = new Map<string, number>();
-          artistsRes.data.forEach((piece: any) => {
-            if (piece.reciter && piece.reciter.trim() !== '') {
-              reciterCounts.set(piece.reciter, (reciterCounts.get(piece.reciter) || 0) + 1);
-            }
-          });
+      const latestVersion = [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion, artistesVersion]
+        .filter((v): v is string => v !== null)
+        .sort()
+        .reverse()[0];
 
-          const uniqueReciters = Array.from(reciterCounts.keys());
-          const artistesRes = await safeQuery(async () => 
-            await (supabase as any).from('artistes').select('name, image_url').in('name', uniqueReciters)
-          );
-
-          const artistesMap = new Map<string, { image_url: string | null }>();
-          if (artistesRes.data) {
-            (artistesRes.data as any[]).forEach((artiste: any) => {
-              artistesMap.set(artiste.name, { image_url: artiste.image_url });
-            });
-          }
-
-          artistsArray = Array.from(reciterCounts.entries())
-            .map(([name, count]) => ({ 
-              name, 
-              count,
-              image_url: artistesMap.get(name)?.image_url || null
-            }))
-            .sort((a, b) => b.count - a.count);
-        }
-
-        // Get latest version for cache
-        const [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion] = await Promise.all([
-          getTableVersion('categories'),
-          getTableVersion('pieces'),
-          getTableVersion('imams'),
-          getTableVersion('site_settings'),
-        ]);
-
-        const latestVersion = [categoriesVersion, piecesVersion, imamsVersion, siteSettingsVersion]
-          .filter((v): v is string => v !== null)
-          .sort()
-          .reverse()[0] || null;
-
-        // Store in cache
-        setCachedData(
-          indexCacheKey,
-          {
-            categories: categoriesData,
-            imams: imamsData,
-            recentPieces: recentPiecesData,
-            popularPieces: popularPiecesData,
-            artists: artistsArray,
-            siteSettings: siteSettingsData,
-            stats: {
-              categories: categoriesData.length,
-              pieces: recentPiecesData.length,
-            },
+      setCachedData(
+        indexCacheKey,
+        {
+          categories: catRes.data as Category[] || [],
+          imams: imamRes.data as unknown as Imam[] || [],
+          recentPieces: recentRes.data as unknown as Piece[] || [],
+          popularPieces: popularRes.data as unknown as Piece[] || [],
+          artists: artistsArray,
+          siteSettings: siteSettingsRes.data as unknown as SiteSettings || null,
+          stats: {
+            categories: (catRes.data as Category[] || []).length,
+            pieces: (recentRes.data || []).length,
           },
-          latestVersion
-        );
-      }
+        },
+        latestVersion
+      );
     } catch (error) {
       logger.error('Unexpected error in fetchData:', error);
     } finally {

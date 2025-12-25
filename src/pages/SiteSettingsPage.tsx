@@ -45,6 +45,7 @@ export default function SiteSettingsPage() {
     hero_heading_line2: 'islamic poetry',
     hero_description: 'Explore Naat, Manqabat, Noha, Dua, Marsiya, and more. Read, listen, and connect with your spiritual heritage.',
     hero_text_color_mode: 'auto' as 'auto' | 'light' | 'dark',
+    hero_arabic_font: 'noto-nastaliq' as string,
   });
 
   // Helper function to get gradient styles based on preset
@@ -234,6 +235,7 @@ export default function SiteSettingsPage() {
           hero_heading_line2: settings.hero_heading_line2 || 'islamic poetry',
           hero_description: settings.hero_description || 'Explore Naat, Manqabat, Noha, Dua, Marsiya, and more. Read, listen, and connect with your spiritual heritage.',
           hero_text_color_mode: (settings.hero_text_color_mode || 'auto') as 'auto' | 'light' | 'dark',
+          hero_arabic_font: settings.hero_arabic_font || 'noto-nastaliq',
         });
       }
     } catch (error) {
@@ -416,6 +418,7 @@ export default function SiteSettingsPage() {
       hero_heading_line2: siteSettingsForm.hero_heading_line2?.trim() || null,
       hero_description: siteSettingsForm.hero_description?.trim() || null,
       hero_text_color_mode: siteSettingsForm.hero_text_color_mode || 'auto',
+      hero_arabic_font: siteSettingsForm.hero_arabic_font || 'noto-nastaliq',
     };
 
     // Use upsert to handle both insert and update cases
@@ -774,6 +777,30 @@ export default function SiteSettingsPage() {
                         <SelectItem value="auto">Auto (Detect from Image)</SelectItem>
                         <SelectItem value="light">Light Text (White)</SelectItem>
                         <SelectItem value="dark">Dark Text (Default)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="hero-arabic-font">Arabic Font for Hero Section</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Choose the font family for Arabic text displayed in the hero section description
+                    </p>
+                    <Select
+                      value={siteSettingsForm.hero_arabic_font}
+                      onValueChange={(value) => setSiteSettingsForm(f => ({ ...f, hero_arabic_font: value }))}
+                    >
+                      <SelectTrigger id="hero-arabic-font" className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="noto-nastaliq">Noto Nastaliq Urdu (Elegant & Traditional - Recommended)</SelectItem>
+                        <SelectItem value="lateef">Lateef (Classic & Readable)</SelectItem>
+                        <SelectItem value="cairo">Cairo (Modern & Clean)</SelectItem>
+                        <SelectItem value="tajawal">Tajawal (Modern & Readable)</SelectItem>
+                        <SelectItem value="amiri">Amiri (Traditional Serif)</SelectItem>
+                        <SelectItem value="noto-sans-arabic">Noto Sans Arabic (Simple & Clear)</SelectItem>
+                        <SelectItem value="ibm-plex-sans-arabic">IBM Plex Sans Arabic (Professional)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

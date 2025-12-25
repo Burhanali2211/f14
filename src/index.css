@@ -293,7 +293,9 @@
     font-weight: 600;
     word-spacing: 0.15em;
     letter-spacing: 0.03em;
-    line-height: 1.75;
+    line-height: 2.2;
+    padding-top: 0.2em;
+    padding-bottom: 0.2em;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

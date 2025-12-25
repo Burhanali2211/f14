@@ -64,7 +64,7 @@ export default function PiecePage() {
 
   // Monitor PDF window and pause video when it closes
   useEffect(() => {
-    if (!pdfWindow || !piece.video_url) return;
+    if (!pdfWindow || !piece || !piece.video_url) return;
 
     const checkWindow = setInterval(() => {
       if (pdfWindow.closed) {
@@ -88,7 +88,7 @@ export default function PiecePage() {
     }, 500);
 
     return () => clearInterval(checkWindow);
-  }, [pdfWindow, piece.video_url]);
+  }, [pdfWindow, piece]);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
@@ -630,11 +630,13 @@ export default function PiecePage() {
           )}
           
           <h1 
-            className="font-arabic-heading text-3xl md:text-4xl lg:text-5xl font-semibold text-foreground mb-6 leading-[1.8] md:leading-[1.85] lg:leading-[1.9] break-words"
+            className="font-arabic-heading text-3xl md:text-4xl lg:text-5xl font-semibold text-foreground mb-6 leading-[2.2] md:leading-[2.2] lg:leading-[2.2] break-words py-1"
             style={{
               wordSpacing: '0.15em',
               letterSpacing: '0.03em',
               fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+              paddingTop: '0.3em',
+              paddingBottom: '0.3em',
             }}
             dir="rtl"
           >

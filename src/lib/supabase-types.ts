@@ -83,6 +83,7 @@ export interface SiteSettings {
   hero_heading_line2: string | null;
   hero_description: string | null;
   hero_text_color_mode: string | null;
+  hero_arabic_font: string | null;
   created_at: string;
   updated_at: string;
 }

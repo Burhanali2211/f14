@@ -14,6 +14,28 @@ interface HeroSectionProps {
   onSearch: (query: string) => void;
 }
 
+// Helper function to get font family based on font name
+const getArabicFontFamily = (fontName: string | null | undefined): string => {
+  switch (fontName) {
+    case 'noto-nastaliq':
+      return "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif";
+    case 'lateef':
+      return "'Lateef', 'Noto Nastaliq Urdu', 'Cairo', sans-serif";
+    case 'cairo':
+      return "'Cairo', 'Tajawal', sans-serif";
+    case 'tajawal':
+      return "'Tajawal', 'Cairo', sans-serif";
+    case 'amiri':
+      return "'Amiri', serif";
+    case 'noto-sans-arabic':
+      return "'Noto Sans Arabic', 'Cairo', sans-serif";
+    case 'ibm-plex-sans-arabic':
+      return "'IBM Plex Sans Arabic', 'Cairo', sans-serif";
+    default:
+      return "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif";
+  }
+};
+
 export function HeroSection({
   siteSettings,
   stats,
@@ -24,6 +46,7 @@ export function HeroSection({
   onSearch,
 }: HeroSectionProps) {
   const { getTextColorClass } = useImageBrightness(siteSettings);
+  const arabicFontFamily = getArabicFontFamily(siteSettings?.hero_arabic_font);
 
   return (
     <section 
@@ -70,9 +93,13 @@ export function HeroSection({
           </h1>
           
           {/* Description */}
-          <p className={`text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed ${
-            getTextColorClass().includes('white') ? 'text-white/90' : 'text-muted-foreground'
-          }`}>
+          <p 
+            className={`text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed ${
+              getTextColorClass().includes('white') ? 'text-white/90' : 'text-muted-foreground'
+            }`}
+            style={{ fontFamily: arabicFontFamily }}
+            dir="auto"
+          >
             {siteSettings?.hero_description || 'Explore Naat, Manqabat, Noha, Dua, Marsiya, and more. Read, listen, and connect with your spiritual heritage.'}
           </p>
 
