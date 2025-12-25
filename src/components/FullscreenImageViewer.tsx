@@ -623,6 +623,36 @@ export function FullscreenImageViewer({
     }
   }, [zoom, minZoom, position, constrainPosition, fitZoom]);
   
+  // Navigate between images - defined before handleTouchEnd to avoid hoisting issues
+  const handlePrevious = useCallback(() => {
+    if (!hasMultipleImages || !images) return;
+    const newIndex = actualIndex > 0 ? actualIndex - 1 : images.length - 1;
+    if (onIndexChange) {
+      onIndexChange(newIndex);
+    } else {
+      setInternalIndex(newIndex);
+    }
+    // Reset zoom and position when changing images
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+    setRotation(0);
+  }, [hasMultipleImages, images, actualIndex, onIndexChange]);
+
+  const handleNext = useCallback(() => {
+    if (!hasMultipleImages || !images) return;
+    const newIndex = actualIndex < images.length - 1 ? actualIndex + 1 : 0;
+    if (onIndexChange) {
+      onIndexChange(newIndex);
+    } else {
+      setInternalIndex(newIndex);
+    }
+    // Reset zoom and position when changing images
+    setZoom(1);
+    setPosition({ x: 0, y: 0 });
+    setRotation(0);
+  }, [hasMultipleImages, images, actualIndex, onIndexChange]);
+
+  // Handle touch end with navigation support
   const handleTouchEnd = useCallback((e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -732,35 +762,6 @@ export function FullscreenImageViewer({
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
   }, [isOpen, handleMouseMove, handleMouseUp]);
-
-  // Navigate between images
-  const handlePrevious = useCallback(() => {
-    if (!hasMultipleImages || !images) return;
-    const newIndex = actualIndex > 0 ? actualIndex - 1 : images.length - 1;
-    if (onIndexChange) {
-      onIndexChange(newIndex);
-    } else {
-      setInternalIndex(newIndex);
-    }
-    // Reset zoom and position when changing images
-    setZoom(1);
-    setPosition({ x: 0, y: 0 });
-    setRotation(0);
-  }, [hasMultipleImages, images, actualIndex, onIndexChange]);
-
-  const handleNext = useCallback(() => {
-    if (!hasMultipleImages || !images) return;
-    const newIndex = actualIndex < images.length - 1 ? actualIndex + 1 : 0;
-    if (onIndexChange) {
-      onIndexChange(newIndex);
-    } else {
-      setInternalIndex(newIndex);
-    }
-    // Reset zoom and position when changing images
-    setZoom(1);
-    setPosition({ x: 0, y: 0 });
-    setRotation(0);
-  }, [hasMultipleImages, images, actualIndex, onIndexChange]);
 
   // Keyboard shortcuts
   useEffect(() => {
