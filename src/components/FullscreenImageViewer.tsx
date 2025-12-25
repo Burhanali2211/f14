@@ -302,6 +302,17 @@ export function FullscreenImageViewer({
     }
   }, [currentIndex, images, onIndexChange]);
 
+  // Reset zoom to fitZoom when image source changes (for navigation)
+  useEffect(() => {
+    if (isOpen && actualSrc) {
+      // When image changes, mark as initial load so zoom resets to fitZoom
+      isInitialLoadRef.current = true;
+      // Reset position immediately
+      setPosition({ x: 0, y: 0 });
+      setRotation(0);
+    }
+  }, [actualSrc, isOpen]);
+
   // Reset on open and when src changes
   useEffect(() => {
     if (isOpen && actualSrc) {
@@ -611,7 +622,10 @@ export function FullscreenImageViewer({
       
       if (touchStartRef.current.distance > 0 && currentDistance > 0) {
         const scaleChange = currentDistance / touchStartRef.current.distance;
-        const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, zoom * scaleChange));
+        // Only allow zoom out if currently zoomed in (above fitZoom)
+        // Don't allow zooming out below fitZoom
+        const minAllowedZoom = zoom > fitZoom ? Math.max(minZoom, fitZoom) : fitZoom;
+        const newZoom = Math.max(minAllowedZoom, Math.min(MAX_ZOOM, zoom * scaleChange));
         
         setZoom(newZoom);
         const constrained = constrainPosition(position.x, position.y, newZoom);
@@ -632,10 +646,11 @@ export function FullscreenImageViewer({
     } else {
       setInternalIndex(newIndex);
     }
-    // Reset zoom and position when changing images
-    setZoom(1);
+    // Reset zoom to fit and position when changing images (preserve fitZoom, don't force zoom to 1)
+    // Wait for next image to load before setting zoom to fitZoom
     setPosition({ x: 0, y: 0 });
     setRotation(0);
+    // Don't set zoom here - let the image load handler set it to fitZoom
   }, [hasMultipleImages, images, actualIndex, onIndexChange]);
 
   const handleNext = useCallback(() => {
@@ -646,10 +661,11 @@ export function FullscreenImageViewer({
     } else {
       setInternalIndex(newIndex);
     }
-    // Reset zoom and position when changing images
-    setZoom(1);
+    // Reset zoom to fit and position when changing images (preserve fitZoom, don't force zoom to 1)
+    // Wait for next image to load before setting zoom to fitZoom
     setPosition({ x: 0, y: 0 });
     setRotation(0);
+    // Don't set zoom here - let the image load handler set it to fitZoom
   }, [hasMultipleImages, images, actualIndex, onIndexChange]);
 
   // Handle touch end with navigation support
@@ -789,7 +805,9 @@ export function FullscreenImageViewer({
         case '-':
           e.preventDefault();
           setZoom(prev => {
-            const newZoom = Math.max(minZoom, prev - 0.25);
+            // Only allow zoom out if currently zoomed in (above fitZoom)
+            // Don't allow zooming out below fitZoom
+            const newZoom = Math.max(fitZoom, prev - 0.25);
             const constrained = constrainPosition(position.x, position.y, newZoom);
             setPosition(constrained);
             return newZoom;
@@ -857,7 +875,10 @@ export function FullscreenImageViewer({
       
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
       setZoom(prev => {
-        const newZoom = Math.max(minZoom, Math.min(MAX_ZOOM, prev + delta));
+        // Only allow zoom out if currently zoomed in (above fitZoom)
+        // Don't allow zooming out below fitZoom
+        const minAllowedZoom = prev > fitZoom ? Math.max(minZoom, fitZoom) : fitZoom;
+        const newZoom = Math.max(minAllowedZoom, Math.min(MAX_ZOOM, prev + delta));
         const constrained = constrainPosition(position.x, position.y, newZoom);
         setPosition(constrained);
         resetControlsTimeout();

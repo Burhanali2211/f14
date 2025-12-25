@@ -22,6 +22,7 @@ const Index = lazy(() => import("./pages/Index"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
 const PiecePage = lazy(() => import("./pages/PiecePage"));
 const FigurePage = lazy(() => import("./pages/FigurePage"));
+const AhlulBaytPage = lazy(() => import("./pages/AhlulBaytPage"));
 const ArtistPage = lazy(() => import("./pages/ArtistPage"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const AdminPage = lazy(() => import("./pages/AdminPage"));
@@ -889,6 +890,7 @@ const App = () => (
                         <Route path="/category/:slug" element={<CategoryPage />} />
                         <Route path="/piece/:id" element={<PiecePage />} />
                         <Route path="/figure/:slug" element={<FigurePage />} />
+                        <Route path="/ahlul-bayt" element={<AhlulBaytPage />} />
                         <Route path="/artist/:reciterName" element={<ArtistPage />} />
                         <Route path="/auth" element={<AuthPage />} />
                         <Route path="/admin" element={<AdminPage />} />

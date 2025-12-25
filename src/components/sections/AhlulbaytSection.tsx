@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Users } from 'lucide-react';
+import { Users, ArrowRight } from 'lucide-react';
 import type { Imam } from '@/lib/supabase-types';
 
 interface AhlulbaytSectionProps {
@@ -8,6 +8,9 @@ interface AhlulbaytSectionProps {
 
 export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
   if (imams.length === 0) return null;
+
+  const displayedImams = imams.slice(0, 8);
+  const hasMore = imams.length > 8;
 
   return (
     <section className="py-12">
@@ -21,10 +24,20 @@ export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
             <p className="text-sm text-muted-foreground">Recitations in honor of the Holy Personalities</p>
           </div>
         </div>
+        {hasMore && (
+          <Link
+            to="/ahlul-bayt"
+            className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors group"
+          >
+            <span className="hidden sm:inline">View All</span>
+            <span className="sm:hidden">All</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </Link>
+        )}
       </div>
       
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {imams.slice(0, 8).map((imam, i) => (
+        {displayedImams.map((imam, i) => (
           <Link
             key={imam.id}
             to={`/figure/${imam.slug}`}
@@ -43,6 +56,18 @@ export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
           </Link>
         ))}
       </div>
+
+      {hasMore && (
+        <div className="mt-8 text-center">
+          <Link
+            to="/ahlul-bayt"
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-all duration-300 group"
+          >
+            <span>View All {imams.length} Personalities</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </Link>
+        </div>
+      )}
     </section>
   );
 }
