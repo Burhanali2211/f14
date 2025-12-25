@@ -120,15 +120,16 @@ export function FullscreenImageViewer({
         setPosition({ x: 0, y: 0 });
         isInitialLoadRef.current = false;
       } else {
-        // Ensure zoom is within valid range and adjust position
+        // Only ensure zoom is within valid range - DON'T reset position
+        // Let user keep their zoom/position settings
         setZoom(prev => {
           if (prev < newMinZoom) {
+            // Only reset position if zoom is below minimum (invalid state)
             setPosition({ x: 0, y: 0 });
             return newMinZoom;
           }
-          if (prev <= newFitZoom) {
-            setPosition({ x: 0, y: 0 });
-          }
+          // Don't reset position when zoom is at or below fitZoom
+          // User may have positioned the image and we should respect that
           return prev;
         });
       }
@@ -303,11 +304,15 @@ export function FullscreenImageViewer({
   }, [currentIndex, images, onIndexChange]);
 
   // Reset zoom to fitZoom when image source changes (for navigation)
+  // Only reset when the actual image URL changes (not on every render)
+  const prevActualSrcRef = useRef<string>('');
   useEffect(() => {
-    if (isOpen && actualSrc) {
+    if (isOpen && actualSrc && actualSrc !== prevActualSrcRef.current) {
+      // Only reset when image actually changes (different URL)
+      prevActualSrcRef.current = actualSrc;
       // When image changes, mark as initial load so zoom resets to fitZoom
       isInitialLoadRef.current = true;
-      // Reset position immediately
+      // Reset position immediately only when image changes
       setPosition({ x: 0, y: 0 });
       setRotation(0);
     }
@@ -1013,8 +1018,12 @@ export function FullscreenImageViewer({
               setImageDimensions({ width: naturalWidth, height: naturalHeight });
               setIsLoading(false);
               setError(false);
-              setRotation(0);
-              setPosition({ x: 0, y: 0 });
+              // Only reset rotation and position on initial load
+              // Don't reset if user has already zoomed/positioned
+              if (isInitialLoadRef.current) {
+                setRotation(0);
+                setPosition({ x: 0, y: 0 });
+              }
             } else {
               // Invalid image dimensions
               setIsLoading(false);

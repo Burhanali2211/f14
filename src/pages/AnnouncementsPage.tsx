@@ -381,9 +381,9 @@ export default function AnnouncementsPage() {
 
   const sendNotificationToAllUsers = async (announcement: Announcement) => {
     try {
-      // Get all users with notifications enabled
+      // Get all users with notifications enabled (using users table for custom auth)
       const { data: users, error: usersError } = await supabase
-        .from('profiles')
+        .from('users')
         .select('id, notifications_enabled, notification_permission_granted')
         .eq('notifications_enabled', true)
         .eq('notification_permission_granted', true);

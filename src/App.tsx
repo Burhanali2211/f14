@@ -104,11 +104,12 @@ function ServiceWorkerHandler() {
         } else if (event.data && event.data.type === 'SUBSCRIBE_NOTIFICATIONS') {
           // Handle subscription request
           try {
-            const { data: { user } } = await supabase.auth.getUser();
+            const { getCurrentUser } = await import('@/lib/auth-utils');
+            const user = getCurrentUser();
             if (user) {
-              // Update user profile to enable notifications for this imam
+              // Update user profile to enable notifications for this imam (using users table for custom auth)
               const { error } = await (supabase as any)
-                .from('profiles')
+                .from('users')
                 .update({ 
                   notifications_enabled: true,
                   notification_permission_granted: true 

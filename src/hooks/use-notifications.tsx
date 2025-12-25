@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { toast } from '@/hooks/use-toast';
+import { getCurrentUser } from '@/lib/auth-utils';
 import type { AhlulBaitEvent } from '@/lib/supabase-types';
 
 export interface NotificationPermission {
@@ -85,11 +86,11 @@ class NotificationService {
 
       const granted = permission === 'granted';
 
-      // Update user profile if authenticated
-      const { data: { user } } = await supabase.auth.getUser();
+      // Update user profile if authenticated (using custom auth)
+      const user = getCurrentUser();
       if (user) {
         const { error } = await supabase
-          .from('profiles')
+          .from('users')
           .update({
             notification_permission_granted: granted,
             notifications_enabled: granted
@@ -120,11 +121,11 @@ class NotificationService {
   }
 
   async isEnabled(): Promise<boolean> {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = getCurrentUser();
     if (!user) return false;
 
     const { data } = await supabase
-      .from('profiles')
+      .from('users')
       .select('notifications_enabled, notification_permission_granted')
       .eq('id', user.id)
       .single();
@@ -141,11 +142,11 @@ class NotificationService {
       return false;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = getCurrentUser();
     if (!user) return false;
 
     const { error } = await supabase
-      .from('profiles')
+      .from('users')
       .update({ notifications_enabled: true })
       .eq('id', user.id);
 
@@ -180,7 +181,7 @@ class NotificationService {
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const user = getCurrentUser();
       if (!user) return;
 
       // Check if we already have a subscription
@@ -264,7 +265,7 @@ class NotificationService {
     // Clear all scheduled notifications
     this.clearAllScheduledNotifications();
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = getCurrentUser();
     if (!user) return;
 
     // Unsubscribe from push notifications
@@ -285,7 +286,7 @@ class NotificationService {
     }
 
     await supabase
-      .from('profiles')
+      .from('users')
       .update({ notifications_enabled: false })
       .eq('id', user.id);
   }
