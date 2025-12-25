@@ -55,6 +55,7 @@ export default function PiecePage() {
   const [currentVerse, setCurrentVerse] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
+  const [pdfPagesForFullscreen, setPdfPagesForFullscreen] = useState<string[]>([]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [outline, setOutline] = useState<{ index: number; title: string; isHeader: boolean }[]>([]);
   const [pdfWindow, setPdfWindow] = useState<Window | null>(null);
@@ -801,6 +802,12 @@ export default function PiecePage() {
             pdfUrl={pdfUrl} 
             title={piece.title}
             onPdfOpen={(window) => setPdfWindow(window)}
+            onPdfPagesLoaded={(pages) => setPdfPagesForFullscreen(pages)}
+            onOpenFullscreen={() => {
+              if (pdfPagesForFullscreen.length > 0) {
+                setPdfViewerOpen(true);
+              }
+            }}
           />
         )}
         
@@ -909,10 +916,10 @@ export default function PiecePage() {
         onClose={() => setSettingsOpen(false)} 
       />
 
-      {/* Fullscreen PDF Viewer for multiple images */}
-      {getImageUrls.length > 1 && (
+      {/* Fullscreen PDF Viewer for multiple images or PDF pages */}
+      {(getImageUrls.length > 1 || pdfPagesForFullscreen.length > 0) && (
         <FullscreenPDFViewer
-          images={getImageUrls}
+          images={pdfPagesForFullscreen.length > 0 ? pdfPagesForFullscreen : getImageUrls}
           title={piece.title}
           isOpen={pdfViewerOpen}
           onClose={() => setPdfViewerOpen(false)}
@@ -937,7 +944,19 @@ export default function PiecePage() {
 }
 
 // PDF Viewer Component - handles mobile and desktop
-function PDFViewer({ pdfUrl, title, onPdfOpen }: { pdfUrl: string; title: string; onPdfOpen?: (window: Window | null) => void }) {
+function PDFViewer({ 
+  pdfUrl, 
+  title, 
+  onPdfOpen,
+  onPdfPagesLoaded,
+  onOpenFullscreen
+}: { 
+  pdfUrl: string; 
+  title: string; 
+  onPdfOpen?: (window: Window | null) => void;
+  onPdfPagesLoaded?: (pages: string[]) => void;
+  onOpenFullscreen?: () => void;
+}) {
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [useMobileViewer, setUseMobileViewer] = useState(false);
@@ -977,6 +996,10 @@ function PDFViewer({ pdfUrl, title, onPdfOpen }: { pdfUrl: string; title: string
         
         setPdfPages(pages);
         setUseMobileViewer(true);
+        // Notify parent component about loaded PDF pages for fullscreen viewing
+        if (onPdfPagesLoaded) {
+          onPdfPagesLoaded(pages);
+        }
       } catch (error) {
         logger.error('Error loading PDF with PDF.js:', error);
         setUseMobileViewer(false);
@@ -1059,11 +1082,26 @@ function PDFViewer({ pdfUrl, title, onPdfOpen }: { pdfUrl: string; title: string
     );
   }
 
+  const handleOpenFullscreen = () => {
+    if (pdfPages.length > 0 && onOpenFullscreen) {
+      onOpenFullscreen();
+    }
+  };
+
   if (useMobileViewer && pdfPages.length > 0) {
     // Mobile: Render PDF pages as images
     return (
       <div className="w-full mb-8" ref={containerRef}>
-        <div className="flex justify-end mb-4">
+        <div className="flex justify-end gap-2 mb-4">
+          <Button
+            onClick={handleOpenFullscreen}
+            variant="default"
+            size="sm"
+            className="gap-2"
+          >
+            <Maximize2 className="w-4 h-4" />
+            Open Fullscreen
+          </Button>
           <Button
             onClick={handleDownload}
             variant="outline"
@@ -1093,7 +1131,16 @@ function PDFViewer({ pdfUrl, title, onPdfOpen }: { pdfUrl: string; title: string
   // Desktop: Use iframe
   return (
     <div className="w-full mb-8" style={{ height: '80vh', minHeight: '600px' }}>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end gap-2 mb-4">
+        <Button
+          onClick={handleOpenFullscreen}
+          variant="default"
+          size="sm"
+          className="gap-2"
+        >
+          <Maximize2 className="w-4 h-4" />
+          Open Fullscreen
+        </Button>
         <Button
           onClick={handleDownload}
           variant="outline"
