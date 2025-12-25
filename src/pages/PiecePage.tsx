@@ -13,6 +13,7 @@ import { FullscreenImageViewer } from '@/components/FullscreenImageViewer';
 import { RecitationLayout } from '@/components/RecitationLayout';
 import { PDFLikeViewer } from '@/components/PDFLikeViewer';
 import { FullscreenPDFViewer } from '@/components/FullscreenPDFViewer';
+import { SwipeableImageGallery } from '@/components/SwipeableImageGallery';
 import { SEOHead } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -765,44 +766,32 @@ export default function PiecePage() {
           </div>
         )}
 
-        {/* Images Display - Show first 2 images at top if they exist */}
+        {/* Images Display - Swipeable Gallery */}
         {getImageUrls.length > 0 && (
           <article 
             className={`rounded-2xl p-6 md:p-10 lg:p-12 shadow-card border border-border/50 ${getReaderBgClass()} mb-8 ${
               !settings.animationsEnabled ? '' : 'transition-all duration-300'
             }`}
           >
-            <div className="flex flex-col items-center justify-center space-y-4">
-              {/* Display first 2 images */}
-              {getImageUrls.slice(0, 2).map((imgUrl, idx) => (
-                <div key={idx} className="relative w-full flex justify-center">
-                  <img 
-                    src={imgUrl} 
-                    alt={`${piece.title} - Preview ${idx + 1}${piece.reciter ? ` by ${piece.reciter}` : ''}${category ? ` - ${category.name}` : ''}`}
-                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 hover:scale-[1.02]"
-                    onClick={() => {
-                      setCurrentImageIndex(idx);
-                      setImageViewerOpen(true);
-                    }}
-                    loading="lazy"
-                    itemProp="image"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.style.display = 'none';
-                      const parent = target.parentElement;
-                      if (parent) {
-                        parent.innerHTML = '<div class="text-center text-muted-foreground p-8">Image unavailable</div>';
-                      }
-                    }}
-                  />
-                </div>
-              ))}
-              {getImageUrls.length > 0 && (
-                <p className="text-sm text-muted-foreground text-center">
-                  {getImageUrls.length > 1 ? 'Click images to view in full size' : 'Click image to view in full size'}
-                </p>
-              )}
-            </div>
+            <SwipeableImageGallery
+              images={getImageUrls}
+              title={piece.title}
+              onImageClick={(index) => {
+                setCurrentImageIndex(index);
+                setImageViewerOpen(true);
+              }}
+              showIndicators={true}
+              showNavigation={true}
+              autoHeight={true}
+              className="w-full"
+            />
+            {getImageUrls.length > 0 && (
+              <p className="text-sm text-muted-foreground text-center mt-4">
+                {getImageUrls.length > 1 
+                  ? 'Swipe left/right to navigate pages • Click to view in full size' 
+                  : 'Click image to view in full size'}
+              </p>
+            )}
           </article>
         )}
 
