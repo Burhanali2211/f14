@@ -74,6 +74,9 @@ export function FullscreenImageViewer({
   // Track if we pushed a history state for back button handling
   const historyStatePushedRef = useRef(false);
   const isOpenRef = useRef(isOpen);
+  
+  // Track if user has manually zoomed/positioned (to prevent automatic resets)
+  const userHasInteractedRef = useRef(false);
 
   // Calculate fit zoom and minimum zoom based on image dimensions and viewport
   const calculateFitZoom = useCallback((imgWidth: number, imgHeight: number, rotation: number) => {
@@ -119,19 +122,32 @@ export function FullscreenImageViewer({
         setZoom(newFitZoom);
         setPosition({ x: 0, y: 0 });
         isInitialLoadRef.current = false;
+        // Reset interaction flag on initial load or rotation
+        if (isInitialLoadRef.current || rotationChanged) {
+          userHasInteractedRef.current = false;
+        }
       } else {
         // Only ensure zoom is within valid range - DON'T reset position
-        // Let user keep their zoom/position settings
-        setZoom(prev => {
-          if (prev < newMinZoom) {
-            // Only reset position if zoom is below minimum (invalid state)
-            setPosition({ x: 0, y: 0 });
-            return newMinZoom;
-          }
-          // Don't reset position when zoom is at or below fitZoom
-          // User may have positioned the image and we should respect that
-          return prev;
-        });
+        // Let user keep their zoom/position settings if they've interacted
+        if (!userHasInteractedRef.current) {
+          // Only adjust if user hasn't manually zoomed/positioned
+          setZoom(prev => {
+            if (prev < newMinZoom) {
+              // Only reset position if zoom is below minimum (invalid state)
+              setPosition({ x: 0, y: 0 });
+              return newMinZoom;
+            }
+            return prev;
+          });
+        } else {
+          // User has interacted - only ensure zoom is within bounds, don't reset position
+          setZoom(prev => {
+            if (prev < newMinZoom) {
+              return newMinZoom;
+            }
+            return prev;
+          });
+        }
       }
     }
   }, [imageDimensions.width, imageDimensions.height, rotation, calculateFitZoom]);
@@ -338,6 +354,7 @@ export function FullscreenImageViewer({
       clickCountRef.current = 0;
       isInitialLoadRef.current = true;
       prevRotationRef.current = 0;
+      userHasInteractedRef.current = false; // Reset interaction flag on new image
       setImageDimensions({ width: 0, height: 0 });
       
       // Clear any existing loading timeout
@@ -488,6 +505,9 @@ export function FullscreenImageViewer({
     const constrained = constrainPosition(newX, newY, zoom);
     setPosition(constrained);
     
+    // Mark that user has interacted (dragged/positioned)
+    userHasInteractedRef.current = true;
+    
     // Update references for next move event
     // Update lastPositionRef to the constrained position
     lastPositionRef.current = constrained;
@@ -532,14 +552,14 @@ export function FullscreenImageViewer({
   }, [resetControlsTimeout, controlsVisible]);
   
   // Touch handlers for drag and pinch zoom
-  const getTouchDistance = (touches: TouchList): number => {
+  const getTouchDistance = (touches: React.TouchList | TouchList): number => {
     if (touches.length < 2) return 0;
     const dx = touches[0].clientX - touches[1].clientX;
     const dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
   };
   
-  const getTouchCenter = (touches: TouchList): { x: number; y: number } => {
+  const getTouchCenter = (touches: React.TouchList | TouchList): { x: number; y: number } => {
     if (touches.length === 0) return { x: 0, y: 0 };
     if (touches.length === 1) {
       return { x: touches[0].clientX, y: touches[0].clientY };
@@ -618,6 +638,9 @@ export function FullscreenImageViewer({
         const constrained = constrainPosition(newX, newY, zoom);
         setPosition(constrained);
         
+        // Mark that user has interacted (dragged/positioned)
+        userHasInteractedRef.current = true;
+        
         lastPositionRef.current = constrained;
         dragStartRef.current = { x: touch.clientX, y: touch.clientY };
       }
@@ -635,6 +658,8 @@ export function FullscreenImageViewer({
         setZoom(newZoom);
         const constrained = constrainPosition(position.x, position.y, newZoom);
         setPosition(constrained);
+        // Mark that user has interacted
+        userHasInteractedRef.current = true;
       }
       
       touchStartRef.current.distance = currentDistance;
@@ -769,9 +794,9 @@ export function FullscreenImageViewer({
         handleMouseMove(e);
       }
     };
-    const handleGlobalMouseUp = (e: MouseEvent) => {
+    const handleGlobalMouseUp = () => {
       if (isDraggingRef.current) {
-        handleMouseUp(e);
+        handleMouseUp();
       }
     };
     
@@ -804,6 +829,7 @@ export function FullscreenImageViewer({
             const newZoom = Math.min(MAX_ZOOM, prev + 0.25);
             const constrained = constrainPosition(position.x, position.y, newZoom);
             setPosition(constrained);
+            userHasInteractedRef.current = true;
             return newZoom;
           });
           break;
@@ -815,6 +841,7 @@ export function FullscreenImageViewer({
             const newZoom = Math.max(fitZoom, prev - 0.25);
             const constrained = constrainPosition(position.x, position.y, newZoom);
             setPosition(constrained);
+            userHasInteractedRef.current = true;
             return newZoom;
           });
           break;
@@ -887,6 +914,8 @@ export function FullscreenImageViewer({
         const constrained = constrainPosition(position.x, position.y, newZoom);
         setPosition(constrained);
         resetControlsTimeout();
+        // Mark that user has interacted
+        userHasInteractedRef.current = true;
         return newZoom;
       });
     };
@@ -981,7 +1010,6 @@ export function FullscreenImageViewer({
             transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
             transformOrigin: 'center center',
             userSelect: 'none',
-            WebkitUserDrag: 'none',
             touchAction: 'none',
             WebkitTouchCallout: 'none',
             overscrollBehavior: 'none',

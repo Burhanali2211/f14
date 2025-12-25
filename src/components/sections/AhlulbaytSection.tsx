@@ -63,7 +63,7 @@ export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
             to="/ahlul-bayt"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-all duration-300 group"
           >
-            <span>View All {imams.length} Personalities</span>
+            <span>View All </span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
