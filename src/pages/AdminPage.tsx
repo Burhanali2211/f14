@@ -109,7 +109,7 @@ export default function AdminPage() {
   const [imamForm, setImamForm] = useState({ name: '', slug: '', description: '', title: '', order_index: 1 });
 
   // Delete Dialog
-  const [deleteDialog, setDeleteDialog] = useState<{ type: 'category' | 'piece' | 'imam' | 'event'; id: string } | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState<{ type: 'category' | 'piece' | 'imam' | 'event' | 'artiste'; id: string } | null>(null);
 
   // Event Dialog
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
@@ -875,6 +875,10 @@ export default function AdminPage() {
         } else if (deleteDialog.type === 'imam') {
           invalidateCache('imams:*');
           invalidateCache('index:*');
+        } else if (deleteDialog.type === 'artiste') {
+          invalidateCache('artistes:*');
+          invalidateCache('artists:*');
+          invalidateCache('index:*');
         }
         invalidateCache('admin:data');
         // Refresh data to reflect the deletion
@@ -1574,7 +1578,7 @@ export default function AdminPage() {
               <p className="text-sm text-muted-foreground">
                 Upload optimized images for artistes. Images are automatically resized to 200x200px and compressed for optimal performance. 
                 <span className="block mt-1 text-xs text-muted-foreground/80">
-                  Note: Artistes cannot be deleted as they are linked to recitations. You can only manage their profile images.
+                  Note: Deleting an artiste will not delete their recitations. The reciter field in those recitations will remain but the artiste profile will be removed.
                 </span>
               </p>
             </div>
@@ -1617,6 +1621,15 @@ export default function AdminPage() {
                         {artiste.image_url ? 'Change Image' : 'Upload Image'}
                       </span>
                       <span className="sm:hidden">Upload</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeleteDialog({ type: 'artiste', id: artiste.id })}
+                      className="text-destructive hover:text-destructive h-9 w-9 sm:h-10 sm:w-10"
+                      title="Delete Artist"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
@@ -2116,7 +2129,8 @@ export default function AdminPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this {deleteDialog?.type}.
+              This action cannot be undone. This will permanently delete this {deleteDialog?.type === 'artiste' ? 'artist/reciter' : deleteDialog?.type}.
+              {deleteDialog?.type === 'artiste' && ' Note: This will not delete their recitations, but the artist profile will be removed.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

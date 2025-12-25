@@ -62,11 +62,13 @@ export function VirtualizedPieceList({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2 md:gap-3 mb-2">
               <h3 
-                className={`font-arabic-heading text-lg sm:text-xl md:text-2xl font-semibold text-foreground group-hover:text-primary transition-colors leading-[1.75] sm:leading-[1.8] md:leading-[1.85] flex-1 line-clamp-2 break-words ${textAlign}`}
+                className={`font-arabic-heading text-lg sm:text-xl md:text-2xl font-semibold text-foreground group-hover:text-primary transition-colors leading-[2.2] sm:leading-[2.2] md:leading-[2.2] flex-1 line-clamp-2 break-words py-0.5 ${textAlign}`}
                 style={{
                   wordSpacing: '0.15em',
                   letterSpacing: '0.03em',
                   fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+                  paddingTop: '0.25em',
+                  paddingBottom: '0.25em',
                 }}
                 dir={getTextDirection(piece.title)}
               >

@@ -50,11 +50,13 @@ export const PopularPieceCard = memo(function PopularPieceCard({ piece, index, t
       <div className="p-5 md:p-6">
         {/* Title */}
         <h3 
-          className={`font-arabic-heading text-lg sm:text-xl md:text-2xl font-semibold text-foreground mb-3 group-hover:text-primary/90 transition-colors duration-200 leading-[1.75] sm:leading-[1.8] md:leading-[1.85] line-clamp-2 break-words ${textAlign}`}
+          className={`font-arabic-heading text-lg sm:text-xl md:text-2xl font-semibold text-foreground mb-3 group-hover:text-primary/90 transition-colors duration-200 leading-[2.2] sm:leading-[2.2] md:leading-[2.2] line-clamp-2 break-words py-0.5 ${textAlign}`}
           style={{
             wordSpacing: '0.15em',
             letterSpacing: '0.03em',
             fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+            paddingTop: '0.25em',
+            paddingBottom: '0.25em',
           }}
           dir={getTextDirection(piece.title)}
         >

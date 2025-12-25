@@ -149,7 +149,13 @@ export function SearchBar({
                     to={`/piece/${piece.id}`}
                     className={`block ${isMobile ? 'px-4 py-4 min-h-[56px]' : 'px-4 py-3'} rounded-lg hover:bg-secondary active:bg-secondary/80 transition-colors group touch-manipulation`}
                   >
-                    <h3 className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors`}>
+                    <h3 
+                      className={`${isMobile ? 'text-base' : 'text-sm'} font-medium text-foreground line-clamp-2 group-hover:text-primary transition-colors leading-[2.2] py-0.5`}
+                      style={{
+                        paddingTop: '0.2em',
+                        paddingBottom: '0.2em',
+                      }}
+                    >
                       {piece.title}
                     </h3>
                     {piece.reciter && (

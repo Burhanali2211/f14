@@ -55,6 +55,7 @@ const PageLoader = () => (
 );
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { ScrollToTop } from "@/components/ScrollToTop";
+import { UpdateNotification } from "@/components/UpdateNotification";
 import { toast } from "@/hooks/use-toast";
 import { login as testLogin } from "@/lib/auth-utils";
 import { initializeCacheRealtimeSubscriptions } from "@/lib/realtime-cache-manager";
@@ -87,6 +88,18 @@ function ServiceWorkerHandler() {
       const handleMessage = async (event: MessageEvent) => {
         if (event.data && event.data.type === 'NAVIGATE') {
           navigate(event.data.url);
+        } else if (event.data && event.data.type === 'APP_VERSION_CHECK') {
+          // Service worker detected version change - trigger update check
+          const { getCurrentAppVersion, getStoredAppVersion, hasVersionChanged, clearAllCachesOnUpdate, storeAppVersion } = await import('@/lib/app-version');
+          const currentVersion = await getCurrentAppVersion();
+          const storedVersion = getStoredAppVersion();
+          
+          if (currentVersion && hasVersionChanged(currentVersion, storedVersion)) {
+            // Clear caches and reload
+            await clearAllCachesOnUpdate();
+            storeAppVersion(currentVersion);
+            window.location.reload();
+          }
         } else if (event.data && event.data.type === 'SUBSCRIBE_NOTIFICATIONS') {
           // Handle subscription request
           try {
@@ -869,6 +882,7 @@ const App = () => (
                     <CacheSystemInitializer />
                     <ServiceWorkerHandler />
                     <NotificationPermissionPrompt />
+                    <UpdateNotification />
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/" element={<Index />} />

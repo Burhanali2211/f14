@@ -878,7 +878,14 @@ export default function PiecePage() {
                 className="flex-1 p-4 bg-card rounded-xl border border-border hover:border-primary/50 transition-colors group"
               >
                 <span className="text-xs text-muted-foreground">Previous</span>
-                <p className="font-arabic text-lg font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1" dir="rtl">
+                <p 
+                  className="font-arabic text-lg font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1 leading-[2.2] py-0.5" 
+                  dir="rtl"
+                  style={{
+                    paddingTop: '0.2em',
+                    paddingBottom: '0.2em',
+                  }}
+                >
                   {siblingPieces.prev.title}
                 </p>
               </Link>
@@ -890,7 +897,14 @@ export default function PiecePage() {
                 className="flex-1 p-4 bg-card rounded-xl border border-border hover:border-primary/50 transition-colors text-right group"
               >
                 <span className="text-xs text-muted-foreground">Next</span>
-                <p className="font-arabic text-lg font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1" dir="rtl">
+                <p 
+                  className="font-arabic text-lg font-medium text-foreground group-hover:text-primary transition-colors line-clamp-1 leading-[2.2] py-0.5" 
+                  dir="rtl"
+                  style={{
+                    paddingTop: '0.2em',
+                    paddingBottom: '0.2em',
+                  }}
+                >
                   {siblingPieces.next.title}
                 </p>
               </Link>

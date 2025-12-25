@@ -1,24 +1,61 @@
 // Service Worker for Background Notifications
 const CACHE_NAME = 'sacred-recitations-v1';
 const NOTIFICATION_TITLE = 'Upcoming Event';
+const VERSION_FILE = '/version.json';
+
+// Get app version from version.json
+async function getAppVersion() {
+  try {
+    const response = await fetch(`${VERSION_FILE}?t=${Date.now()}`, {
+      cache: 'no-store',
+    });
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.error('Error fetching version:', error);
+  }
+  return null;
+}
 
 // Install event - cache resources
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and check for version updates
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((cacheName) => cacheName !== CACHE_NAME)
-          .map((cacheName) => caches.delete(cacheName))
-      );
-    })
+    (async () => {
+      // Get current app version
+      const version = await getAppVersion();
+      
+      // Clear all caches if version changed
+      const cacheNames = await caches.keys();
+      const deletePromises = cacheNames.map((cacheName) => {
+        // Always delete old cache names that don't match current version
+        if (cacheName !== CACHE_NAME) {
+          return caches.delete(cacheName);
+        }
+        return Promise.resolve();
+      });
+      
+      await Promise.all(deletePromises);
+      
+      // If version is available, notify clients to check for updates
+      if (version) {
+        const clients = await self.clients.matchAll();
+        clients.forEach((client) => {
+          client.postMessage({
+            type: 'APP_VERSION_CHECK',
+            version: version,
+          });
+        });
+      }
+      
+      return self.clients.claim();
+    })()
   );
-  return self.clients.claim();
 });
 
 // Handle push notifications

@@ -49,7 +49,17 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        // Exclude version.json from precaching - it should always be fetched fresh
+        globIgnores: ['**/version.json'],
         runtimeCaching: [
+          {
+            // Always fetch version.json fresh (no cache)
+            urlPattern: /\/version\.json/i,
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'version-check',
+            }
+          },
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
             handler: 'CacheFirst',

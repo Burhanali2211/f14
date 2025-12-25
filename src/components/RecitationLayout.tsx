@@ -325,7 +325,13 @@ export function RecitationLayout({
             </div>
             <div className="text-right">
               {title && (
-                <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground">
+                <h2 
+                  className="text-xl md:text-2xl lg:text-3xl font-bold text-foreground leading-[2.2] py-1"
+                  style={{
+                    paddingTop: '0.3em',
+                    paddingBottom: '0.3em',
+                  }}
+                >
                   {title}
                 </h2>
               )}

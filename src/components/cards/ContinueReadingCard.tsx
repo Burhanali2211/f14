@@ -63,11 +63,13 @@ export const ContinueReadingCard = memo(function ContinueReadingCard({ piece, in
       <div className="flex-1 min-w-0 flex flex-col justify-center">
         {/* Title - Primary hierarchy */}
         <h3 
-          className={`font-arabic-heading text-base sm:text-lg font-semibold text-foreground mb-1.5 group-hover:text-primary transition-colors duration-200 leading-[1.75] line-clamp-2 break-words ${textAlign}`}
+          className={`font-arabic-heading text-base sm:text-lg font-semibold text-foreground mb-1.5 group-hover:text-primary transition-colors duration-200 leading-[2.2] line-clamp-2 break-words py-0.5 ${textAlign}`}
           style={{
             wordSpacing: '0.15em',
             letterSpacing: '0.03em',
             fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+            paddingTop: '0.25em',
+            paddingBottom: '0.25em',
           }}
           dir={getTextDirection(piece.title)}
         >
