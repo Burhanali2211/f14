@@ -13,44 +13,136 @@ export interface TableVersion {
   maxCreatedAt: string | null;
 }
 
+// Cache to track which tables have updated_at column (to avoid repeated 400 errors)
+// undefined = not checked yet, true = exists, false = doesn't exist
+const COLUMN_CACHE_KEY = 'column_cache_v1';
+type ColumnCache = Record<string, { hasUpdatedAt?: boolean; hasCreatedAt?: boolean }>;
+
+// Load cache from localStorage on initialization
+function loadColumnCache(): Map<string, { hasUpdatedAt?: boolean; hasCreatedAt?: boolean }> {
+  try {
+    const cached = localStorage.getItem(COLUMN_CACHE_KEY);
+    if (cached) {
+      const parsed: ColumnCache = JSON.parse(cached);
+      return new Map(Object.entries(parsed));
+    }
+  } catch (error) {
+    logger.debug('Error loading column cache from localStorage:', error);
+  }
+  return new Map();
+}
+
+// Save cache to localStorage
+function saveColumnCache(cache: Map<string, { hasUpdatedAt?: boolean; hasCreatedAt?: boolean }>): void {
+  try {
+    const obj: ColumnCache = Object.fromEntries(cache);
+    localStorage.setItem(COLUMN_CACHE_KEY, JSON.stringify(obj));
+  } catch (error) {
+    logger.debug('Error saving column cache to localStorage:', error);
+  }
+}
+
+const columnCache = loadColumnCache();
+
 /**
  * Get the latest version timestamp for a table
  * Returns MAX(updated_at, created_at) as the version
  */
 export async function getTableVersion(table: string): Promise<string | null> {
   try {
-    // Try to get MAX(updated_at) first
-    const { data: updatedData, error: updatedError } = await safeQuery(async () => {
-      const result = await (supabase as any)
-        .from(table)
-        .select('updated_at')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      return result;
-    });
+    // Check cache first to avoid making queries for columns we know don't exist
+    const cached = columnCache.get(table);
     
-    if (!updatedError && updatedData?.updated_at) {
-      return updatedData.updated_at;
+    // Try to get MAX(updated_at) first (only if we haven't cached that it doesn't exist)
+    if (cached?.hasUpdatedAt === undefined || cached.hasUpdatedAt === true) {
+      const { data: updatedData, error: updatedError } = await safeQuery(async () => {
+        const result = await (supabase as any)
+          .from(table)
+          .select('updated_at')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        return result;
+      });
+      
+      // Check if error is due to missing column (400) or other issues
+      if (updatedError) {
+        const errorCode = (updatedError as any)?.code;
+        const errorMessage = String((updatedError as any)?.message || '').toLowerCase();
+        const httpStatus = (updatedError as any)?.status || (updatedError as any)?.statusCode;
+        
+        // If it's a 400 error or column-related error, cache that updated_at doesn't exist
+        if (httpStatus === 400 || errorCode === '42703' || errorMessage.includes('column') || errorMessage.includes('does not exist') || errorMessage.includes('undefined')) {
+          // Cache that this table doesn't have updated_at
+          const existingCache = columnCache.get(table) || {};
+          columnCache.set(table, { ...existingCache, hasUpdatedAt: false });
+          saveColumnCache(columnCache); // Persist to localStorage
+          // Continue to created_at fallback
+        } else if (errorCode !== 'PGRST116') {
+          // PGRST116 is "no rows" which is fine, but other errors should be logged
+          logger.warn(`Error querying 'updated_at' for table '${table}':`, updatedError);
+        }
+      } else if (updatedData?.updated_at) {
+        // Success - cache that this table has updated_at
+        const existingCache = columnCache.get(table) || {};
+        columnCache.set(table, { ...existingCache, hasUpdatedAt: true });
+        saveColumnCache(columnCache); // Persist to localStorage
+        return updatedData.updated_at;
+      } else {
+        // No data but no error - might be empty table, cache that updated_at exists (column exists but table is empty)
+        const existingCache = columnCache.get(table) || {};
+        columnCache.set(table, { ...existingCache, hasUpdatedAt: true });
+        saveColumnCache(columnCache); // Persist to localStorage
+      }
     }
     
-    // Fallback to MAX(created_at) if updated_at doesn't exist
-    const { data: createdData, error: createdError } = await safeQuery(async () => {
-      const result = await (supabase as any)
-        .from(table)
-        .select('created_at')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+    // Fallback to MAX(created_at) if updated_at doesn't exist or returned null
+    if (cached?.hasCreatedAt === undefined || cached.hasCreatedAt === true) {
+      const { data: createdData, error: createdError } = await safeQuery(async () => {
+        const result = await (supabase as any)
+          .from(table)
+          .select('created_at')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        return result;
+      });
       
-      return result;
-    });
-    
-    if (!createdError && createdData?.created_at) {
-      return createdData.created_at;
+      // Handle errors for created_at query
+      if (createdError) {
+        const errorCode = (createdError as any)?.code;
+        const errorMessage = String((createdError as any)?.message || '').toLowerCase();
+        const httpStatus = (createdError as any)?.status || (createdError as any)?.statusCode;
+        
+        // If it's a column not found error, cache that created_at doesn't exist
+        if (httpStatus === 400 || errorCode === '42703' || errorMessage.includes('column') || errorMessage.includes('does not exist') || errorMessage.includes('undefined')) {
+          const existingCache = columnCache.get(table) || {};
+          columnCache.set(table, { ...existingCache, hasCreatedAt: false });
+          saveColumnCache(columnCache); // Persist to localStorage
+        } else if (errorCode !== 'PGRST116') {
+          // PGRST116 is "no rows" which is fine
+          logger.warn(`Error querying 'created_at' for table '${table}':`, createdError);
+        }
+        return null;
+      }
+      
+      if (createdData?.created_at) {
+        // Success - cache that this table has created_at
+        const existingCache = columnCache.get(table) || {};
+        columnCache.set(table, { ...existingCache, hasCreatedAt: true });
+        saveColumnCache(columnCache); // Persist to localStorage
+        return createdData.created_at;
+      } else {
+        // No data but no error - cache that created_at exists (column exists but table is empty)
+        const existingCache = columnCache.get(table) || {};
+        columnCache.set(table, { ...existingCache, hasCreatedAt: true });
+        saveColumnCache(columnCache); // Persist to localStorage
+      }
     }
     
+    // No data found - table might be empty
     return null;
   } catch (error) {
     logger.error(`Error getting table version for ${table}:`, error);
