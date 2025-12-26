@@ -35,28 +35,28 @@ export function ArtistsSection({ artists }: ArtistsSectionProps) {
   ];
 
   return (
-    <section className="py-12">
-      <div className="flex items-center justify-between mb-8">
+    <section className="py-12 sm:py-14 md:py-16">
+      <div className="flex items-center justify-between mb-6 sm:mb-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-500/10 flex items-center justify-center">
-            <Mic className="w-5 h-5 text-purple-500" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-500/10 flex items-center justify-center flex-shrink-0">
+            <Mic className="w-5 h-5 sm:w-6 sm:h-6 text-purple-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Browse by Artists</h2>
-            <p className="text-sm text-muted-foreground">Discover recitations by your favorite artists</p>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Browse by Artists</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Discover recitations by your favorite artists</p>
           </div>
         </div>
       </div>
       
       <div 
-        className="overflow-x-auto -mx-4 sm:-mx-6 px-4 sm:px-6 scrollbar-hide"
+        className="overflow-x-auto -mx-4 sm:-mx-5 md:-mx-6 px-4 sm:px-5 md:px-6 scrollbar-hide"
         style={{
           touchAction: 'pan-x pan-y',
           maxWidth: '100%',
           contain: 'layout style'
         }}
       >
-        <div className="flex gap-6 min-w-max pb-2">
+        <div className="flex gap-4 sm:gap-5 md:gap-6 min-w-max pb-2">
           {artists.map((artist, i) => {
             const colorIndex = artist.name.charCodeAt(0) % colors.length;
             const gradient = colors[colorIndex];

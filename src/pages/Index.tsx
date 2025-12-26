@@ -76,7 +76,7 @@ export default function Index() {
         onSearch={handleSearch}
       />
 
-      <main className="container pb-20">
+      <main className="container pb-16 sm:pb-20 md:pb-24 px-4 sm:px-5 md:px-6">
         <UpcomingEvents />
 
         {/* Main Content */}

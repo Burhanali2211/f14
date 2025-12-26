@@ -71,30 +71,30 @@ export function HeroSection({
           }}
         />
       )}
-      <div className="container pt-8 pb-16 md:py-24 relative z-10 min-h-[calc(100vh-80px)] flex items-center justify-center">
-        <div className={`text-center max-w-4xl mx-auto animate-fade-in ${getTextColorClass()}`}>
+      <div className="container pt-8 pb-16 md:pt-12 md:pb-20 lg:py-24 relative z-10 min-h-[calc(100vh-80px)] flex items-center justify-center">
+        <div className={`text-center max-w-4xl mx-auto animate-fade-in px-4 sm:px-6 md:px-8 ${getTextColorClass()}`}>
           {/* Badge */}
-          <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border border-border/50 shadow-soft text-sm mb-8 ${
+          <div className={`inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-border/50 shadow-soft text-xs sm:text-sm mb-6 sm:mb-8 ${
             getTextColorClass().includes('white') ? 'bg-black/30 backdrop-blur-sm' : 'bg-card'
           }`}>
             <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
             <span className={getTextColorClass().includes('white') ? 'text-white/90' : 'text-muted-foreground'}>
               {siteSettings?.hero_badge_text || 'Your Spiritual Companion'}
             </span>
-            <Sparkles className="w-4 h-4 text-accent" />
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-accent" />
           </div>
           
           {/* Heading */}
-          <h1 className={`text-4xl md:text-6xl lg:text-7xl font-bold mb-6 leading-tight ${getTextColorClass()}`}>
+          <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold mb-4 sm:mb-6 leading-tight ${getTextColorClass()}`}>
             {siteSettings?.hero_heading_line1 || 'Discover the Beauty of'}
-            <span className="block text-gradient mt-2">
+            <span className="block text-gradient mt-1 sm:mt-2">
               {siteSettings?.hero_heading_line2 || 'islamic poetry'}
             </span>
           </h1>
           
           {/* Description */}
           <p 
-            className={`text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed ${
+            className={`text-base sm:text-lg md:text-xl max-w-2xl mx-auto mb-8 sm:mb-10 leading-relaxed ${
               getTextColorClass().includes('white') ? 'text-white/90' : 'text-muted-foreground'
             }`}
             style={{ fontFamily: arabicFontFamily }}
@@ -104,7 +104,7 @@ export function HeroSection({
           </p>
 
           {/* Search */}
-          <div className="mb-12">
+          <div className="mb-8 sm:mb-10 md:mb-12">
             <SearchBar 
               onSearch={onSearch}
               placeholder="Search for Naat, Noha, Dua, reciter..."
@@ -115,20 +115,20 @@ export function HeroSection({
           </div>
 
           {/* Stats */}
-          <div className="flex items-center justify-center gap-8 md:gap-12">
+          <div className="flex items-center justify-center gap-6 sm:gap-8 md:gap-10 lg:gap-12">
             <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-gradient">{stats.categories}</p>
-              <p className="text-sm text-muted-foreground">Categories</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gradient">{stats.categories}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Categories</p>
             </div>
-            <div className="w-px h-12 bg-border" />
+            <div className="w-px h-10 sm:h-12 bg-border" />
             <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-gradient-gold">{recentPiecesCount}+</p>
-              <p className="text-sm text-muted-foreground">Recitations</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gradient-gold">{recentPiecesCount}+</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Recitations</p>
             </div>
-            <div className="w-px h-12 bg-border" />
+            <div className="w-px h-10 sm:h-12 bg-border" />
             <div className="text-center">
-              <p className="text-3xl md:text-4xl font-bold text-gradient">∞</p>
-              <p className="text-sm text-muted-foreground">Blessings</p>
+              <p className="text-2xl sm:text-3xl md:text-4xl font-bold text-gradient">∞</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Blessings</p>
             </div>
           </div>
         </div>

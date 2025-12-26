@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, Upload, FileText, Check, X, Loader2, Save, CheckSquare, Square, FileCheck, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Upload, FileText, Check, X, Loader2, Save, CheckSquare, Square, FileCheck, AlertCircle, Edit } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { FullscreenImageViewer } from '@/components/FullscreenImageViewer';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
@@ -129,6 +136,61 @@ export default function BulkRecitationUploadPage() {
   const [groups, setGroups] = useState<RecitationGroup[]>([]);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [metadataDialogOpen, setMetadataDialogOpen] = useState(false);
+  const scrollPositionRef = useRef<number>(0);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const longPressTargetRef = useRef<string | null>(null);
+
+  // Cleanup long press timer on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Save scroll position when opening viewer or dialog
+  useEffect(() => {
+    if (imageViewerOpen || metadataDialogOpen) {
+      // Save current scroll position
+      const currentScroll = window.scrollY || document.documentElement.scrollTop || window.pageYOffset;
+      scrollPositionRef.current = currentScroll;
+      
+      // Prevent body scroll while maintaining position
+      document.body.style.overflow = 'hidden';
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${currentScroll}px`;
+      document.body.style.width = '100%';
+    } else {
+      // Restore scroll position after a brief delay to ensure DOM is ready
+      const scrollPosition = scrollPositionRef.current;
+      
+      // Restore body styles
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.top = '';
+      document.body.style.width = '';
+      
+      // Restore scroll position
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          top: scrollPosition,
+          behavior: 'auto'
+        });
+      });
+    }
+
+    return () => {
+      // Cleanup on unmount
+      if (!imageViewerOpen && !metadataDialogOpen) {
+        document.body.style.overflow = '';
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+      }
+    };
+  }, [imageViewerOpen, metadataDialogOpen]);
   
   // Metadata form for selected recitations
   const [metadata, setMetadata] = useState({
@@ -138,57 +200,6 @@ export default function BulkRecitationUploadPage() {
     language: 'Urdu',
     video_url: '',
   });
-
-  // Load from localStorage on mount
-  useEffect(() => {
-    try {
-      const savedData = localStorage.getItem('bulk-upload-session');
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        if (parsed.recitations && parsed.recitations.length > 0) {
-          // Restore recitations (without imageDataUrl - images need to be re-extracted)
-          const restoredRecitations = parsed.recitations.map((r: any) => ({
-            ...r,
-            imageDataUrl: '', // Images not stored - need to re-extract from PDF
-            imageBlob: undefined,
-          }));
-          setRecitations(restoredRecitations);
-          
-          // Restore groups
-          if (parsed.groups) {
-            setGroups(parsed.groups);
-          }
-          
-          // Restore metadata
-          if (parsed.metadata) {
-            setMetadata(parsed.metadata);
-          }
-          
-          // Restore PDF file info (we can't restore the actual file, but we know it was there)
-          if (parsed.pdfFileName) {
-            // Create a dummy file object for display purposes
-            const dummyFile = new File([], parsed.pdfFileName, { type: 'application/pdf' });
-            Object.defineProperty(dummyFile, 'size', { value: parsed.pdfFileSize || 0 });
-            setPdfFile(dummyFile);
-          }
-          
-          toast({
-            title: 'Session Restored',
-            description: `Restored ${restoredRecitations.length} page(s) with selections and groups. Re-upload the PDF to restore images.`,
-            variant: 'default',
-          });
-        }
-      }
-    } catch (error) {
-      logger.error('Error loading from localStorage:', error);
-      // If corrupted, clear it
-      try {
-        localStorage.removeItem('bulk-upload-session');
-      } catch (clearError) {
-        logger.error('Error clearing corrupted session:', clearError);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     if (roleLoading) return;
@@ -205,78 +216,6 @@ export default function BulkRecitationUploadPage() {
     
     fetchData();
   }, [role, roleLoading]);
-
-  // Save to localStorage whenever data changes (without image data to avoid quota issues)
-  useEffect(() => {
-    if (recitations.length > 0) {
-      try {
-        // Only save essential metadata - NOT image data URLs (too large for localStorage)
-        const dataToSave = {
-          recitations: recitations.map(r => ({
-            id: r.id,
-            pageNumber: r.pageNumber,
-            title: r.title,
-            // Don't store imageDataUrl - it's too large and causes quota errors
-            // Images will need to be re-extracted from PDF when restoring
-            selected: r.selected,
-            customTitle: r.customTitle,
-            groupId: r.groupId,
-          })),
-          groups,
-          metadata,
-          pdfFileName: pdfFile?.name,
-          pdfFileSize: pdfFile?.size,
-          timestamp: Date.now(),
-        };
-        
-        const dataString = JSON.stringify(dataToSave);
-        const dataSize = new Blob([dataString]).size;
-        
-        // Check if data is too large (localStorage limit is typically 5-10MB)
-        if (dataSize > 4 * 1024 * 1024) { // 4MB threshold
-          logger.warn('Session data is large, but saving without images');
-        }
-        
-        localStorage.setItem('bulk-upload-session', dataString);
-      } catch (error) {
-        logger.error('Error saving to localStorage:', error);
-        // If storage is full, try to clear old data and retry
-        if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-          try {
-            // Clear old session data and try again with just essential data
-            localStorage.removeItem('bulk-upload-session');
-            const minimalData = {
-              recitations: recitations.map(r => ({
-                id: r.id,
-                pageNumber: r.pageNumber,
-                title: r.title,
-                selected: r.selected,
-                customTitle: r.customTitle,
-                groupId: r.groupId,
-              })),
-              groups,
-              metadata,
-              pdfFileName: pdfFile?.name,
-              pdfFileSize: pdfFile?.size,
-              timestamp: Date.now(),
-            };
-            localStorage.setItem('bulk-upload-session', JSON.stringify(minimalData));
-            toast({
-              title: 'Storage Optimized',
-              description: 'Session saved with essential data only. Images will need to be re-extracted.',
-              variant: 'default',
-            });
-          } catch (retryError) {
-            toast({
-              title: 'Storage Full',
-              description: 'Could not save session data. Please save your work soon or clear browser storage.',
-              variant: 'destructive',
-            });
-          }
-        }
-      }
-    }
-  }, [recitations, groups, metadata, pdfFile]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -393,53 +332,7 @@ export default function BulkRecitationUploadPage() {
         });
       }
       
-      // Recreate blobs from data URLs for any existing recitations that don't have blobs
-      const existingRecitations = recitations.map((r) => {
-        if (!r.imageBlob && r.imageDataUrl) {
-          try {
-            // Convert data URL back to blob
-            const parts = r.imageDataUrl.split(',');
-            if (parts.length !== 2) {
-              logger.warn('Invalid dataUrl format for recitation:', r.id);
-              return r;
-            }
-            const byteString = atob(parts[1]);
-            const mimeString = parts[0].split(':')[1].split(';')[0];
-            const ab = new ArrayBuffer(byteString.length);
-            const ia = new Uint8Array(ab);
-            for (let i = 0; i < byteString.length; i++) {
-              ia[i] = byteString.charCodeAt(i);
-            }
-            const blob = new Blob([ab], { type: mimeString });
-            return { ...r, imageBlob: blob };
-          } catch (error) {
-            logger.error('Error recreating blob from dataUrl:', error);
-            return r;
-          }
-        }
-        return r;
-      });
-      
-      // Merge existing with new, avoiding duplicates
-      // If we have existing recitations from localStorage (without images), merge their metadata
-      const existingPageNumbers = new Set(existingRecitations.map(r => r.pageNumber));
-      const newRecitations = extracted.filter(e => !existingPageNumbers.has(e.pageNumber));
-      
-      // For existing recitations, update them with new image data if available
-      const mergedRecitations = existingRecitations.map(existing => {
-        const extractedMatch = extracted.find(e => e.pageNumber === existing.pageNumber);
-        if (extractedMatch) {
-          // Update existing with new image data
-          return {
-            ...existing,
-            imageDataUrl: extractedMatch.imageDataUrl,
-            imageBlob: extractedMatch.imageBlob,
-          };
-        }
-        return existing;
-      });
-      
-      setRecitations([...mergedRecitations, ...newRecitations]);
+      setRecitations(extracted);
       setSelectedCount(0);
       
       toast({
@@ -586,6 +479,7 @@ export default function BulkRecitationUploadPage() {
     setSaving(true);
     try {
       // Upload images and create pieces
+      // Note: Authentication is already checked at page level via useUserRole hook
       const piecesToInsert = [];
       
       // Only save groups - all pages must be grouped
@@ -659,12 +553,46 @@ export default function BulkRecitationUploadPage() {
         
         for (let i = 0; i < imagesToUpload; i++) {
           try {
+            // Validate blob before processing
+            if (!imageBlobs[i] || imageBlobs[i].size === 0) {
+              logger.error('Invalid blob for group image:', { groupId: group.id, index: i });
+              toast({
+                title: 'Image Error',
+                description: `Image ${i + 1} is invalid or empty. Skipping...`,
+                variant: 'destructive',
+              });
+              continue;
+            }
+
+            // Check blob size (max 50MB before optimization)
+            const maxSize = 50 * 1024 * 1024; // 50MB
+            if (imageBlobs[i].size > maxSize) {
+              logger.error('Blob too large:', { size: imageBlobs[i].size, maxSize });
+              toast({
+                title: 'Image Too Large',
+                description: `Image ${i + 1} is too large (${(imageBlobs[i].size / 1024 / 1024).toFixed(2)}MB). Skipping...`,
+                variant: 'destructive',
+              });
+              continue;
+            }
+
             const imageFile = new File([imageBlobs[i]], `group-${group.id}-page-${groupRecitations[i].pageNumber}.jpg`, {
               type: 'image/jpeg',
             });
 
             const { optimizeRecitationImage } = await import('@/lib/image-optimizer');
             const optimizedBlob = await optimizeRecitationImage(imageFile);
+            
+            // Validate optimized blob
+            if (!optimizedBlob || optimizedBlob.size === 0) {
+              logger.error('Optimized blob is invalid or empty');
+              toast({
+                title: 'Optimization Error',
+                description: `Failed to optimize image ${i + 1}. Skipping...`,
+                variant: 'destructive',
+              });
+              continue;
+            }
             
             const fileName = `bulk-upload-group-${Date.now()}-${group.id}-page-${groupRecitations[i].pageNumber}.webp`;
             
@@ -677,12 +605,41 @@ export default function BulkRecitationUploadPage() {
               });
 
             if (uploadError) {
-              logger.error('Error uploading group image:', uploadError);
+              logger.error('Error uploading group image:', {
+                error: uploadError,
+                message: uploadError.message,
+                statusCode: uploadError.statusCode,
+                fileName,
+                blobSize: optimizedBlob.size,
+              });
+              
+              // Provide more specific error messages
+              let errorMessage = 'Failed to upload image';
+              if (uploadError.message?.includes('CORS') || uploadError.message?.includes('NetworkError')) {
+                errorMessage = 'Network error. Please check your internet connection and try again.';
+              } else if (uploadError.message?.includes('Bucket not found')) {
+                errorMessage = 'Storage bucket not found. Please contact an administrator.';
+              } else if (uploadError.message?.includes('row-level security') || uploadError.message?.includes('permission')) {
+                errorMessage = 'Permission denied. You may not have permission to upload images.';
+              } else if (uploadError.message) {
+                errorMessage = uploadError.message;
+              }
+              
+              toast({
+                title: 'Upload Error',
+                description: `Image ${i + 1}: ${errorMessage}`,
+                variant: 'destructive',
+              });
               continue;
             }
 
             if (!uploadData?.path) {
               logger.error('Group image upload succeeded but no path returned');
+              toast({
+                title: 'Upload Error',
+                description: `Image ${i + 1} uploaded but failed to get URL. Skipping...`,
+                variant: 'destructive',
+              });
               continue;
             }
 
@@ -692,7 +649,18 @@ export default function BulkRecitationUploadPage() {
             
             imageUrls.push(publicUrl);
           } catch (imgError: any) {
-            logger.error('Error processing group image:', imgError);
+            logger.error('Error processing group image:', {
+              error: imgError,
+              message: imgError?.message,
+              stack: imgError?.stack,
+              groupId: group.id,
+              index: i,
+            });
+            toast({
+              title: 'Image Processing Error',
+              description: `Error processing image ${i + 1}: ${imgError?.message || 'Unknown error'}`,
+              variant: 'destructive',
+            });
             continue;
           }
         }
@@ -701,6 +669,12 @@ export default function BulkRecitationUploadPage() {
         let pdfUrl: string | null = null;
         try {
           const pdfBlob = await createPDFFromImages(imageBlobs, group.name.trim());
+          
+          // Validate PDF blob
+          if (!pdfBlob || pdfBlob.size === 0) {
+            throw new Error('PDF blob is invalid or empty');
+          }
+          
           const pdfFileName = `bulk-upload-group-${Date.now()}-${group.id}.pdf`;
           
           const { data: pdfUploadData, error: pdfUploadError } = await supabase.storage
@@ -712,13 +686,32 @@ export default function BulkRecitationUploadPage() {
             });
 
           if (pdfUploadError) {
-            logger.error('Error uploading PDF:', pdfUploadError);
-            throw pdfUploadError;
+            logger.error('Error uploading PDF:', {
+              error: pdfUploadError,
+              message: pdfUploadError.message,
+              statusCode: pdfUploadError.statusCode,
+              fileName: pdfFileName,
+              blobSize: pdfBlob.size,
+            });
+            
+            // Provide more specific error messages
+            let errorMessage = 'Failed to upload PDF';
+            if (pdfUploadError.message?.includes('CORS') || pdfUploadError.message?.includes('NetworkError')) {
+              errorMessage = 'Network error. Please check your internet connection and try again.';
+            } else if (pdfUploadError.message?.includes('Bucket not found')) {
+              errorMessage = 'Storage bucket not found. Please contact an administrator.';
+            } else if (pdfUploadError.message?.includes('row-level security') || pdfUploadError.message?.includes('permission')) {
+              errorMessage = 'Permission denied. You may not have permission to upload files.';
+            } else if (pdfUploadError.message) {
+              errorMessage = pdfUploadError.message;
+            }
+            
+            throw new Error(errorMessage);
           }
 
           if (!pdfUploadData?.path) {
             logger.error('PDF upload succeeded but no path returned');
-            throw new Error('PDF upload failed');
+            throw new Error('PDF upload failed - no path returned');
           }
 
           const { data: { publicUrl } } = supabase.storage
@@ -727,10 +720,16 @@ export default function BulkRecitationUploadPage() {
           
           pdfUrl = publicUrl;
         } catch (pdfError: any) {
-          logger.error('Error creating PDF:', pdfError);
+          logger.error('Error creating/uploading PDF:', {
+            error: pdfError,
+            message: pdfError?.message,
+            stack: pdfError?.stack,
+            groupId: group.id,
+            groupName: group.name,
+          });
           toast({
             title: 'PDF Creation Error',
-            description: `Failed to create PDF for ${group.name}. Images will be saved instead.`,
+            description: `Failed to create PDF for ${group.name}: ${pdfError?.message || 'Unknown error'}. Images will be saved instead.`,
             variant: 'destructive',
           });
           // Fallback: if PDF creation fails, use all images
@@ -796,13 +795,6 @@ export default function BulkRecitationUploadPage() {
       });
       setGroups(prev => prev.filter(g => !savedGroupIds.includes(g.id)));
 
-      // Clear localStorage after successful save
-      try {
-        localStorage.removeItem('bulk-upload-session');
-      } catch (error) {
-        logger.error('Error clearing localStorage:', error);
-      }
-
       // Reset metadata if all recitations are saved
       if (recitations.length === savedRecitationIds.size) {
         setPdfFile(null);
@@ -858,41 +850,8 @@ export default function BulkRecitationUploadPage() {
                 </h1>
                   <p className="text-muted-foreground">
                   Upload a PDF file. Each page will be rendered as an image. Select the pages you want to add as recitations, name them, and save them all at once.
-                  <br />
-                  <span className="text-xs text-muted-foreground/80 mt-1 block">
-                    💾 Your selections and groups are automatically saved. If you refresh, re-upload the PDF to restore images.
-                  </span>
                 </p>
               </div>
-              {recitations.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    if (confirm('Clear all saved work? This cannot be undone.')) {
-                      localStorage.removeItem('bulk-upload-session');
-                      setRecitations([]);
-                      setGroups([]);
-                      setPdfFile(null);
-                      setSelectedCount(0);
-                      setMetadata({
-                        category_id: metadata.category_id,
-                        imam_id: '',
-                        reciter: '',
-                        language: 'Urdu',
-                        video_url: '',
-                      });
-                      toast({
-                        title: 'Session Cleared',
-                        description: 'All saved work has been cleared',
-                      });
-                    }
-                  }}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Clear Session
-                </Button>
-              )}
             </div>
           </div>
 
@@ -912,8 +871,17 @@ export default function BulkRecitationUploadPage() {
                     type="file"
                     accept=".pdf"
                     onChange={handleFileSelect}
-                    className="cursor-pointer"
+                    className="hidden"
                   />
+                  <Button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload PDF
+                  </Button>
                 </div>
                 <Button
                   onClick={parsePDF}
@@ -944,9 +912,9 @@ export default function BulkRecitationUploadPage() {
             </CardContent>
           </Card>
 
-          {/* Metadata Form */}
+          {/* Metadata Form - Hidden, moved to Dialog */}
           {recitations.length > 0 && (
-            <Card>
+            <Card className="hidden">
               <CardHeader>
                 <CardTitle>Metadata for Selected Recitations</CardTitle>
                 <CardDescription>
@@ -1201,6 +1169,289 @@ export default function BulkRecitationUploadPage() {
             </Card>
           )}
 
+          {/* Floating Action Button */}
+          {(selectedCount > 0 || groups.length > 0) && (
+            <div className="fixed bottom-6 right-6 z-40">
+              <Button
+                onClick={() => {
+                  // Save scroll position before opening
+                  scrollPositionRef.current = window.scrollY || document.documentElement.scrollTop;
+                  setMetadataDialogOpen(true);
+                }}
+                size="lg"
+                className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 sm:h-16 sm:w-16 relative"
+                aria-label="Open metadata form"
+              >
+                <Edit className="w-5 h-5 sm:w-6 sm:h-6" />
+                {(groups.length > 0 || selectedCount > 0) && (
+                  <span className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center border-2 border-background">
+                    {groups.length > 0 ? groups.length : selectedCount}
+                  </span>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {/* Metadata Dialog - Centered Modal */}
+          <Dialog open={metadataDialogOpen} onOpenChange={setMetadataDialogOpen}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="text-2xl">Save Your Recitations</DialogTitle>
+                <DialogDescription className="text-base">
+                  Follow these simple steps to save your selected pages
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="space-y-6 py-4">
+                {/* Simple Instructions */}
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 space-y-2">
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                    <CheckSquare className="w-5 h-5" />
+                    How to Save:
+                  </h3>
+                  <ol className="list-decimal list-inside space-y-1 text-sm text-blue-800 dark:text-blue-200">
+                    <li>Select 2-3 pages from the PDF below</li>
+                    <li>Click the button below to group them</li>
+                    <li>Give your recitation a name</li>
+                    <li>Fill in the details (category is required)</li>
+                    <li>Click "Save" to upload</li>
+                  </ol>
+                </div>
+                {/* Step 1: Group Selected Pages */}
+                {selectedCount > 0 && groups.length === 0 && (
+                  <div className="p-4 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-green-900 dark:text-green-100 mb-1">
+                          Step 1: Group Your Pages ({selectedCount} selected)
+                        </h4>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          {selectedCount >= 2 
+                            ? "Click the button to combine these pages into one recitation"
+                            : "Select at least 2 pages to continue"}
+                        </p>
+                      </div>
+                      {selectedCount >= 2 && (
+                        <Button
+                          onClick={createGroup}
+                          className="bg-green-600 hover:bg-green-700 text-white whitespace-nowrap"
+                        >
+                          <CheckSquare className="w-4 h-4 mr-2" />
+                          Group Pages
+                        </Button>
+                      )}
+                    </div>
+                    {selectedCount >= 2 && (
+                      <div className="flex flex-wrap gap-2">
+                        {recitations
+                          .filter(r => r.selected && !r.groupId)
+                          .map((rec) => (
+                            <span
+                              key={rec.id}
+                              className="px-3 py-1 bg-white dark:bg-gray-800 rounded border text-sm font-medium"
+                            >
+                              Page {rec.pageNumber}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 2: Name Your Recitations */}
+                {groups.length > 0 && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-semibold text-lg">
+                        Step 2: Name Your Recitations ({groups.length})
+                      </h4>
+                      {selectedCount >= 2 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={createGroup}
+                        >
+                          <CheckSquare className="w-4 h-4 mr-2" />
+                          Add More Groups
+                        </Button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      {groups.map((group) => {
+                        const groupRecitations = recitations.filter(r => r.groupId === group.id);
+                        const pageNumbers = groupRecitations.map(r => r.pageNumber).sort((a, b) => a - b);
+                        return (
+                          <div
+                            key={group.id}
+                            className="p-4 bg-background rounded-lg border-2 space-y-2"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="flex-1 space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-medium text-muted-foreground">
+                                    Pages {pageNumbers.join(', ')}:
+                                  </span>
+                                </div>
+                                <Input
+                                  value={group.name}
+                                  onChange={(e) => updateGroupName(group.id, e.target.value)}
+                                  placeholder="Enter recitation name (required)"
+                                  className="text-base"
+                                  required
+                                />
+                                {group.name && group.name.trim() ? (
+                                  <p className="text-xs text-green-600 dark:text-green-400">
+                                    ✓ Ready to save ({groupRecitations.length} image{groupRecitations.length !== 1 ? 's' : ''})
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-destructive">
+                                    ⚠️ Please enter a name for this recitation
+                                  </p>
+                                )}
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeGroup(group.id)}
+                                className="text-destructive hover:text-destructive shrink-0"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category *</Label>
+                    <Select
+                      value={metadata.category_id}
+                      onValueChange={(value) => setMetadata(m => ({ ...m, category_id: value }))}
+                    >
+                      <SelectTrigger id="category">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="imam">Dedicated To (Figure)</Label>
+                    <Select
+                      value={metadata.imam_id || "none"}
+                      onValueChange={(value) => setMetadata(m => ({ ...m, imam_id: value === "none" ? "" : value }))}
+                    >
+                      <SelectTrigger id="imam">
+                        <SelectValue placeholder="Select figure (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {imams.map((imam) => (
+                          <SelectItem key={imam.id} value={imam.id}>
+                            {imam.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="reciter">Reciter</Label>
+                    <ReciterCombobox
+                      id="reciter"
+                      value={metadata.reciter}
+                      onChange={(value) => setMetadata(m => ({ ...m, reciter: value }))}
+                      placeholder="Search or enter reciter name (optional)"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="language">Language</Label>
+                    <Select
+                      value={metadata.language}
+                      onValueChange={(value) => setMetadata(m => ({ ...m, language: value }))}
+                    >
+                      <SelectTrigger id="language">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Urdu">Urdu</SelectItem>
+                        <SelectItem value="Kashmiri">Kashmiri</SelectItem>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Arabic">Arabic</SelectItem>
+                        <SelectItem value="Persian">Persian</SelectItem>
+                        <SelectItem value="Hinglish">Hinglish</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* YouTube Video URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="video_url">YouTube Video URL (Optional)</Label>
+                  <Input
+                    id="video_url"
+                    type="url"
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={metadata.video_url}
+                    onChange={(e) => setMetadata(m => ({ ...m, video_url: e.target.value }))}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Add a YouTube video link if this recitation has an associated video
+                  </p>
+                </div>
+
+                {/* Step 4: Save */}
+                {groups.length > 0 && (
+                  <DialogFooter className="pt-6 border-t gap-3 sm:gap-0">
+                    <div className="text-sm text-muted-foreground flex-1">
+                      {groups.filter(g => g.name && g.name.trim()).length} of {groups.length} recitation{groups.length !== 1 ? 's' : ''} ready
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setMetadataDialogOpen(false)}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          await handleSaveSelected();
+                          setMetadataDialogOpen(false);
+                        }}
+                        disabled={!metadata.category_id || saving || groups.some(g => !g.name || !g.name.trim())}
+                        className="min-w-[140px]"
+                        size="lg"
+                      >
+                        {saving ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="w-4 h-4 mr-2" />
+                            Save {groups.filter(g => g.name && g.name.trim()).length} Recitation{groups.filter(g => g.name && g.name.trim()).length !== 1 ? 's' : ''}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </DialogFooter>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
           {/* Recitations List */}
           {recitations.length > 0 && (
             <div className="space-y-4">
@@ -1217,14 +1468,13 @@ export default function BulkRecitationUploadPage() {
                   return (
                   <Card
                     key={recitation.id}
-                    className={`cursor-pointer transition-all ${
+                    className={`transition-all ${
                       isGrouped
                         ? 'opacity-50 grayscale-[0.3] border-dashed'
                         : recitation.selected
                         ? 'ring-2 ring-primary bg-primary/5'
                         : 'hover:border-primary/50'
                     }`}
-                    onClick={() => !isGrouped && toggleRecitationSelection(recitation.id)}
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2">
@@ -1265,27 +1515,119 @@ export default function BulkRecitationUploadPage() {
                     <CardContent className="space-y-3">
                       {/* Display PDF page as image */}
                       <div
-                        className="w-full rounded-lg overflow-hidden border bg-muted cursor-pointer"
+                        data-image-preview
+                        className="w-full rounded-lg overflow-hidden border bg-muted cursor-pointer select-none relative group"
                         style={{ height: '320px' }}
-                        onClick={(e) => {
+                        title="Click to select • Long press to preview"
+                        onMouseDown={(e) => {
+                          if (isGrouped) return;
                           e.stopPropagation();
-                          if (recitation.imageDataUrl) {
-                            const allImages = recitations
-                              .filter(r => r.imageDataUrl)
-                              .map(r => r.imageDataUrl);
-                            const imageIndex = allImages.indexOf(recitation.imageDataUrl);
-                            setCurrentImageIndex(imageIndex >= 0 ? imageIndex : 0);
-                            setImageViewerOpen(true);
+                          e.preventDefault();
+                          
+                          // Start long press timer
+                          longPressTargetRef.current = recitation.id;
+                          longPressTimerRef.current = setTimeout(() => {
+                            // Long press detected - open preview
+                            if (longPressTargetRef.current === recitation.id && recitation.imageDataUrl) {
+                              // Save scroll position before opening preview
+                              scrollPositionRef.current = window.scrollY || document.documentElement.scrollTop;
+                              const allImages = recitations
+                                .filter(r => r.imageDataUrl)
+                                .map(r => r.imageDataUrl);
+                              const imageIndex = allImages.indexOf(recitation.imageDataUrl);
+                              setCurrentImageIndex(imageIndex >= 0 ? imageIndex : 0);
+                              setImageViewerOpen(true);
+                              if (metadataDialogOpen) {
+                                setMetadataDialogOpen(false);
+                              }
+                            }
+                            longPressTargetRef.current = null;
+                          }, 500); // 500ms for long press
+                        }}
+                        onMouseUp={(e) => {
+                          if (isGrouped) return;
+                          e.stopPropagation();
+                          e.preventDefault();
+                          
+                          // Clear long press timer
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
                           }
+                          
+                          // If it was a short click (not long press), toggle selection
+                          if (longPressTargetRef.current === recitation.id) {
+                            toggleRecitationSelection(recitation.id);
+                            longPressTargetRef.current = null;
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          // Cancel long press if mouse leaves
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                          longPressTargetRef.current = null;
+                        }}
+                        onTouchStart={(e) => {
+                          if (isGrouped) return;
+                          e.stopPropagation();
+                          e.preventDefault();
+                          
+                          // Start long press timer for touch
+                          longPressTargetRef.current = recitation.id;
+                          longPressTimerRef.current = setTimeout(() => {
+                            // Long press detected - open preview
+                            if (longPressTargetRef.current === recitation.id && recitation.imageDataUrl) {
+                              // Save scroll position before opening preview
+                              scrollPositionRef.current = window.scrollY || document.documentElement.scrollTop;
+                              const allImages = recitations
+                                .filter(r => r.imageDataUrl)
+                                .map(r => r.imageDataUrl);
+                              const imageIndex = allImages.indexOf(recitation.imageDataUrl);
+                              setCurrentImageIndex(imageIndex >= 0 ? imageIndex : 0);
+                              setImageViewerOpen(true);
+                              if (metadataDialogOpen) {
+                                setMetadataDialogOpen(false);
+                              }
+                            }
+                            longPressTargetRef.current = null;
+                          }, 500); // 500ms for long press
+                        }}
+                        onTouchEnd={(e) => {
+                          if (isGrouped) return;
+                          e.stopPropagation();
+                          e.preventDefault();
+                          
+                          // Clear long press timer
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                          
+                          // If it was a short tap (not long press), toggle selection
+                          if (longPressTargetRef.current === recitation.id) {
+                            toggleRecitationSelection(recitation.id);
+                            longPressTargetRef.current = null;
+                          }
+                        }}
+                        onTouchCancel={(e) => {
+                          // Cancel long press if touch is cancelled
+                          if (longPressTimerRef.current) {
+                            clearTimeout(longPressTimerRef.current);
+                            longPressTimerRef.current = null;
+                          }
+                          longPressTargetRef.current = null;
                         }}
                       >
                         {recitation.imageDataUrl ? (
                           <img
                             src={recitation.imageDataUrl}
                             alt={`Page ${recitation.pageNumber}`}
-                            className="w-full h-full object-cover object-top"
+                            className="w-full h-full object-cover object-top pointer-events-none"
                             loading="lazy"
                             style={{ objectPosition: 'top center' }}
+                            draggable={false}
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground">
@@ -1295,29 +1637,6 @@ export default function BulkRecitationUploadPage() {
                               <p className="text-xs mt-1">Re-upload PDF to restore</p>
                             </div>
                           </div>
-                        )}
-                      </div>
-                      
-                      {!isGrouped && (
-                        <div
-                          className="space-y-2"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <Label className="text-xs">Custom Title (optional)</Label>
-                          <Input
-                            value={recitation.customTitle || ''}
-                            onChange={(e) => updateRecitationTitle(recitation.id, e.target.value)}
-                            placeholder={recitation.title}
-                            className="h-8 text-sm"
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </div>
-                      )}
-                      
-                      <div className="text-xs text-muted-foreground pt-2 border-t">
-                        Page {recitation.pageNumber}
-                        {isGrouped && group && (
-                          <span className="ml-2 text-primary">• Grouped with {group.recitationIds.length} pages</span>
                         )}
                       </div>
                     </CardContent>
@@ -1342,18 +1661,74 @@ export default function BulkRecitationUploadPage() {
         </div>
       </main>
 
-      {/* Fullscreen Image Viewer */}
-      {imageViewerOpen && recitations.some(r => r.imageDataUrl) && (
-        <FullscreenImageViewer
-          src={recitations.find(r => r.imageDataUrl)?.imageDataUrl || ''}
-          alt={`Page ${recitations[currentImageIndex]?.pageNumber || 1}`}
-          isOpen={imageViewerOpen}
-          onClose={() => setImageViewerOpen(false)}
-          images={recitations.filter(r => r.imageDataUrl).map(r => r.imageDataUrl)}
-          currentIndex={currentImageIndex}
-          onIndexChange={setCurrentImageIndex}
-        />
-      )}
+      {/* Image Preview Dialog */}
+      <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+          <div className="relative w-full h-full max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <DialogTitle className="text-lg">
+                Page {recitations[currentImageIndex]?.pageNumber || 1} of {recitations.filter(r => r.imageDataUrl).length}
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setImageViewerOpen(false)}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            
+            {/* Image Container */}
+            <div className="flex-1 overflow-auto bg-black/5 dark:bg-black/20 flex items-center justify-center p-4">
+              {recitations[currentImageIndex]?.imageDataUrl && (
+                <img
+                  src={recitations[currentImageIndex].imageDataUrl}
+                  alt={`Page ${recitations[currentImageIndex]?.pageNumber || 1}`}
+                  className="max-w-full max-h-[calc(90vh-120px)] object-contain rounded-lg shadow-lg"
+                />
+              )}
+            </div>
+            
+            {/* Navigation Controls */}
+            {recitations.filter(r => r.imageDataUrl).length > 1 && (
+              <div className="flex items-center justify-between p-4 border-t gap-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const prevIndex = currentImageIndex > 0 
+                      ? currentImageIndex - 1 
+                      : recitations.filter(r => r.imageDataUrl).length - 1;
+                    setCurrentImageIndex(prevIndex);
+                  }}
+                  disabled={recitations.filter(r => r.imageDataUrl).length <= 1}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-2" />
+                  Previous
+                </Button>
+                
+                <div className="text-sm text-muted-foreground">
+                  {currentImageIndex + 1} / {recitations.filter(r => r.imageDataUrl).length}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    const nextIndex = currentImageIndex < recitations.filter(r => r.imageDataUrl).length - 1
+                      ? currentImageIndex + 1
+                      : 0;
+                    setCurrentImageIndex(nextIndex);
+                  }}
+                  disabled={recitations.filter(r => r.imageDataUrl).length <= 1}
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4 ml-2" />
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

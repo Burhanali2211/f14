@@ -110,8 +110,8 @@ export function Header() {
         scrolled ? 'glass-strong shadow-soft' : 'bg-background/80 backdrop-blur-md'
       }`}
     >
-      <div className="container mx-auto px-3 sm:px-4 md:px-6">
-        <div className="flex items-center justify-between min-h-[4.5rem] sm:min-h-[5rem] py-2 sm:py-3 gap-2 sm:gap-3">
+      <div className="container mx-auto px-3 sm:px-4 md:px-5 lg:px-6">
+        <div className="flex items-center justify-between min-h-[4.5rem] sm:min-h-[5rem] md:min-h-[5.5rem] py-2 sm:py-3 md:py-3.5 gap-2 sm:gap-3 md:gap-4">
           {/* Logo */}
           <Link 
             to="/" 
@@ -151,7 +151,7 @@ export function Header() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1 flex-shrink-0">
+          <nav className="hidden lg:flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <Link
               to="/"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
@@ -305,7 +305,7 @@ export function Header() {
         </div>
       </div>
 
-      {/* Mobile Navigation - Outside container for proper positioning */}
+          {/* Mobile Navigation - Outside container for proper positioning */}
       {isMenuOpen && (
         <>
           {/* Overlay */}

@@ -171,9 +171,9 @@ export default function ArtistPage() {
 
         {/* Pieces Grid */}
         {pieces.length > 0 ? (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {pieces.map((piece, index) => (
-              <PieceCard key={piece.id} piece={piece} index={index} />
+              <PieceCard key={piece.id} piece={piece} index={index} compact />
             ))}
           </div>
         ) : (

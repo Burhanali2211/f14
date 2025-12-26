@@ -14,13 +14,13 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
     if (count <= 2) return 'grid-cols-1 sm:grid-cols-2';
     if (count <= 3) return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
     if (count <= 4) return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4';
-    // For 5+ categories, use full responsive grid
+    // For 5+ categories, use full responsive grid with better medium device support
     return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
   };
 
   return (
-    <section className="py-12 sm:py-16 md:py-16 lg:py-20">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-12 sm:py-16 md:py-18 lg:py-20">
+      <div className="container mx-auto px-4 sm:px-5 md:px-6 lg:px-8">
         {/* Modern Header */}
         <div className="text-center mb-8 sm:mb-10 md:mb-12 lg:mb-14">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-primary/10 border border-primary/20 mb-4 sm:mb-6">

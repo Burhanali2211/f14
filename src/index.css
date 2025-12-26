@@ -263,6 +263,14 @@
     font-family: var(--font-body);
   }
 
+  /* Better spacing for medium-sized devices (OnePlus, etc.) */
+  @media (min-width: 900px) and (max-width: 1200px) {
+    .container {
+      padding-left: 1.5rem;
+      padding-right: 1.5rem;
+    }
+  }
+
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     @apply font-semibold tracking-tight;

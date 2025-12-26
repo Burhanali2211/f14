@@ -13,21 +13,21 @@ export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
   const hasMore = imams.length > 8;
 
   return (
-    <section className="py-12">
-      <div className="flex items-center justify-between mb-8">
+    <section className="py-12 sm:py-14 md:py-16">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-            <Users className="w-5 h-5 text-emerald-500" />
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+            <Users className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-foreground">Browse by Ahlulbayt (AS)</h2>
-            <p className="text-sm text-muted-foreground">Recitations in honor of the Holy Personalities</p>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground">Browse by Ahlulbayt (AS)</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Recitations in honor of the Holy Personalities</p>
           </div>
         </div>
         {hasMore && (
           <Link
             to="/ahlul-bayt"
-            className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors group"
+            className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors group self-start sm:self-auto"
           >
             <span className="hidden sm:inline">View All</span>
             <span className="sm:hidden">All</span>
@@ -36,7 +36,7 @@ export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
         )}
       </div>
       
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 gap-3 sm:gap-4">
         {displayedImams.map((imam, i) => (
           <Link
             key={imam.id}

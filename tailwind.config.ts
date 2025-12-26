@@ -12,6 +12,8 @@ export default {
         sm: "1rem",
         md: "1.25rem",
         lg: "1.5rem",
+        xl: "1.75rem",
+        "2xl": "2rem",
       },
       screens: {
         sm: "640px",
