@@ -1281,246 +1281,94 @@ export default function AdminPage() {
           <span className="sm:hidden">Back</span>
         </Link>
 
-        <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-4 sm:mb-6 md:mb-8">Admin Panel</h1>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2">Admin Panel</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Manage your content and settings</p>
+        </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          {/* Unified Navigation - Responsive Design */}
-          <div className="-mx-3 sm:-mx-4 md:-mx-6 px-3 sm:px-4 md:px-6">
-            <div className="bg-card rounded-lg border border-border p-3 sm:p-4">
-              {/* Mobile & Tablet: Grid Layout */}
-              <div className="block md:hidden">
-                <div className="grid grid-cols-3 gap-2 sm:gap-2.5">
-                  <button
-                    onClick={() => setActiveTab('pieces')}
-                    className={`flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 rounded-lg transition-all ${
-                      activeTab === 'pieces' 
-                        ? 'border-primary bg-primary/10 shadow-md' 
-                        : 'border-border hover:border-primary/50 hover:bg-accent'
-                    }`}
-                    aria-label="Manage Recitations"
-                  >
-                    <FileText className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'pieces' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <div className="text-center">
-                      <div className={`text-[10px] sm:text-xs font-semibold leading-tight ${activeTab === 'pieces' ? 'text-primary' : 'text-foreground'}`}>
-                        Recitations
-                      </div>
-                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 font-medium">
-                        {pieces.length}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('categories')}
-                    className={`flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 rounded-lg transition-all ${
-                      activeTab === 'categories' 
-                        ? 'border-primary bg-primary/10 shadow-md' 
-                        : 'border-border hover:border-primary/50 hover:bg-accent'
-                    }`}
-                    aria-label="Manage Categories"
-                  >
-                    <FolderOpen className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'categories' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <div className="text-center">
-                      <div className={`text-[10px] sm:text-xs font-semibold leading-tight ${activeTab === 'categories' ? 'text-primary' : 'text-foreground'}`}>
-                        Categories
-                      </div>
-                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 font-medium">
-                        {categories.length}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('imams')}
-                    className={`flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 rounded-lg transition-all ${
-                      activeTab === 'imams' 
-                        ? 'border-primary bg-primary/10 shadow-md' 
-                        : 'border-border hover:border-primary/50 hover:bg-accent'
-                    }`}
-                    aria-label="Manage Ahlulbayt"
-                  >
-                    <Users className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'imams' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <div className="text-center">
-                      <div className={`text-[10px] sm:text-xs font-semibold leading-tight ${activeTab === 'imams' ? 'text-primary' : 'text-foreground'}`}>
-                        Ahlulbayt
-                      </div>
-                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 font-medium">
-                        {imams.length}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('artistes')}
-                    className={`flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 rounded-lg transition-all ${
-                      activeTab === 'artistes' 
-                        ? 'border-primary bg-primary/10 shadow-md' 
-                        : 'border-border hover:border-primary/50 hover:bg-accent'
-                    }`}
-                    aria-label="Manage Artistes"
-                  >
-                    <Mic className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'artistes' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <div className="text-center">
-                      <div className={`text-[10px] sm:text-xs font-semibold leading-tight ${activeTab === 'artistes' ? 'text-primary' : 'text-foreground'}`}>
-                        Artistes
-                      </div>
-                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 font-medium">
-                        {artistes.length}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('events')}
-                    className={`flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 rounded-lg transition-all ${
-                      activeTab === 'events' 
-                        ? 'border-primary bg-primary/10 shadow-md' 
-                        : 'border-border hover:border-primary/50 hover:bg-accent'
-                    }`}
-                    aria-label="Manage Events"
-                  >
-                    <Calendar className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'events' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <div className="text-center">
-                      <div className={`text-[10px] sm:text-xs font-semibold leading-tight ${activeTab === 'events' ? 'text-primary' : 'text-foreground'}`}>
-                        Events
-                      </div>
-                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 font-medium">
-                        {events.length}
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('users')}
-                    className={`flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 rounded-lg transition-all ${
-                      activeTab === 'users' 
-                        ? 'border-primary bg-primary/10 shadow-md' 
-                        : 'border-border hover:border-primary/50 hover:bg-accent'
-                    }`}
-                    aria-label="Manage Users"
-                  >
-                    <UserCog className={`w-4 h-4 sm:w-5 sm:h-5 ${activeTab === 'users' ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <div className="text-center">
-                      <div className={`text-[10px] sm:text-xs font-semibold leading-tight ${activeTab === 'users' ? 'text-primary' : 'text-foreground'}`}>
-                        Users
-                      </div>
-                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-0.5 font-medium">
-                        {userProfiles.length}
-                      </div>
-                    </div>
-                  </button>
-                  <Link 
-                    to="/admin/bulk-upload" 
-                    className="flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 border-border hover:border-primary/50 hover:bg-accent transition-all rounded-lg"
-                    aria-label="Bulk Upload"
-                  >
-                    <Upload className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-                    <div className="text-center">
-                      <div className="text-[10px] sm:text-xs font-semibold leading-tight text-foreground">
-                        Bulk Upload
-                      </div>
-                    </div>
-                  </Link>
-                  <Link 
-                    to="/admin/announcements" 
-                    className="flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 border-border hover:border-primary/50 hover:bg-accent transition-all rounded-lg"
-                    aria-label="Announcements"
-                  >
-                    <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-                    <div className="text-center">
-                      <div className="text-[10px] sm:text-xs font-semibold leading-tight text-foreground">
-                        Announcements
-                      </div>
-                    </div>
-                  </Link>
-                  <Link 
-                    to="/admin/site-settings" 
-                    className="flex flex-col items-center justify-center gap-1 h-20 sm:h-24 p-2 bg-background border-2 border-border hover:border-primary/50 hover:bg-accent transition-all rounded-lg"
-                    aria-label="Site Settings"
-                  >
-                    <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground" />
-                    <div className="text-center">
-                      <div className="text-[10px] sm:text-xs font-semibold leading-tight text-foreground">
-                        Settings
-                      </div>
-                    </div>
-                  </Link>
-                </div>
-              </div>
-
-              {/* Desktop: Horizontal Tabs */}
-              <TabsList className="hidden md:flex bg-transparent w-full flex flex-wrap gap-2 h-auto p-0 justify-start">
-                <TabsTrigger 
-                  value="pieces" 
-                  className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
+          {/* Simplified Navigation */}
+          <div className="bg-card rounded-lg border border-border p-4 sm:p-6">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2 sm:gap-3 w-full h-auto bg-transparent p-0">
+              <TabsTrigger 
+                value="pieces" 
+                className="flex flex-col items-center justify-center gap-2 px-4 py-4 sm:py-5 text-sm font-medium h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
+              >
+                <FileText className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span>Recitations</span>
+                <span className="text-xs text-muted-foreground data-[state=active]:text-primary-foreground/80">{pieces.length}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="categories" 
+                className="flex flex-col items-center justify-center gap-2 px-4 py-4 sm:py-5 text-sm font-medium h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
+              >
+                <FolderOpen className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span>Categories</span>
+                <span className="text-xs text-muted-foreground data-[state=active]:text-primary-foreground/80">{categories.length}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="imams" 
+                className="flex flex-col items-center justify-center gap-2 px-4 py-4 sm:py-5 text-sm font-medium h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
+              >
+                <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span>Ahlulbayt</span>
+                <span className="text-xs text-muted-foreground data-[state=active]:text-primary-foreground/80">{imams.length}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="artistes" 
+                className="flex flex-col items-center justify-center gap-2 px-4 py-4 sm:py-5 text-sm font-medium h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
+              >
+                <Mic className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span>Artistes</span>
+                <span className="text-xs text-muted-foreground data-[state=active]:text-primary-foreground/80">{artistes.length}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="events" 
+                className="flex flex-col items-center justify-center gap-2 px-4 py-4 sm:py-5 text-sm font-medium h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
+              >
+                <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span>Events</span>
+                <span className="text-xs text-muted-foreground data-[state=active]:text-primary-foreground/80">{events.length}</span>
+              </TabsTrigger>
+              <TabsTrigger 
+                value="users" 
+                className="flex flex-col items-center justify-center gap-2 px-4 py-4 sm:py-5 text-sm font-medium h-auto data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-lg transition-all"
+              >
+                <UserCog className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span>Users</span>
+                <span className="text-xs text-muted-foreground data-[state=active]:text-primary-foreground/80">{userProfiles.length}</span>
+              </TabsTrigger>
+            </TabsList>
+            
+            {/* Additional Actions */}
+            <div className="mt-4 pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+              <Link to="/admin/bulk-upload" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-center gap-2"
                 >
-                  <FileText className="w-4 h-4 flex-shrink-0" />
-                  <span>Recitations</span>
-                  <span className="ml-1 text-muted-foreground">({pieces.length})</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="categories" 
-                  className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
+                  <Upload className="w-4 h-4" />
+                  <span>Bulk Upload</span>
+                </Button>
+              </Link>
+              <Link to="/admin/announcements" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-center gap-2"
                 >
-                  <FolderOpen className="w-4 h-4 flex-shrink-0" />
-                  <span>Categories</span>
-                  <span className="ml-1 text-muted-foreground">({categories.length})</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="imams" 
-                  className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
+                  <Bell className="w-4 h-4" />
+                  <span>Announcements</span>
+                </Button>
+              </Link>
+              <Link to="/admin/site-settings" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-center gap-2"
                 >
-                  <Users className="w-4 h-4 flex-shrink-0" />
-                  <span>Ahlulbayt</span>
-                  <span className="ml-1 text-muted-foreground">({imams.length})</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="artistes" 
-                  className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
-                >
-                  <Mic className="w-4 h-4 flex-shrink-0" />
-                  <span>Artistes</span>
-                  <span className="ml-1 text-muted-foreground">({artistes.length})</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="events" 
-                  className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
-                >
-                  <Calendar className="w-4 h-4 flex-shrink-0" />
-                  <span>Events</span>
-                  <span className="ml-1 text-muted-foreground">({events.length})</span>
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="users" 
-                  className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
-                >
-                  <UserCog className="w-4 h-4 flex-shrink-0" />
-                  <span>Users</span>
-                  <span className="ml-1 text-muted-foreground">({userProfiles.length})</span>
-                </TabsTrigger>
-                <Link to="/admin/bulk-upload" className="inline-flex">
-                  <Button 
-                    variant="ghost" 
-                    className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
-                  >
-                    <Upload className="w-4 h-4 flex-shrink-0" />
-                    <span>Bulk Upload</span>
-                  </Button>
-                </Link>
-                <Link to="/admin/announcements" className="inline-flex">
-                  <Button 
-                    variant="ghost" 
-                    className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
-                  >
-                    <Bell className="w-4 h-4 flex-shrink-0" />
-                    <span>Announcements</span>
-                  </Button>
-                </Link>
-                <Link to="/admin/site-settings" className="inline-flex">
-                  <Button 
-                    variant="ghost" 
-                    className="gap-2 px-4 py-2.5 text-sm font-medium whitespace-nowrap h-auto"
-                  >
-                    <Settings className="w-4 h-4 flex-shrink-0" />
-                    <span>Site Settings</span>
-                  </Button>
-                </Link>
-              </TabsList>
+                  <Settings className="w-4 h-4" />
+                  <span>Settings</span>
+                </Button>
+              </Link>
             </div>
           </div>
 
