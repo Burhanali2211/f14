@@ -114,8 +114,8 @@ export default function FigurePage() {
       ? (imam.image_url.startsWith('http') ? imam.image_url : `${siteUrl}${imam.image_url}`)
       : `${siteUrl}/main.png`;
     
-    const description = imam.description || `Browse recitations in honor of ${imam.name}${imam.title ? ` (${imam.title})` : ''} - islamic poetry collection on Kalam Reader.`;
-    const keywords = `${imam.name}, ${imam.title || ''}, islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, ${imam.name} recitations`;
+    const description = imam.description || `Browse recitations in honor of ${imam.name}${imam.title ? ` (${imam.title})` : ''} - Complete collection on Followers of 14. Read ${imam.name} recitations with text, audio, and video. Free access online.`;
+    const keywords = `${imam.name}, ${imam.title || ''}, ${imam.name} recitations, islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Followers of 14, read ${imam.name} online, free ${imam.name} recitation`;
     
     // Generate breadcrumb structured data
     const breadcrumbStructuredData = generateBreadcrumbStructuredData(
@@ -164,7 +164,7 @@ export default function FigurePage() {
     };
     
     return {
-      title: `${imam.name}${imam.title ? ` (${imam.title})` : ''} - Recitations | Kalam Reader`,
+      title: `${imam.name}${imam.title ? ` (${imam.title})` : ''} - Complete Recitations Collection | Followers of 14`,
       description,
       keywords,
       image: imageUrl,

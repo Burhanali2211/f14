@@ -18,10 +18,9 @@ export function Footer() {
                 Kalam Reader
               </span>
             </Link>
-            <p className="text-muted-foreground text-sm max-w-md mb-4">
-              Your spiritual companion for reading and reciting islamic poetry. 
-              Access Naat, Noha, Manqabat, Dua, and more — beautifully designed 
-              for reciters and readers.
+            <p className="text-muted-foreground text-sm max-w-md mb-4 italic">
+              "The heart of a believer is the house of Allah. Do not let anyone live in it except Allah."
+              <span className="block mt-2 text-xs not-italic">— Imam Ali (AS)</span>
             </p>
             <p className="text-xs text-muted-foreground flex items-center gap-1">
               Made with <Heart className="w-3 h-3 text-red-500 fill-red-500" /> for the community

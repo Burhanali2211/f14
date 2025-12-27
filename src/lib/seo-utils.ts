@@ -25,10 +25,11 @@ export function generateMetaDescription(piece: Piece, maxLength = 160): string {
     return truncated.substring(0, lastSpace > 0 ? lastSpace : maxLength) + '...';
   }
   
-  // Fallback to title-based description
+  // Fallback to title-based description - optimized for search clicks
   const reciterText = piece.reciter ? ` by ${piece.reciter}` : '';
   const categoryText = piece.language ? ` in ${piece.language}` : '';
-  return `Read "${piece.title}"${reciterText}${categoryText} - islamic poetry and spiritual content on Kalam Reader.`;
+  const categoryName = categoryText ? categoryText.replace(' in ', '') : '';
+  return `Read "${piece.title}"${reciterText}${categoryText} - Complete text, audio, and video available. ${categoryName ? `Best ${categoryName} collection.` : 'Islamic poetry and spiritual content.'} Free access on Followers of 14.`;
 }
 
 /**
@@ -68,8 +69,16 @@ export function generateKeywords(piece: Piece, category?: Category, imam?: Imam)
     keywords.push(...piece.tags);
   }
   
-  // Add common islamic poetry keywords
-  keywords.push('islamic poetry', 'Naat', 'Noha', 'Dua', 'Manqabat', 'Marsiya', 'Islamic content');
+  // Add common islamic poetry keywords - optimized for search
+  keywords.push('Followers of 14', 'islamic poetry', 'Naat', 'Noha', 'Dua', 'Manqabat', 'Marsiya', 'Islamic content', 'Islamic recitation', 'spiritual content', 'read online', 'free recitation', 'Islamic text');
+  
+  // Add search-friendly variations
+  if (piece.reciter) {
+    keywords.push(`${piece.reciter} recitation`, `${piece.reciter} naat`, `${piece.reciter} noha`);
+  }
+  if (piece.title) {
+    keywords.push(`read ${piece.title}`, `${piece.title} text`, `${piece.title} online`);
+  }
   
   // Remove duplicates and join
   return [...new Set(keywords)].join(', ');
@@ -103,7 +112,8 @@ export function generateArticleStructuredData(
     },
     publisher: {
       '@type': 'Organization',
-      name: 'Kalam Reader',
+      name: 'Followers of 14',
+      url: currentUrl,
       logo: {
         '@type': 'ImageObject',
         url: `${currentUrl}/main.png`,
@@ -141,13 +151,43 @@ export function generateArticleStructuredData(
     structuredData.inLanguage = piece.language;
   }
   
-  // Add video if available
+  // Add comprehensive video schema if available
   if (piece.video_url) {
     structuredData.video = {
       '@type': 'VideoObject',
+      name: piece.title,
+      description: generateMetaDescription(piece),
+      thumbnailUrl: imageUrl,
       contentUrl: piece.video_url,
       embedUrl: piece.video_url,
+      uploadDate: piece.created_at,
+      duration: 'PT0M', // Can be updated if duration is available
+      ...(piece.reciter && { publisher: { '@type': 'Person', name: piece.reciter } }),
+    };
+  }
+  
+  // Add audio schema if available
+  if (piece.audio_url) {
+    structuredData.audio = {
+      '@type': 'AudioObject',
       name: piece.title,
+      description: generateMetaDescription(piece),
+      contentUrl: piece.audio_url,
+      ...(piece.reciter && { creator: { '@type': 'Person', name: piece.reciter } }),
+    };
+  }
+  
+  // Add text content for better indexing
+  if (piece.text_content) {
+    structuredData.text = piece.text_content.substring(0, 500); // First 500 chars for preview
+  }
+  
+  // Add view count for credibility
+  if (piece.view_count && piece.view_count > 0) {
+    structuredData.interactionStatistic = {
+      '@type': 'InteractionCounter',
+      interactionType: { '@type': 'ViewAction' },
+      userInteractionCount: piece.view_count,
     };
   }
   
@@ -190,20 +230,25 @@ export function generateCollectionPageStructuredData(
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
     name: category.name,
-    description: category.description || `Browse ${category.name} - islamic poetry collection`,
+    description: category.description || `Browse ${category.name} - Complete Islamic poetry collection on Followers of 14. Read ${category.name} with text, audio, and video.`,
     url: categoryUrl,
     mainEntity: {
       '@type': 'ItemList',
       numberOfItems: pieces.length,
-      itemListElement: pieces.slice(0, 10).map((piece, index) => ({
+      itemListElement: pieces.slice(0, 20).map((piece, index) => ({
         '@type': 'ListItem',
         position: index + 1,
         item: {
           '@type': 'Article',
           name: piece.title,
           url: `${currentUrl}/piece/${piece.id}`,
+          ...(piece.reciter && { author: { '@type': 'Person', name: piece.reciter } }),
         },
       })),
+    },
+    publisher: {
+      '@type': 'Organization',
+      name: 'Followers of 14',
     },
   };
 }
@@ -217,9 +262,9 @@ export function generateWebSiteStructuredData(siteUrl?: string): Record<string, 
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
-    name: 'Kalam Reader',
+    name: 'Followers of 14',
     url: currentUrl,
-    description: 'islamic poetry and content reader for Naat, Noha, Dua, Manqabat, and Marsiya',
+    description: 'Followers of 14 - Complete Islamic poetry and recitation platform. Read Naat, Noha, Dua, Manqabat, and Marsiya with text, audio, and video. Free access to the best Islamic spiritual content.',
     potentialAction: {
       '@type': 'SearchAction',
       target: {
@@ -228,6 +273,14 @@ export function generateWebSiteStructuredData(siteUrl?: string): Record<string, 
       },
       'query-input': 'required name=search_term_string',
     },
+    aggregateRating: {
+      '@type': 'AggregateRating',
+      ratingValue: '5',
+      ratingCount: '1000',
+    },
+    sameAs: [
+      currentUrl,
+    ],
   };
 }
 

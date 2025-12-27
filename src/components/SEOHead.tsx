@@ -36,11 +36,11 @@ export function SEOHead({
   canonicalUrl,
 }: SEOHeadProps) {
   const location = useLocation();
-  const siteName = 'Kalam Reader';
+  const siteName = 'Followers of 14';
   const siteUrl = typeof window !== 'undefined' ? window.location.origin : '';
   const currentUrl = url || `${siteUrl}${location.pathname}`;
   const ogImage = image || `${siteUrl}/main.png`;
-  const fullTitle = title ? `${title} | ${siteName}` : `${siteName} - islamic poetry & Content Reader`;
+  const fullTitle = title ? `${title} | ${siteName}` : `${siteName} - Islamic Poetry & Recitation Platform`;
 
   useEffect(() => {
     // Update document title

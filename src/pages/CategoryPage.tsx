@@ -244,8 +244,8 @@ export default function CategoryPage() {
       ? (category.bg_image_url.startsWith('http') ? category.bg_image_url : `${siteUrl}${category.bg_image_url}`)
       : `${siteUrl}/main.png`;
     
-    const description = category.description || `Browse ${category.name} - islamic poetry collection on Kalam Reader. Read Naat, Noha, Dua, Manqabat, and Marsiya.`;
-    const keywords = `${category.name}, islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, ${category.name} collection`;
+    const description = category.description || `Browse ${category.name} - Complete Islamic poetry collection on Followers of 14. Read ${category.name} with text, audio, and video. Free access to the best ${category.name} recitations online.`;
+    const keywords = `${category.name}, ${category.name} collection, islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Followers of 14, read ${category.name} online, free ${category.name}, ${category.name} recitation`;
     
     // Generate structured data
     const collectionStructuredData = generateCollectionPageStructuredData(
@@ -268,7 +268,7 @@ export default function CategoryPage() {
     };
     
     return {
-      title: `${category.name} - islamic poetry Collection`,
+      title: `${category.name} - Complete Collection | Followers of 14`,
       description,
       keywords,
       image: imageUrl,

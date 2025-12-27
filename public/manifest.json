@@ -1,7 +1,7 @@
 {
-  "name": "Kalam Reader - islamic poetry",
-  "short_name": "Kalam Reader",
-  "description": "Islamic content reader for Naat, Noha, Dua, Manqabat, and Marsiya with audio and video support",
+  "name": "Followers of 14 - Islamic Poetry & Recitation Platform",
+  "short_name": "Followers of 14",
+  "description": "Followers of 14 - Complete Islamic poetry and recitation platform. Read, listen, and watch Naat, Noha, Dua, Manqabat, and Marsiya with text, audio, and video. Free access to the best Islamic spiritual content.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",

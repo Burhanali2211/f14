@@ -101,6 +101,19 @@ function ServiceWorkerHandler() {
             storeAppVersion(currentVersion);
             window.location.reload();
           }
+        } else if (event.data && event.data.type === 'APP_UPDATE_AVAILABLE') {
+          // Service worker detected update - notify UpdateNotification component
+          // The UpdateNotification component will handle showing the dialog
+          logger.info('Update available message received from service worker:', event.data);
+        } else if (event.data && event.data.type === 'FORCE_APP_UPDATE') {
+          // Service worker is forcing an update - clear caches and reload
+          logger.info('Force update message received from service worker');
+          const { clearAllCachesOnUpdate } = await import('@/lib/app-version');
+          await clearAllCachesOnUpdate();
+          window.location.href = window.location.origin + window.location.pathname + '?v=' + Date.now();
+        } else if (event.data && event.data.type === 'SERVICE_WORKER_ACTIVATED') {
+          // Service worker activated - check for updates
+          logger.info('Service worker activated');
         } else if (event.data && event.data.type === 'SUBSCRIBE_NOTIFICATIONS') {
           // Handle subscription request
           try {

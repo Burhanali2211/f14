@@ -8,12 +8,13 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt', // Changed to prompt to allow custom service worker handling
+      injectRegister: false, // Disable auto-registration, we'll handle it manually
       includeAssets: ['favicon.ico', 'main.png', 'robots.txt', 'pdf.worker.min.mjs'],
       manifest: {
-        name: 'Kalam Reader - Islamic Poetry & Content Reader',
-        short_name: 'Kalam Reader',
-        description: 'Discover and read Islamic poetry - Naat, Manqabat, Noha, Dua, Marsiya and more',
+        name: 'Followers of 14 - Islamic Poetry & Recitation Platform',
+        short_name: 'Followers of 14',
+        description: 'Followers of 14 - Read Islamic poetry, Naat, Manqabat, Noha, Dua, Marsiya with complete text, audio, and video. Free access to the best Islamic spiritual content.',
         theme_color: '#1a5c4d',
         background_color: '#ffffff',
         display: 'standalone',

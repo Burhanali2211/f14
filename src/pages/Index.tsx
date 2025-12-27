@@ -54,9 +54,9 @@ export default function Index() {
     <div className="min-h-screen bg-background">
       {/* SEO Head for homepage */}
       <SEOHead
-        title="Kalam Reader - islamic poetry & Content Reader"
-        description="Discover and read islamic poetry - Naat, Manqabat, Noha, Dua, Marsiya and more. Your spiritual companion with video support. Read and connect with your heritage."
-        keywords="islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Islamic content, Urdu poetry, Arabic poetry, recitation"
+        title="Followers of 14 - Complete Islamic Poetry & Recitation Platform"
+        description="Followers of 14 - Your complete destination for Islamic poetry, Naat, Manqabat, Noha, Dua, Marsiya and more. Read, listen, and watch with text, audio, and video. Free access to the best Islamic spiritual content."
+        keywords="Followers of 14, islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Islamic content, Urdu poetry, Arabic poetry, recitation, Islamic recitation, spiritual content, Islamic literature, read online, free recitation"
         image={`${siteUrl}/main.png`}
         url={siteUrl}
         type="website"

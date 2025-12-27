@@ -283,12 +283,13 @@ export function Header() {
             ) : (
               <Button 
                 asChild 
-                variant="ghost"
-                className="hidden lg:inline-flex rounded-xl h-9 sm:h-10 w-9 sm:w-10 p-0" 
+                variant="default"
+                className="hidden lg:inline-flex rounded-xl h-9 sm:h-10 px-4 gap-2" 
                 size="sm"
               >
-                <Link to="/auth" className="flex items-center justify-center w-full h-full">
-                  <LogIn className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                <Link to="/auth" className="flex items-center justify-center gap-2">
+                  <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="text-sm font-medium">Login</span>
                 </Link>
               </Button>
             )}

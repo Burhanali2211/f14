@@ -1,9 +1,9 @@
-# Robots.txt for Kalam Reader
+# Robots.txt for Followers of 14
 
 User-agent: *
 Allow: /
 
-# Sitemap location
+# Sitemap location (update with your domain after deployment)
 Sitemap: https://your-domain.com/sitemap.xml
 
 # Crawl-delay
