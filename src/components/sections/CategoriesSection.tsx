@@ -1,4 +1,5 @@
 import { CategoryCard } from '@/components/CategoryCard';
+import { useTheme } from '@/hooks/use-theme';
 import type { Category } from '@/lib/supabase-types';
 import { Sparkles } from 'lucide-react';
 
@@ -8,6 +9,8 @@ interface CategoriesSectionProps {
 }
 
 export function CategoriesSection({ categories, loading }: CategoriesSectionProps) {
+  const { theme } = useTheme();
+  
   // Determine optimal columns based on category count for better spacing
   const getGridCols = () => {
     const count = categories.length;
@@ -23,7 +26,11 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
       <div className="container mx-auto px-4 sm:px-5 md:px-6 lg:px-8">
         {/* Modern Header */}
         <div className="text-center mb-8 sm:mb-10 md:mb-12 lg:mb-14">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full bg-primary/10 border border-primary/20 mb-4 sm:mb-6">
+          <div className={`inline-flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-full border mb-4 sm:mb-6 ${
+            theme === 'light'
+              ? 'bg-primary/12 border-primary/30 shadow-sm'
+              : 'bg-primary/10 border-primary/20'
+          }`}>
             <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
             <span className="text-xs sm:text-sm font-semibold text-primary uppercase tracking-wider">
               Explore Collections
@@ -36,7 +43,11 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
             </span>
           </h2>
           
-          <p className="text-base sm:text-lg md:text-lg lg:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+          <p className={`text-base sm:text-lg md:text-lg lg:text-xl max-w-2xl mx-auto leading-relaxed ${
+            theme === 'light'
+              ? 'text-foreground/80'
+              : 'text-muted-foreground'
+          }`}>
             Journey through our curated collection of Islamic recitations and spiritual content
           </p>
         </div>
@@ -46,7 +57,11 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
             {[...Array(8)].map((_, i) => (
               <div 
                 key={i} 
-                className="h-[200px] sm:h-[220px] md:h-[200px] lg:h-[220px] w-full bg-card rounded-2xl md:rounded-3xl border border-border/40 shadow-lg animate-pulse" 
+                className={`h-[200px] sm:h-[220px] md:h-[200px] lg:h-[220px] w-full bg-card rounded-2xl md:rounded-3xl border animate-pulse ${
+                  theme === 'light'
+                    ? 'border-border/50 shadow-md'
+                    : 'border-border/40 shadow-lg'
+                }`} 
               />
             ))}
           </div>
