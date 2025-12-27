@@ -566,17 +566,10 @@ export default function PiecePage() {
         onNext={handleNext}
         hasPrevious={!!siblingPieces.prev}
         hasNext={!!siblingPieces.next}
+        category={category ? { name: category.name, slug: category.slug } : null}
       />
       
       <main className="container py-8 max-w-5xl flex-1">
-        {/* Breadcrumb */}
-        <Link 
-          to={category ? `/category/${category.slug}` : '/'}
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          {category ? category.name : 'Home'}
-        </Link>
 
         {/* Header */}
         <header className="mb-8 text-center">

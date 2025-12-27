@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { 
   Minus, Plus, RotateCcw, Copy, Share2, Heart, 
-  Bookmark, Settings, ChevronLeft, ChevronRight,
-  Download, Printer, MessageSquare
+  Settings, ChevronLeft, ChevronRight,
+  Printer, MoreVertical, Home
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -11,6 +11,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useSettings } from '@/hooks/use-settings';
 import { useFavorites } from '@/hooks/use-favorites';
 import { toast } from '@/hooks/use-toast';
@@ -25,6 +31,10 @@ interface ReaderToolbarProps {
   onNext?: () => void;
   hasPrevious?: boolean;
   hasNext?: boolean;
+  category?: {
+    name: string;
+    slug: string;
+  } | null;
 }
 
 export function ReaderToolbar({
@@ -36,6 +46,7 @@ export function ReaderToolbar({
   onNext,
   hasPrevious = false,
   hasNext = false,
+  category = null,
 }: ReaderToolbarProps) {
   const { settings, updateSetting } = useSettings();
   const { isFavorite, addFavorite, removeFavorite } = useFavorites();
@@ -98,23 +109,55 @@ export function ReaderToolbar({
     updateSetting('lineHeight', 2.2);
   };
 
-  // Mobile layout - simplified with text labels
+  // Mobile layout - single compact row with dropdown menu
   if (isMobile) {
     return (
       <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-md border-b border-border print:hidden">
-        {/* Top row - Navigation and Font Size */}
-        <div className="container max-w-4xl flex items-center justify-between gap-2 px-3 py-2">
-          {/* Navigation */}
-          <div className="flex items-center gap-1">
+        <div className="container max-w-4xl flex items-center gap-2 px-3 py-2.5">
+          {/* Breadcrumb - Left side - Back button */}
+          {category ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-8 px-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
+            >
+              <Link to={`/category/${category.slug}`}>
+                <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                <span className="ml-0.5 sm:ml-1">
+                  <span className="hidden sm:inline">Back to </span>
+                  <span className="truncate max-w-[60px] sm:max-w-none">{category.name}</span>
+                </span>
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              asChild
+              className="h-8 px-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
+              aria-label="Back to home"
+            >
+              <Link to="/">
+                <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="ml-1 hidden sm:inline">Home</span>
+              </Link>
+            </Button>
+          )}
+
+          <Separator orientation="vertical" className="h-5" />
+
+          {/* Navigation arrows - compact */}
+          <div className="flex items-center gap-0.5">
             <Button
               variant="ghost"
               size="icon"
               onClick={onPrevious}
               disabled={!hasPrevious}
-              className="h-11 w-11"
-              aria-label="Previous recitation"
+              className="h-9 w-9"
+              aria-label="Previous"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4 h-4" />
             </Button>
             
             <Button
@@ -122,26 +165,28 @@ export function ReaderToolbar({
               size="icon"
               onClick={onNext}
               disabled={!hasNext}
-              className="h-11 w-11"
-              aria-label="Next recitation"
+              className="h-9 w-9"
+              aria-label="Next"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4 h-4" />
             </Button>
           </div>
 
-          {/* Font Controls - Larger on mobile */}
-          <div className="flex items-center gap-1 bg-card rounded-lg p-1 shadow-sm">
+          <Separator orientation="vertical" className="h-5" />
+
+          {/* Font Controls - compact */}
+          <div className="flex items-center gap-0.5 bg-card rounded-md px-1 py-0.5">
             <Button
               variant="ghost"
               size="icon"
               onClick={decreaseFontSize}
-              className="h-10 w-10"
-              aria-label="Decrease font size"
+              className="h-8 w-8"
+              aria-label="Decrease font"
             >
-              <Minus className="w-5 h-5" />
+              <Minus className="w-3.5 h-3.5" />
             </Button>
             
-            <span className="px-3 text-base font-semibold text-foreground min-w-[50px] text-center">
+            <span className="px-1.5 text-xs font-medium text-foreground min-w-[32px] text-center">
               {settings.fontSize}
             </span>
             
@@ -149,77 +194,96 @@ export function ReaderToolbar({
               variant="ghost"
               size="icon"
               onClick={increaseFontSize}
-              className="h-10 w-10"
-              aria-label="Increase font size"
+              className="h-8 w-8"
+              aria-label="Increase font"
             >
-              <Plus className="w-5 h-5" />
-            </Button>
-            
-            <Separator orientation="vertical" className="h-7 mx-1" />
-            
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={resetFontSize}
-              className="h-10 w-10"
-              aria-label="Reset font size"
-            >
-              <RotateCcw className="w-4 h-4" />
+              <Plus className="w-3.5 h-3.5" />
             </Button>
           </div>
 
-          {/* Settings button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onSettingsOpen}
-            className="h-11 w-11"
-            aria-label="Open settings"
-          >
-            <Settings className="w-5 h-5" />
-          </Button>
-        </div>
+          {/* Essential actions - visible */}
+          <div className="flex items-center gap-0.5 ml-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleFavorite}
+              className={`h-9 w-9 ${favorite ? 'text-red-500' : ''}`}
+              aria-label={favorite ? 'Remove favorite' : 'Add favorite'}
+            >
+              <Heart className={`w-4 h-4 ${favorite ? 'fill-current' : ''}`} />
+            </Button>
 
-        {/* Bottom row - Actions with labels */}
-        <div className="container max-w-4xl flex items-center justify-around gap-1 px-3 py-2 border-t border-border/50">
-          <Button
-            variant="ghost"
-            onClick={handleFavorite}
-            className={`flex flex-col items-center gap-1 h-auto py-2 px-3 min-h-[60px] flex-1 ${favorite ? 'text-red-500' : ''}`}
-            aria-label={favorite ? 'Remove from favorites' : 'Add to favorites'}
-          >
-            <Heart className={`w-5 h-5 ${favorite ? 'fill-current' : ''}`} />
-            <span className="text-xs font-medium">{favorite ? 'Saved' : 'Save'}</span>
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={handleShare}
-            className="flex flex-col items-center gap-1 h-auto py-2 px-3 min-h-[60px] flex-1"
-            aria-label="Share"
-          >
-            <Share2 className="w-5 h-5" />
-            <span className="text-xs font-medium">Share</span>
-          </Button>
-
-          <Button
-            variant="ghost"
-            onClick={handleCopy}
-            className="flex flex-col items-center gap-1 h-auto py-2 px-3 min-h-[60px] flex-1"
-            aria-label="Copy text"
-          >
-            <Copy className="w-5 h-5" />
-            <span className="text-xs font-medium">Copy</span>
-          </Button>
+            {/* More actions dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  aria-label="More options"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem onClick={handleShare}>
+                  <Share2 className="w-4 h-4 mr-2" />
+                  Share
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCopy}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy text
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onSettingsOpen}>
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={resetFontSize}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Reset font
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Desktop layout - compact with tooltips
+  // Desktop layout - clean single row with integrated breadcrumb
   return (
     <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-md border-b border-border py-2 print:hidden">
-      <div className="container max-w-4xl flex items-center justify-between gap-2">
+      <div className="container max-w-4xl flex items-center gap-3">
+        {/* Breadcrumb - Left side - Back button */}
+        {category ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
+          >
+            <Link to={`/category/${category.slug}`}>
+              <ChevronLeft className="w-4 h-4" />
+              <span className="ml-1">Back to {category.name}</span>
+            </Link>
+          </Button>
+        ) : (
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
+            aria-label="Back to home"
+          >
+            <Link to="/">
+              <Home className="w-4 h-4" />
+              <span className="ml-1">Home</span>
+            </Link>
+          </Button>
+        )}
+
+        <Separator orientation="vertical" className="h-6" />
+
         {/* Navigation */}
         <div className="flex items-center gap-1">
           <Tooltip>
@@ -252,6 +316,8 @@ export function ReaderToolbar({
             <TooltipContent>Next recitation</TooltipContent>
           </Tooltip>
         </div>
+
+        <Separator orientation="vertical" className="h-6" />
 
         {/* Font Controls */}
         <div className="flex items-center gap-1 bg-card rounded-lg p-1 shadow-sm">
@@ -304,8 +370,8 @@ export function ReaderToolbar({
           </Tooltip>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-1">
+        {/* Actions - Right side */}
+        <div className="flex items-center gap-1 ml-auto">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -354,7 +420,7 @@ export function ReaderToolbar({
                 variant="ghost"
                 size="icon"
                 onClick={handlePrint}
-                className="h-9 w-9 hidden sm:inline-flex"
+                className="h-9 w-9"
               >
                 <Printer className="w-4 h-4" />
               </Button>
@@ -362,7 +428,7 @@ export function ReaderToolbar({
             <TooltipContent>Print</TooltipContent>
           </Tooltip>
 
-          <Separator orientation="vertical" className="h-6 mx-1 hidden sm:block" />
+          <Separator orientation="vertical" className="h-6 mx-1" />
 
           <Tooltip>
             <TooltipTrigger asChild>
