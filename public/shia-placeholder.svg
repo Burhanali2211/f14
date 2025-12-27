@@ -1,92 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" fill="none">
-  <!-- Background with gradient -->
-  <rect width="1200" height="1200" fill="url(#bgGradient)" rx="24"/>
-  
-  <!-- Decorative border pattern -->
-  <g opacity="0.1">
-    <path d="M100 100L1100 100M100 100L100 1100M1100 100L1100 1100M100 1100L1100 1100" stroke="url(#borderGradient)" stroke-width="4" stroke-linecap="round"/>
-  </g>
-  
-  <!-- Central decorative element - Islamic geometric pattern -->
-  <g transform="translate(600, 600)">
-    <!-- Outer circle -->
-    <circle cx="0" cy="0" r="280" fill="none" stroke="url(#accentGradient)" stroke-width="3" opacity="0.3"/>
-    
-    <!-- Inner geometric pattern -->
-    <g opacity="0.4">
-      <path d="M0,-200 L173.2,100 L-173.2,100 Z" fill="url(#patternGradient)" stroke="url(#accentGradient)" stroke-width="2"/>
-      <path d="M0,200 L-173.2,-100 L173.2,-100 Z" fill="url(#patternGradient)" stroke="url(#accentGradient)" stroke-width="2"/>
-      <circle cx="0" cy="0" r="100" fill="url(#centerGradient)" stroke="url(#accentGradient)" stroke-width="2"/>
-    </g>
-    
-    <!-- Decorative stars -->
-    <g opacity="0.5">
-      <path d="M0,-250 L20,-230 L0,-210 L-20,-230 Z" fill="url(#starGradient)"/>
-      <path d="M250,0 L230,20 L210,0 L230,-20 Z" fill="url(#starGradient)"/>
-      <path d="M0,250 L-20,230 L0,210 L20,230 Z" fill="url(#starGradient)"/>
-      <path d="M-250,0 L-230,-20 L-210,0 L-230,20 Z" fill="url(#starGradient)"/>
-    </g>
-  </g>
-  
-  <!-- Calligraphy-style decorative elements -->
-  <g opacity="0.3" transform="translate(600, 400)">
-    <path d="M-150,0 Q-75,-50 0,0 Q75,50 150,0" stroke="url(#calligraphyGradient)" stroke-width="4" fill="none" stroke-linecap="round"/>
-  </g>
-  
-  <g opacity="0.3" transform="translate(600, 800)">
-    <path d="M-150,0 Q-75,50 0,0 Q75,-50 150,0" stroke="url(#calligraphyGradient)" stroke-width="4" fill="none" stroke-linecap="round"/>
-  </g>
-  
-  <!-- Corner decorative elements -->
-  <g opacity="0.2">
-    <circle cx="150" cy="150" r="40" fill="url(#cornerGradient)"/>
-    <circle cx="1050" cy="150" r="40" fill="url(#cornerGradient)"/>
-    <circle cx="150" cy="1050" r="40" fill="url(#cornerGradient)"/>
-    <circle cx="1050" cy="1050" r="40" fill="url(#cornerGradient)"/>
-  </g>
-  
-  <!-- Gradients -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
   <defs>
-    <linearGradient id="bgGradient" x1="0" y1="0" x2="1200" y2="1200">
-      <stop offset="0%" stop-color="#1a5c4d" stop-opacity="0.95"/>
-      <stop offset="50%" stop-color="#2d7a68" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#1a5c4d" stop-opacity="0.95"/>
+    <linearGradient id="bgShia" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a5c4d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d7a68;stop-opacity:1" />
     </linearGradient>
-    
-    <linearGradient id="borderGradient" x1="0" y1="0" x2="1200" y2="1200">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#f4e4bc" stop-opacity="0.4"/>
+    <linearGradient id="goldShia" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#DAA520;stop-opacity:0.6" />
     </linearGradient>
-    
-    <linearGradient id="accentGradient" x1="0" y1="0" x2="200" y2="200">
-      <stop offset="0%" stop-color="#d4af37"/>
-      <stop offset="100%" stop-color="#f4e4bc"/>
-    </linearGradient>
-    
-    <linearGradient id="patternGradient" x1="0" y1="0" x2="200" y2="200">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#f4e4bc" stop-opacity="0.2"/>
-    </linearGradient>
-    
-    <radialGradient id="centerGradient" cx="50%" cy="50%">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.4"/>
-      <stop offset="100%" stop-color="#f4e4bc" stop-opacity="0.2"/>
-    </radialGradient>
-    
-    <radialGradient id="starGradient" cx="50%" cy="50%">
-      <stop offset="0%" stop-color="#f4e4bc"/>
-      <stop offset="100%" stop-color="#d4af37" stop-opacity="0.6"/>
-    </radialGradient>
-    
-    <linearGradient id="calligraphyGradient" x1="0" y1="0" x2="300" y2="0">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.5"/>
-      <stop offset="50%" stop-color="#f4e4bc" stop-opacity="0.7"/>
-      <stop offset="100%" stop-color="#d4af37" stop-opacity="0.5"/>
-    </linearGradient>
-    
-    <radialGradient id="cornerGradient" cx="50%" cy="50%">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#f4e4bc" stop-opacity="0.1"/>
-    </radialGradient>
   </defs>
+  <rect width="1200" height="1200" fill="url(#bgShia)"/>
+  <path d="M 600 200 L 750 500 L 600 800 L 450 500 Z" fill="url(#goldShia)" opacity="0.25"/>
+  <path d="M 600 350 L 650 500 L 600 650 L 550 500 Z" fill="none" stroke="url(#goldShia)" stroke-width="4" opacity="0.5"/>
+  <circle cx="600" cy="500" r="60" fill="url(#goldShia)" opacity="0.3"/>
 </svg>

@@ -656,8 +656,9 @@ export function FullscreenImageViewer({
         const newZoom = Math.max(minAllowedZoom, Math.min(MAX_ZOOM, zoom * scaleChange));
         
         setZoom(newZoom);
-        const constrained = constrainPosition(position.x, position.y, newZoom);
-        setPosition(constrained);
+        // DO NOT constrain position during pinch zoom - preserve user's pan position
+        // Position will be constrained naturally when user drags
+        // This prevents the annoying reset behavior
         // Mark that user has interacted
         userHasInteractedRef.current = true;
       }
@@ -827,8 +828,7 @@ export function FullscreenImageViewer({
           e.preventDefault();
           setZoom(prev => {
             const newZoom = Math.min(MAX_ZOOM, prev + 0.25);
-            const constrained = constrainPosition(position.x, position.y, newZoom);
-            setPosition(constrained);
+            // DO NOT constrain position during zoom - preserve user's pan position
             userHasInteractedRef.current = true;
             return newZoom;
           });
@@ -839,8 +839,7 @@ export function FullscreenImageViewer({
             // Only allow zoom out if currently zoomed in (above fitZoom)
             // Don't allow zooming out below fitZoom
             const newZoom = Math.max(fitZoom, prev - 0.25);
-            const constrained = constrainPosition(position.x, position.y, newZoom);
-            setPosition(constrained);
+            // DO NOT constrain position during zoom - preserve user's pan position
             userHasInteractedRef.current = true;
             return newZoom;
           });
@@ -911,8 +910,11 @@ export function FullscreenImageViewer({
         // Don't allow zooming out below fitZoom
         const minAllowedZoom = prev > fitZoom ? Math.max(minZoom, fitZoom) : fitZoom;
         const newZoom = Math.max(minAllowedZoom, Math.min(MAX_ZOOM, prev + delta));
-        const constrained = constrainPosition(position.x, position.y, newZoom);
-        setPosition(constrained);
+        
+        // DO NOT constrain position during zoom - preserve user's pan position
+        // Position will be constrained naturally when user drags
+        // This prevents the annoying reset behavior
+        
         resetControlsTimeout();
         // Mark that user has interacted
         userHasInteractedRef.current = true;
@@ -925,7 +927,7 @@ export function FullscreenImageViewer({
     return () => {
       container.removeEventListener('wheel', handleWheel);
     };
-  }, [isOpen, minZoom, position, constrainPosition, resetControlsTimeout]);
+  }, [isOpen, minZoom, fitZoom, constrainPosition, resetControlsTimeout]);
 
   // Download image
   const handleDownload = useCallback(async () => {

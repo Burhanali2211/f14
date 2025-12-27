@@ -1,113 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200" fill="none">
-  <!-- Background -->
-  <rect width="1200" height="1200" fill="url(#bgGradient)" rx="24"/>
-  
-  <!-- Ground -->
-  <rect x="0" y="920" width="1200" height="280" fill="url(#groundGradient)"/>
-  
-  <!-- Sacred Shrine Complex -->
-  <g transform="translate(600, 520)">
-    <!-- Main central dome - Imam Hussain (AS) -->
-    <ellipse cx="0" cy="-80" rx="180" ry="160" fill="url(#domeGradient)"/>
-    <path d="M-180,-80 Q-180,-160 -130,-200 Q-80,-220 0,-220 Q80,-220 130,-200 Q180,-160 180,-80 Z" 
-          fill="url(#domeGradient)" stroke="url(#goldStroke)" stroke-width="4"/>
-    
-    <!-- Crescent and star on main dome -->
-    <g transform="translate(0, -250)">
-      <path d="M-35,0 Q-35,-18 -17.5,-18 Q0,-18 0,0 Q0,18 -17.5,18 Q-35,18 -35,0 Z" fill="url(#goldStroke)"/>
-      <path d="M0,-30 L6,-12 L24,-12 L9,0 L14,18 L0,9 L-14,18 L-9,0 L-24,-12 L-6,-12 Z" fill="url(#goldStroke)"/>
-    </g>
-    
-    <!-- Secondary dome - Hazrat Abbas (AS) -->
-    <ellipse cx="-200" cy="-40" rx="100" ry="90" fill="url(#domeGradient)" opacity="0.85"/>
-    <path d="M-300,-40 Q-300,-100 -250,-120 Q-200,-130 -200,-40 Z" 
-          fill="url(#domeGradient)" opacity="0.85" stroke="url(#goldStroke)" stroke-width="3"/>
-    
-    <!-- Banner/Standard on secondary dome -->
-    <g transform="translate(-200, -160)">
-      <rect x="-2" y="0" width="4" height="100" fill="url(#goldStroke)"/>
-      <path d="M0,0 L0,70 L50,55 L0,40 Z" fill="url(#bannerGradient)" stroke="url(#goldStroke)" stroke-width="2"/>
-    </g>
-    
-    <!-- Base structure -->
-    <rect x="-300" y="20" width="600" height="180" fill="url(#baseGradient)" rx="15" stroke="url(#goldStroke)" stroke-width="3"/>
-    
-    <!-- Decorative arches on base -->
-    <path d="M-300,20 Q-300,-20 -250,-20 Q-200,-20 -200,20" 
-          stroke="url(#goldStroke)" stroke-width="3" fill="none" opacity="0.6"/>
-    <path d="M200,20 Q200,-20 250,-20 Q300,-20 300,20" 
-          stroke="url(#goldStroke)" stroke-width="3" fill="none" opacity="0.6"/>
-    
-    <!-- Decorative patterns -->
-    <circle cx="0" cy="60" r="100" fill="none" stroke="url(#goldStroke)" stroke-width="2" opacity="0.3"/>
-    <circle cx="0" cy="60" r="70" fill="none" stroke="url(#goldStroke)" stroke-width="2" opacity="0.2"/>
-  </g>
-  
-  <!-- Four corner minarets -->
-  <g transform="translate(250, 380)">
-    <rect x="-12" y="0" width="24" height="220" fill="url(#minaretGradient)" rx="12"/>
-    <rect x="-18" y="0" width="36" height="25" fill="url(#goldStroke)" rx="5"/>
-    <circle cx="0" cy="20" r="6" fill="url(#goldStroke)"/>
-  </g>
-  
-  <g transform="translate(950, 380)">
-    <rect x="-12" y="0" width="24" height="220" fill="url(#minaretGradient)" rx="12"/>
-    <rect x="-18" y="0" width="36" height="25" fill="url(#goldStroke)" rx="5"/>
-    <circle cx="0" cy="20" r="6" fill="url(#goldStroke)"/>
-  </g>
-  
-  <g transform="translate(250, 700)">
-    <rect x="-12" y="0" width="24" height="180" fill="url(#minaretGradient)" rx="12"/>
-    <rect x="-18" y="0" width="36" height="25" fill="url(#goldStroke)" rx="5"/>
-  </g>
-  
-  <g transform="translate(950, 700)">
-    <rect x="-12" y="0" width="24" height="180" fill="url(#minaretGradient)" rx="12"/>
-    <rect x="-18" y="0" width="36" height="25" fill="url(#goldStroke)" rx="5"/>
-  </g>
-  
-  <!-- Decorative border -->
-  <g opacity="0.2">
-    <rect x="50" y="50" width="1100" height="1100" fill="none" stroke="url(#goldStroke)" stroke-width="2" rx="20"/>
-  </g>
-  
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
   <defs>
-    <linearGradient id="bgGradient" x1="0" y1="0" x2="1200" y2="1200">
-      <stop offset="0%" stop-color="#1a5c4d" stop-opacity="0.95"/>
-      <stop offset="50%" stop-color="#2d7a68" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#1a5c4d" stop-opacity="0.95"/>
+    <linearGradient id="bg4" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a5c4d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d7a68;stop-opacity:1" />
     </linearGradient>
-    
-    <linearGradient id="groundGradient" x1="0" y1="920" x2="0" y2="1200">
-      <stop offset="0%" stop-color="#3a8a75" stop-opacity="0.6"/>
-      <stop offset="100%" stop-color="#1a5c4d" stop-opacity="0.8"/>
-    </linearGradient>
-    
-    <linearGradient id="domeGradient" x1="0" y1="-220" x2="0" y2="-80">
-      <stop offset="0%" stop-color="#d4af37"/>
-      <stop offset="50%" stop-color="#f4e4bc"/>
-      <stop offset="100%" stop-color="#d4af37"/>
-    </linearGradient>
-    
-    <linearGradient id="baseGradient" x1="-300" y1="20" x2="300" y2="200">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.8"/>
-      <stop offset="50%" stop-color="#f4e4bc" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#d4af37" stop-opacity="0.8"/>
-    </linearGradient>
-    
-    <linearGradient id="minaretGradient" x1="0" y1="0" x2="0" y2="220">
-      <stop offset="0%" stop-color="#d4af37"/>
-      <stop offset="100%" stop-color="#b8941f"/>
-    </linearGradient>
-    
-    <linearGradient id="goldStroke" x1="0" y1="0" x2="200" y2="200">
-      <stop offset="0%" stop-color="#d4af37"/>
-      <stop offset="100%" stop-color="#f4e4bc"/>
-    </linearGradient>
-    
-    <linearGradient id="bannerGradient" x1="0" y1="0" x2="50" y2="70">
-      <stop offset="0%" stop-color="#d4af37" stop-opacity="0.9"/>
-      <stop offset="100%" stop-color="#b8941f" stop-opacity="0.7"/>
+    <linearGradient id="gold4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#DAA520;stop-opacity:0.6" />
     </linearGradient>
   </defs>
+  <rect width="1200" height="1200" fill="url(#bg4)"/>
+  <ellipse cx="600" cy="600" rx="250" ry="200" fill="url(#gold4)" opacity="0.3"/>
+  <ellipse cx="600" cy="600" rx="200" ry="160" fill="none" stroke="url(#gold4)" stroke-width="4" opacity="0.5"/>
+  <ellipse cx="600" cy="600" rx="150" ry="120" fill="none" stroke="url(#gold4)" stroke-width="3" opacity="0.4"/>
 </svg>
