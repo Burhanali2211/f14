@@ -335,27 +335,43 @@ export function FullscreenImageViewer({
   }, [actualSrc, isOpen]);
 
   // Reset on open and when src changes
+  // Track previous isOpen to detect actual opening (not just resetControlsTimeout changes)
+  const prevIsOpenForResetRef = useRef(isOpen);
   useEffect(() => {
+    // Only reset when viewer is actually opened or image source actually changes
+    // The image change is already handled by the effect at line 344, so we check prevActualSrcRef
+    const isOpening = !prevIsOpenForResetRef.current && isOpen;
+    const imageChanged = prevActualSrcRef.current !== actualSrc;
+    
     if (isOpen && actualSrc) {
-      setRotation(0);
-      setPosition({ x: 0, y: 0 });
-      setIsLoading(true);
-      setError(false);
-      setControlsVisible(true);
-      resetControlsTimeout();
-      isDraggingRef.current = false;
-      touchStartRef.current = null;
-      initialTouchRef.current = null;
-      swipeStartRef.current = null;
-      isSwipeRef.current = false;
-      hasMovedRef.current = false;
-      mouseDownPositionRef.current = { x: 0, y: 0, time: 0 };
-      lastClickTimeRef.current = 0;
-      clickCountRef.current = 0;
-      isInitialLoadRef.current = true;
-      prevRotationRef.current = 0;
-      userHasInteractedRef.current = false; // Reset interaction flag on new image
-      setImageDimensions({ width: 0, height: 0 });
+      // Only perform full reset when opening or image changes
+      // This prevents resets when only resetControlsTimeout changes
+      if (isOpening || imageChanged) {
+        setRotation(0);
+        setPosition({ x: 0, y: 0 });
+        setIsLoading(true);
+        setError(false);
+        setControlsVisible(true);
+        isDraggingRef.current = false;
+        touchStartRef.current = null;
+        initialTouchRef.current = null;
+        swipeStartRef.current = null;
+        isSwipeRef.current = false;
+        hasMovedRef.current = false;
+        mouseDownPositionRef.current = { x: 0, y: 0, time: 0 };
+        lastClickTimeRef.current = 0;
+        clickCountRef.current = 0;
+        isInitialLoadRef.current = true;
+        prevRotationRef.current = 0;
+        userHasInteractedRef.current = false; // Reset interaction flag on new image
+        setImageDimensions({ width: 0, height: 0 });
+      } else {
+        // Just reset controls timeout without full reset when resetControlsTimeout changes
+        resetControlsTimeout();
+      }
+      
+      // Always update the isOpen ref
+      prevIsOpenForResetRef.current = isOpen;
       
       // Clear any existing loading timeout
       if (loadingTimeoutRef.current) {
@@ -425,11 +441,13 @@ export function FullscreenImageViewer({
         loadingTimeoutRef.current = null;
       }
     };
-  }, [isOpen, src, resetControlsTimeout]);
+  }, [isOpen, actualSrc, resetControlsTimeout]);
   
   // Simple position constraint - keep image within reasonable bounds
   const constrainPosition = useCallback((x: number, y: number, currentZoom: number) => {
-    if (!imageRef.current || !imageContainerRef.current || imageDimensions.width === 0) return { x: 0, y: 0 };
+    if (!imageRef.current || !imageContainerRef.current || imageDimensions.width === 0) {
+      return { x: 0, y: 0 };
+    }
     
     const container = imageContainerRef.current;
     const containerRect = container.getBoundingClientRect();
