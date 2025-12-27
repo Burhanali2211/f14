@@ -57,6 +57,7 @@ const PageLoader = () => (
 import { NotificationPermissionPrompt } from "@/components/NotificationPermissionPrompt";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { UpdateNotification } from "@/components/UpdateNotification";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { toast } from "@/hooks/use-toast";
 import { login as testLogin } from "@/lib/auth-utils";
 import { initializeCacheRealtimeSubscriptions } from "@/lib/realtime-cache-manager";
@@ -898,6 +899,7 @@ const App = () => (
                     <ServiceWorkerHandler />
                     <NotificationPermissionPrompt />
                     <UpdateNotification />
+                    <InstallPrompt />
                     <Suspense fallback={<PageLoader />}>
                       <Routes>
                         <Route path="/" element={<Index />} />

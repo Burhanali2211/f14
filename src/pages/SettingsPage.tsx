@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { 
   ChevronLeft, Type, Eye, Palette, 
-  Accessibility, RotateCcw, Download, Trash2, Bell, BellOff, Settings
+  Accessibility, RotateCcw, Download, Trash2, Bell, BellOff, Settings, Smartphone
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -41,7 +41,7 @@ import { useFavorites } from '@/hooks/use-favorites';
 import { useReadingProgress } from '@/hooks/use-reading-progress';
 import { useNotifications } from '@/hooks/use-notifications';
 import { toast } from '@/hooks/use-toast';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export default function SettingsPage() {
   const { settings, updateSetting, resetSettings } = useSettings();
@@ -55,6 +55,81 @@ export default function SettingsPage() {
     toggleNotifications 
   } = useNotifications();
   const [showPermissionDialog, setShowPermissionDialog] = useState(false);
+  const [canInstall, setCanInstall] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalling, setIsInstalling] = useState(false);
+  const deferredPromptRef = useRef<any>(null);
+
+  // Check if app can be installed
+  useEffect(() => {
+    // Check if already installed
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://');
+
+    if (isStandalone) {
+      setIsInstalled(true);
+      return;
+    }
+
+    // Listen for beforeinstallprompt event
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      deferredPromptRef.current = e;
+      setCanInstall(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    // Listen for app installed event
+    window.addEventListener('appinstalled', () => {
+      setIsInstalled(true);
+      setCanInstall(false);
+      deferredPromptRef.current = null;
+      toast({
+        title: "App installed!",
+        description: "Thank you for installing Followers of 14",
+      });
+    });
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstall = async () => {
+    if (!deferredPromptRef.current) {
+      toast({
+        title: "Install not available",
+        description: "Please use your browser's menu to install the app",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsInstalling(true);
+
+    try {
+      await deferredPromptRef.current.prompt();
+      const { outcome } = await deferredPromptRef.current.userChoice;
+
+      if (outcome === 'accepted') {
+        setIsInstalled(true);
+        setCanInstall(false);
+      }
+
+      deferredPromptRef.current = null;
+    } catch (error) {
+      console.error('Error showing install prompt:', error);
+      toast({
+        title: "Install failed",
+        description: "Please try using your browser's menu to install",
+        variant: "destructive"
+      });
+    } finally {
+      setIsInstalling(false);
+    }
+  };
 
   const handleResetSettings = () => {
     resetSettings();
@@ -392,6 +467,82 @@ export default function SettingsPage() {
                     </p>
                   </div>
                 </>
+              )}
+            </div>
+          </section>
+
+          {/* Install App Section */}
+          <section className="bg-card rounded-2xl p-6 border border-border">
+            <h2 className="font-semibold text-foreground flex items-center gap-2 mb-6">
+              <Smartphone className="w-5 h-5 text-primary" />
+              Install App
+            </h2>
+            
+            <div className="space-y-4">
+              {isInstalled ? (
+                <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                  <p className="text-sm text-primary font-medium mb-1 flex items-center gap-2">
+                    <span className="text-lg">✓</span>
+                    App Installed
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    The app is installed on your device. You can access it from your home screen.
+                  </p>
+                </div>
+              ) : canInstall ? (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-sm text-foreground">
+                      Install "Followers of 14" on your device for a better experience:
+                    </p>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>Quick access from your home screen</li>
+                      <li>Works offline with cached content</li>
+                      <li>Faster loading and smoother experience</li>
+                      <li>No need to open browser every time</li>
+                    </ul>
+                  </div>
+                  <Button
+                    onClick={handleInstall}
+                    disabled={isInstalling}
+                    className="w-full sm:w-auto"
+                  >
+                    {isInstalling ? (
+                      <>
+                        <Download className="w-4 h-4 mr-2 animate-pulse" />
+                        Installing...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Install App
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <div className="p-4 rounded-lg bg-muted/50 border border-border">
+                  <p className="text-sm text-foreground font-medium mb-2">
+                    Install App
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    To install this app on your device:
+                  </p>
+                  <div className="text-xs text-muted-foreground space-y-2">
+                    <div>
+                      <strong className="text-foreground">Chrome/Edge (Android):</strong>
+                      <p>Tap the menu (⋮) → "Install app" or "Add to Home screen"</p>
+                    </div>
+                    <div>
+                      <strong className="text-foreground">Safari (iOS):</strong>
+                      <p>Tap the Share button (□↑) → "Add to Home Screen"</p>
+                    </div>
+                    <div>
+                      <strong className="text-foreground">Chrome (Desktop):</strong>
+                      <p>Click the install icon (⊕) in the address bar</p>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           </section>
