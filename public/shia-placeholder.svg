@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <defs>
+    <linearGradient id="bgShia" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a5c4d;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d7a68;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="goldShia" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700;stop-opacity:0.8" />
+      <stop offset="100%" style="stop-color:#DAA520;stop-opacity:0.6" />
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="1200" fill="url(#bgShia)"/>
+  <path d="M 600 200 L 750 500 L 600 800 L 450 500 Z" fill="url(#goldShia)" opacity="0.25"/>
+  <path d="M 600 350 L 650 500 L 600 650 L 550 500 Z" fill="none" stroke="url(#goldShia)" stroke-width="4" opacity="0.5"/>
+  <circle cx="600" cy="500" r="60" fill="url(#goldShia)" opacity="0.3"/>
+</svg>
