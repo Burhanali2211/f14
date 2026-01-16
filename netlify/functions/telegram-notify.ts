@@ -1,6 +1,4 @@
-export const config = {
-  runtime: 'edge',
-};
+import { Handler } from '@netlify/functions';
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
@@ -120,42 +118,50 @@ async function sendTelegramMessage(chatId: string, message: string): Promise<boo
   }
 }
 
-export default async function handler(request: Request) {
-  if (request.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+export const handler: Handler = async (event) => {
+  // CORS Headers
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Content-Type': 'application/json',
+  };
+
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers,
+      body: '',
+    };
   }
 
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json' },
-    });
+  if (event.httpMethod !== 'POST') {
+    return {
+      statusCode: 405,
+      headers,
+      body: JSON.stringify({ error: 'Method not allowed' }),
+    };
   }
 
-    try {
-      if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-        console.error('Telegram credentials not configured');
-        return new Response(JSON.stringify({ error: 'Telegram not configured' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
+  try {
+    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+      console.error('Telegram credentials not configured');
+      return {
+        statusCode: 500,
+        headers,
+        body: JSON.stringify({ error: 'Telegram not configured' }),
+      };
+    }
 
-      const body: TelegramPayload = await request.json();
+    const body: TelegramPayload = JSON.parse(event.body || '{}');
     const { type, data } = body;
 
     if (!type || !data) {
-      return new Response(JSON.stringify({ error: 'Missing type or data' }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: 'Missing type or data' }),
+      };
     }
 
     let message: string;
@@ -177,26 +183,26 @@ export default async function handler(request: Request) {
         message = formatQuestionMessage(data);
         break;
       default:
-        return new Response(JSON.stringify({ error: 'Invalid notification type' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' },
-        });
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ error: 'Invalid notification type' }),
+        };
     }
 
     const success = await sendTelegramMessage(TELEGRAM_CHAT_ID!, message);
 
-    return new Response(JSON.stringify({ success }), {
-      status: success ? 200 : 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
-    });
+    return {
+      statusCode: success ? 200 : 500,
+      headers,
+      body: JSON.stringify({ success }),
+    };
   } catch (error) {
     console.error('Error processing telegram notification:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return {
+      statusCode: 500,
+      headers,
+      body: JSON.stringify({ error: 'Internal server error' }),
+    };
   }
-}
+};

@@ -10,12 +10,10 @@ export async function sendTelegramNotification(
   type: NotificationType,
   data: NotificationData
 ): Promise<boolean> {
-  try {
-    const apiUrl = typeof window !== 'undefined' 
-      ? `${window.location.origin}/api/telegram-notify`
-      : '/api/telegram-notify';
+    try {
+      const apiUrl = '/.netlify/functions/telegram-notify';
 
-    const response = await fetch(apiUrl, {
+      const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
