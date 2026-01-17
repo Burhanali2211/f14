@@ -25,6 +25,9 @@ import { clearExpiredCache } from "@/lib/data-cache";
 import { logger } from "@/lib/logger";
 import { useServiceWorkerMessages } from "@/hooks/use-service-worker-messages";
 import { useAnnouncementNotifications } from "@/hooks/use-announcement-notifications";
+import { initializeCache, initNetworkMonitor, clearExpiredEntries, checkAndClearOutdatedCache } from "@/lib/cache";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
+import HoverReceiver from "@/visual-edits/VisualEditsMessenger";
 
 const Index = lazy(() => import("./pages/Index"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
@@ -74,13 +77,23 @@ function PageLoader() {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        if ((error as any)?.status === 404) return false;
+        if ((error as any)?.message?.includes('offline')) return false;
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
+      gcTime: 30 * 60 * 1000,
       refetchOnMount: false,
       refetchOnReconnect: true,
       structuralSharing: true,
+      networkMode: 'offlineFirst',
+    },
+    mutations: {
+      retry: 1,
+      networkMode: 'offlineFirst',
     },
   },
 });
@@ -113,17 +126,26 @@ function BackendHealthCheck() {
 
 function CacheSystemInitializer() {
   useEffect(() => {
+    checkAndClearOutdatedCache();
+    initializeCache();
+    const cleanupNetwork = initNetworkMonitor();
+    
     const cleared = clearExpiredCache();
     if (cleared > 0) {
       logger.debug(`Cleared ${cleared} expired cache entries on app start`);
     }
-    const cleanup = initializeCacheRealtimeSubscriptions();
-    return cleanup;
+    const cleanupRealtime = initializeCacheRealtimeSubscriptions();
+    
+    return () => {
+      cleanupNetwork();
+      cleanupRealtime();
+    };
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
       clearExpiredCache();
+      clearExpiredEntries();
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -184,6 +206,7 @@ function App() {
                       <TooltipProvider>
                         <Toaster />
                         <Sonner />
+                        <HoverReceiver />
                         <BrowserRouter
                           future={{
                             v7_startTransition: true,
@@ -200,8 +223,9 @@ function App() {
                           <Suspense fallback={<PageLoader />}>
                             <AppRoutes />
                           </Suspense>
-                          <MobileBottomNavWrapper />
-                        </BrowserRouter>
+                            <MobileBottomNavWrapper />
+                            <OfflineIndicator />
+                          </BrowserRouter>
                       </TooltipProvider>
                     </SiteSettingsProvider>
                   </UserRoleProvider>

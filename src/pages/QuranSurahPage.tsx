@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { surahs } from '@/data/quran';
 import { getSurahVerses } from '@/data/quran/verses';
 import { toArabicNumber } from '@/lib/quran-types';
-import { AyahDisplay, Bismillah, TranslationToggle } from '@/components/quran';
+import { AyahDisplay, Bismillah, TranslationToggle, AutoScrollControl } from '@/components/quran';
 
 export default function QuranSurahPage() {
   const { surahNumber } = useParams<{ surahNumber: string }>();
@@ -183,6 +183,8 @@ export default function QuranSurahPage() {
       </main>
 
       <Footer />
+      
+      <AutoScrollControl />
     </div>
   );
 }

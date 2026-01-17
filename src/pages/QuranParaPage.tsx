@@ -6,6 +6,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { paras, surahs } from '@/data/quran';
 import { toArabicNumber } from '@/lib/quran-types';
+import { AutoScrollControl } from '@/components/quran';
 
 export default function QuranParaPage() {
   const { paraNumber } = useParams<{ paraNumber: string }>();
@@ -122,6 +123,7 @@ export default function QuranParaPage() {
       </main>
 
       <Footer />
+      <AutoScrollControl />
     </div>
   );
 }

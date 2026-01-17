@@ -7,3 +7,4 @@ export { QuranCategoryCard } from './QuranCategoryCard';
 export { AyahDisplay } from './AyahDisplay';
 export { Bismillah } from './Bismillah';
 export { TranslationToggle } from './TranslationToggle';
+export { AutoScrollControl } from './AutoScrollControl';

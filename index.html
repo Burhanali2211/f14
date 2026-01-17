@@ -98,15 +98,20 @@
     <!-- Preconnect to improve font loading -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://slelguoygbfzlpylpxfs.supabase.co" crossorigin />
     
     <!-- DNS prefetch for external resources -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+    <link rel="dns-prefetch" href="https://slelguoygbfzlpylpxfs.supabase.co" />
+    
+    <!-- Preload AlMajeed Quran Font - CRITICAL for Arabic text -->
+    <link rel="preload" href="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/project-uploads/13ea1992-c5c6-4007-81d7-949502de4b7e/Al-Majeed-Quranic-Font_shiped-1768619679428.ttf" as="font" type="font/ttf" crossorigin />
     
     <!-- Preload critical resources -->
     
     <!-- Arabic Fonts for Reader - optimized with font-display: swap -->
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Gulzar:wght@400&family=Scheherazade+New:wght@400;500;600;700&family=Lateef:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     
     <!-- Structured Data -->
     <script type="application/ld+json">
@@ -192,5 +197,15 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script
+        src="https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/scripts/route-messenger-vite.js"
+       data-target-origin="*"
+        data-message-type="ROUTE_CHANGE"
+        data-include-search-params="true"
+        data-only-in-iframe="true"
+        data-debug="true"
+        data-custom-data='{"appName": "YourApp", "version": "1.0.0", "greeting": "hi"}'
+        defer
+    ></script>
   </body>
 </html>

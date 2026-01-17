@@ -1,9 +1,22 @@
 // Service Worker for Background Notifications and Update Detection
-const CACHE_NAME = 'sacred-recitations-v1';
+// IMPORTANT: This SW does NOT cache API responses - only static assets
+const CACHE_NAME = 'sacred-recitations-v2';
 const NOTIFICATION_TITLE = 'Upcoming Event';
 const UPDATE_NOTIFICATION_TITLE = 'Update Available';
 const VERSION_FILE = '/version.json';
 const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
+
+// URLs that should NEVER be cached (API calls, Supabase, dynamic data)
+const NO_CACHE_PATTERNS = [
+  /supabase\.co/,
+  /\.supabase\.co/,
+  /\/rest\/v1\//,
+  /\/auth\/v1\//,
+  /\/storage\/v1\//,
+  /\/realtime\//,
+  /api\//,
+  /version\.json/,
+];
 
 // Get app version from version.json
 async function getAppVersion() {
@@ -242,14 +255,11 @@ self.addEventListener('activate', (event) => {
   console.log('[Service Worker] Activating...');
   event.waitUntil(
     (async () => {
-      // Clear all old caches
+      // Clear ALL caches on activation to ensure fresh data
       const cacheNames = await caches.keys();
       const deletePromises = cacheNames.map((cacheName) => {
-        if (cacheName !== CACHE_NAME) {
-          console.log('[Service Worker] Deleting old cache:', cacheName);
-          return caches.delete(cacheName);
-        }
-        return Promise.resolve();
+        console.log('[Service Worker] Deleting cache:', cacheName);
+        return caches.delete(cacheName);
       });
       
       await Promise.all(deletePromises);
@@ -274,6 +284,37 @@ self.addEventListener('activate', (event) => {
       
       return self.clients.claim();
     })()
+  );
+});
+
+// CRITICAL: Fetch handler - NEVER cache API/Supabase requests
+self.addEventListener('fetch', (event) => {
+  const url = event.request.url;
+  
+  // Check if this URL should bypass cache entirely
+  const shouldBypassCache = NO_CACHE_PATTERNS.some(pattern => pattern.test(url));
+  
+  if (shouldBypassCache) {
+    // Always fetch from network for API calls - never use cache
+    event.respondWith(
+      fetch(event.request, {
+        cache: 'no-store',
+        headers: {
+          ...Object.fromEntries(event.request.headers.entries()),
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+        }
+      }).catch((error) => {
+        console.error('[Service Worker] Network error for:', url, error);
+        throw error;
+      })
+    );
+    return;
+  }
+  
+  // For other requests, use network-first strategy
+  event.respondWith(
+    fetch(event.request)
+      .catch(() => caches.match(event.request))
   );
 });
 

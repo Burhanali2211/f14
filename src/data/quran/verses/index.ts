@@ -2,6 +2,21 @@ export { surah1AlFatiha } from './surah-1';
 export type { Ayah, SurahVerses } from './surah-1';
 
 import { surah1AlFatiha, SurahVerses } from './surah-1';
+import { surah2AlBaqarah } from './surah-2';
+import { surah3AlImran } from './surah-3';
+import { surah36YaSin } from './surah-36';
+import { surah55ArRahman } from './surah-55';
+import { surah56AlWaqiah } from './surah-56';
+import { surah57AlHadid } from './surah-57';
+import { surah58AlMujadila } from './surah-58';
+import { surah59AlHashr } from './surah-59';
+import { surah60AlMumtahanah } from './surah-60';
+import { surah61AsSaff } from './surah-61';
+import { surah62AlJumuah } from './surah-62';
+import { surah63AlMunafiqun } from './surah-63';
+import { surah64AtTaghabun } from './surah-64';
+import { surah65AtTalaq } from './surah-65';
+import { surah66AtTahrim } from './surah-66';
 import { surah67AlMulk } from './surah-67';
 import { surah68AlQalam } from './surah-68';
 import { surah69AlHaqqah } from './surah-69';
@@ -9,6 +24,10 @@ import { surah70AlMaarij } from './surah-70';
 import { surah71Nuh } from './surah-71';
 import { surah72AlJinn } from './surah-72';
 import { surah73AlMuzzammil } from './surah-73';
+import { surah74AlMuddaththir } from './surah-74';
+import { surah75AlQiyamah } from './surah-75';
+import { surah76AlInsan } from './surah-76';
+import { surah77AlMursalat } from './surah-77';
 import { surah78AnNaba } from './surah-78';
 import { surah79AnNaziat } from './surah-79';
 import { surah80Abasa } from './surah-80';
@@ -49,6 +68,21 @@ import { surah114AnNas } from './surah-114';
 
 export const surahVersesMap: Record<number, SurahVerses> = {
   1: surah1AlFatiha,
+  2: surah2AlBaqarah,
+  3: surah3AlImran,
+  36: surah36YaSin,
+  55: surah55ArRahman,
+  56: surah56AlWaqiah,
+  57: surah57AlHadid,
+  58: surah58AlMujadila,
+  59: surah59AlHashr,
+  60: surah60AlMumtahanah,
+  61: surah61AsSaff,
+  62: surah62AlJumuah,
+  63: surah63AlMunafiqun,
+  64: surah64AtTaghabun,
+  65: surah65AtTalaq,
+  66: surah66AtTahrim,
   67: surah67AlMulk,
   68: surah68AlQalam,
   69: surah69AlHaqqah,
@@ -56,6 +90,10 @@ export const surahVersesMap: Record<number, SurahVerses> = {
   71: surah71Nuh,
   72: surah72AlJinn,
   73: surah73AlMuzzammil,
+  74: surah74AlMuddaththir,
+  75: surah75AlQiyamah,
+  76: surah76AlInsan,
+  77: surah77AlMursalat,
   78: surah78AnNaba,
   79: surah79AnNaziat,
   80: surah80Abasa,

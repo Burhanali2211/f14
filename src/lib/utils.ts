@@ -106,6 +106,30 @@ export function getFirstImageUrl(imageUrl: string | null | string[] | undefined)
 }
 
 /**
+ * Optimizes a Supabase storage URL by adding transformation parameters
+ * Uses Supabase's built-in image transformation service
+ */
+export function getOptimizedImageUrl(url: string | null | undefined, options: { width?: number; height?: number; quality?: number; format?: 'webp' | 'avif' | 'origin' } = {}): string | null {
+  if (!url) return null;
+  if (!url.includes('supabase.co/storage/v1/object/public/')) return url;
+
+  const { width, height, quality = 80, format = 'webp' } = options;
+  
+  // Use the transformation endpoint format: /render/image/public/...
+  // Or just append query params if the storage setup supports it
+  // For most Supabase setups, appending query params to the public URL works if transformation is enabled
+  
+  const params = new URLSearchParams();
+  if (width) params.append('width', width.toString());
+  if (height) params.append('height', height.toString());
+  params.append('quality', quality.toString());
+  if (format !== 'origin') params.append('format', format);
+
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}${params.toString()}`;
+}
+
+/**
  * Gets a Karbala sacred place placeholder image
  * Returns a random placeholder from the available Karbala sacred places
  * Uses the piece ID to ensure consistent selection for the same piece

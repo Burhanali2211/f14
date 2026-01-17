@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { List } from 'react-window';
-import type { ListProps } from 'react-window';
+import { FixedSizeList as List } from 'react-window';
 import { Link } from 'react-router-dom';
 import { PieceCard } from '@/components/PieceCard';
 import type { Piece } from '@/lib/supabase-types';
@@ -108,18 +107,6 @@ export function VirtualizedPieceList({
     );
   };
 
-  // Grid row component
-  const GridRow = ({ index, style }: { index: number; style: React.CSSProperties }) => {
-    const piece = pieces[index];
-    if (!piece) return null;
-    
-    return (
-      <div style={style} className="px-2">
-        <PieceCard piece={piece} index={index} compact={true} />
-      </div>
-    );
-  };
-
   if (pieces.length === 0) {
     return (
       <div className="text-center py-16 bg-card rounded-2xl border border-dashed border-border">
@@ -128,28 +115,24 @@ export function VirtualizedPieceList({
     );
   }
 
-  // For grid view, calculate items per row
-  const itemsPerRow = 4; // Adjust based on screen size
-  const rowCount = Math.ceil(pieces.length / itemsPerRow);
-  const gridItemHeight = 280; // Height for grid items
-
   if (viewMode === 'list') {
     return (
       <List
-        rowCount={pieces.length}
-        rowHeight={itemHeight}
-        rowComponent={ListRow}
+        itemCount={pieces.length}
+        itemSize={itemHeight}
         className="scrollbar-hide"
-        style={{ height: containerHeight, width: '100%' }}
+        height={containerHeight}
+        width="100%"
         overscanCount={3}
-      />
+      >
+        {ListRow}
+      </List>
     );
   }
 
-  // Grid view - simplified (full grid virtualization is complex)
-  // For now, render grid normally but limit visible items
+  // Grid view - rendered normally for now
   return (
-    <div className="grid grid-cols-1 gap-4 md:gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
       {pieces.slice(0, 100).map((piece, i) => (
         <PieceCard key={piece.id} piece={piece} index={i} compact={true} />
       ))}

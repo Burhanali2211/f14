@@ -30,7 +30,10 @@ export function AyahDisplay({ ayah, showUrdu = true, showEnglish = true }: AyahD
             dir="rtl"
             lang="ar"
           >
-            <p className="quran-arabic-text text-2xl sm:text-3xl md:text-[2rem] lg:text-[2.25rem] text-foreground">
+            <p 
+              className="quran-arabic-text text-2xl sm:text-3xl md:text-[2rem] lg:text-[2.25rem] text-foreground"
+              style={{ lineHeight: 2.4 }}
+            >
               {ayah.arabicText}
               <span className="inline-block mx-3 text-primary/70 text-lg sm:text-xl">
                 ﴿{toArabicNumber(ayah.number)}﴾
@@ -44,7 +47,10 @@ export function AyahDisplay({ ayah, showUrdu = true, showEnglish = true }: AyahD
               dir="rtl"
               lang="ur"
             >
-              <p className="quran-urdu-text text-lg sm:text-xl md:text-[1.35rem] text-muted-foreground">
+              <p 
+                className="quran-urdu-text text-lg sm:text-xl md:text-[1.35rem] text-muted-foreground"
+                style={{ lineHeight: 2.2 }}
+              >
                 {ayah.urduTranslation}
               </p>
             </div>

@@ -61,7 +61,6 @@ export function UpdateNotification() {
         const versionInfo = version.buildHash 
           ? `v${version.version} (${version.buildHash.substring(0, 8)})`
           : `v${version.version}`;
-        const buildDate = new Date(version.buildTime).toLocaleDateString();
         
         await serviceWorkerRegistrationRef.current.showNotification('Update Available', {
           body: `New version ${versionInfo} is available. Click to update now!`,
@@ -386,24 +385,24 @@ export function UpdateNotification() {
             <RefreshCw className="h-5 w-5 text-primary animate-spin" />
             Update Available
           </AlertDialogTitle>
-          <AlertDialogDescription>
+          <div className="text-sm text-muted-foreground">
             A new version of the app is available. Click "Update Now" to get the latest features and improvements.
             {updateVersion && (
-              <div className="mt-3 space-y-1 text-sm">
+              <div className="mt-3 space-y-1">
                 <div className="font-medium text-foreground">
                   Version: {updateVersion.version}
                 </div>
-                <div className="text-muted-foreground">
+                <div>
                   Build: {new Date(updateVersion.buildTime).toLocaleString()}
                 </div>
                 {updateVersion.buildHash && (
-                  <div className="text-muted-foreground font-mono text-xs">
+                  <div className="font-mono text-xs">
                     Hash: {updateVersion.buildHash.substring(0, 12)}...
                   </div>
                 )}
               </div>
             )}
-          </AlertDialogDescription>
+          </div>
         </AlertDialogHeader>
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
           <AlertDialogCancel onClick={handleDismiss} className="w-full sm:w-auto">
@@ -419,4 +418,3 @@ export function UpdateNotification() {
     </AlertDialog>
   );
 }
-

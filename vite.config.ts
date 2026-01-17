@@ -2,129 +2,81 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react-swc';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
+import { componentTaggerPlugin } from "./src/visual-edits/component-tagger-plugin.js";
+
+// Minimal plugin to log build-time and dev-time errors to console
+const logErrorsPlugin = () => ({
+  name: "log-errors-plugin",
+  // Inject a small client-side script that mirrors Vite overlay errors to console
+  transformIndexHtml() {
+    return {
+      tags: [
+        {
+          tag: "script",
+          injectTo: "head",
+          children: `(() => {
+            try {
+              const logOverlay = () => {
+                const el = document.querySelector('vite-error-overlay');
+                if (!el) return;
+                const root = (el.shadowRoot || el);
+                let text = '';
+                try { text = root.textContent || ''; } catch (_) {}
+                if (text && text.trim()) {
+                  const msg = text.trim();
+                  // Use console.error to surface clearly in DevTools
+                  console.error('[Vite Overlay]', msg);
+                  // Also mirror to parent iframe with structured payload
+                  try {
+                    if (window.parent && window.parent !== window) {
+                      window.parent.postMessage({
+                        type: 'ERROR_CAPTURED',
+                        error: {
+                          message: msg,
+                          stack: undefined,
+                          filename: undefined,
+                          lineno: undefined,
+                          colno: undefined,
+                          source: 'vite.overlay',
+                        },
+                        timestamp: Date.now(),
+                      }, '*');
+                    }
+                  } catch (_) {}
+                }
+              };
+
+              const obs = new MutationObserver(() => logOverlay());
+              obs.observe(document.documentElement, { childList: true, subtree: true });
+
+              window.addEventListener('DOMContentLoaded', logOverlay);
+              // Attempt immediately as overlay may already exist
+              logOverlay();
+            } catch (e) {
+              console.warn('[Vite Overlay logger failed]', e);
+            }
+          })();`
+        }
+      ]
+    };
+  },
+});
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
-    VitePWA({
-      registerType: 'prompt', // Changed to prompt to allow custom service worker handling
-      injectRegister: false, // Disable auto-registration, we'll handle it manually
-      includeAssets: ['favicon.ico', 'main.png', 'robots.txt', 'pdf.worker.min.mjs'],
-      manifest: {
-        name: 'Followers of 14 - Islamic Poetry & Recitation Platform',
-        short_name: 'Followers of 14',
-        description: 'Followers of 14 - Read Islamic poetry, Naat, Manqabat, Noha, Dua, Marsiya with complete text, audio, and video. Free access to the best Islamic spiritual content.',
-        theme_color: '#1a5c4d',
-        background_color: '#ffffff',
-        display: 'standalone',
-        orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
-        icons: [
-          {
-            src: '/main.png',
-            sizes: '192x192',
-            type: 'image/png',
-            purpose: 'any maskable'
-          },
-          {
-            src: '/main.png',
-            sizes: '512x512',
-            type: 'image/png',
-            purpose: 'any maskable'
-          }
-        ],
-        categories: ['education', 'books', 'lifestyle'],
-        screenshots: [],
-        shortcuts: [],
-        share_target: {
-          action: '/',
-          method: 'GET',
-          params: {
-            title: 'title',
-            text: 'text',
-            url: 'url'
-          }
-        }
-      },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        // Exclude version.json from precaching - it should always be fetched fresh
-        globIgnores: ['**/version.json'],
-        runtimeCaching: [
-          {
-            // Always fetch version.json fresh (no cache)
-            urlPattern: /\/version\.json/i,
-            handler: 'NetworkOnly',
-            options: {
-              cacheName: 'version-check',
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'gstatic-fonts-cache',
-              expiration: {
-                maxEntries: 10,
-                maxAgeSeconds: 60 * 60 * 24 * 365 // 1 year
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          },
-          {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'supabase-api-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 5 // 5 minutes
-              },
-              cacheableResponse: {
-                statuses: [0, 200]
-              }
-            }
-          }
-        ]
-      },
-      devOptions: {
-        enabled: false,
-        type: 'module'
-      }
-    })
-  ],
+    logErrorsPlugin(),
+    mode === 'development' && componentTaggerPlugin(),
+  ].filter(Boolean),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src')
     }
   },
   server: {
-    port: 8000,
-    host: true,
-    open: true,
-    cors: true,
-    strictPort: false, // Allow Vite to use next available port if 8000 is busy
-    fs: {
-      strict: false
-    }
+    host: "::",
+    port: 3000,
   },
   preview: {
     port: 4173,
@@ -205,4 +157,4 @@ export default defineConfig({
     devSourcemap: false,
     postcss: './postcss.config.js'
   }
-});
+}));

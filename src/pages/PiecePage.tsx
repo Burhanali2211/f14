@@ -22,7 +22,7 @@ import { useFavorites } from '@/hooks/use-favorites';
 import { useReadingProgress } from '@/hooks/use-reading-progress';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { safeQuery } from '@/lib/db-utils';
+import { useSupabaseQuery } from '@/hooks/use-smart-query';
 import { logger } from '@/lib/logger';
 import {
   generateMetaDescription,
@@ -41,94 +41,67 @@ export default function PiecePage() {
   const { addToRecentlyViewed, isFavorite, addFavorite, removeFavorite } = useFavorites();
   const { saveProgress, getProgress } = useReadingProgress();
   
-  const [piece, setPiece] = useState<Piece | null>(null);
-  const [category, setCategory] = useState<Category | null>(null);
-  const [imam, setImam] = useState<Imam | null>(null);
-  const [siblingPieces, setSiblingPieces] = useState<{ prev?: Piece; next?: Piece }>({});
-  const [loading, setLoading] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [currentVerse, setCurrentVerse] = useState(0);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   
   const contentRef = useRef<HTMLDivElement>(null);
   const verseRefs = useRef<(HTMLDivElement | null)[]>([]);
 
+  // 1. Fetch Piece with Category and Imam
+  const { data: piece, isLoading: pieceLoading } = useSupabaseQuery<Piece & { category: Category, imam: Imam }>({
+    queryKey: ['pieces', 'detail', id],
+    table: 'pieces',
+    select: `
+      id, title, text_content, image_url, video_url, reciter, language,
+      view_count, created_at, updated_at, category_id, imam_id, tags,
+      category:categories(id, name, slug, description),
+      imam:imams(id, name, slug, title, description)
+    `,
+    filters: { id: id },
+    single: true,
+    enabled: !!id,
+  });
+
+  const category = piece?.category;
+  const imam = piece?.imam;
+
+  // 2. Fetch Siblings for navigation
+  const { data: siblings = [] } = useSupabaseQuery<Piece[]>({
+    queryKey: ['pieces', 'siblings', piece?.category_id],
+    table: 'pieces',
+    select: 'id, title, category_id',
+    filters: { category_id: piece?.category_id },
+    orderBy: { column: 'title' },
+    enabled: !!piece?.category_id,
+  });
+
+  const siblingPieces = useMemo(() => {
+    if (!siblings.length || !id) return {};
+    const currentIndex = siblings.findIndex(s => s.id === id);
+    return {
+      prev: currentIndex > 0 ? siblings[currentIndex - 1] : undefined,
+      next: currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] : undefined,
+    };
+  }, [siblings, id]);
+
   const favorite = piece ? isFavorite(piece.id) : false;
-
-  const fetchPiece = useCallback(async () => {
-    if (!id) {
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      const { data, error } = await safeQuery(() =>
-        supabase
-          .from('pieces')
-          .select(`
-            id, title, text_content, image_url, video_url, reciter, language,
-            view_count, created_at, updated_at, category_id, imam_id, tags,
-            category:categories(id, name, slug, description),
-            imam:imams(id, name, slug, title, description)
-          `)
-          .eq('id', id)
-          .maybeSingle()
-      );
-
-      if (error || !data) {
-        setLoading(false);
-        return;
-      }
-
-      const typedPiece = data as any;
-      setPiece(typedPiece as Piece);
-
-      if (typedPiece.category) {
-        setCategory(typedPiece.category as Category);
-        
-        const { data: siblings } = await safeQuery(() =>
-          supabase
-            .from('pieces')
-            .select('id, title, category_id')
-            .eq('category_id', typedPiece.category_id)
-            .order('title')
-        );
-        
-        if (siblings) {
-          const currentIndex = siblings.findIndex(s => s.id === id);
-          setSiblingPieces({
-            prev: currentIndex > 0 ? siblings[currentIndex - 1] as Piece : undefined,
-            next: currentIndex < siblings.length - 1 ? siblings[currentIndex + 1] as Piece : undefined,
-          });
-        }
-      }
-
-      if (typedPiece.imam) {
-        setImam(typedPiece.imam as Imam);
-      }
-    } catch (error) {
-      logger.error('Error fetching piece:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
 
   const incrementViewCount = useCallback(async () => {
     if (id) {
       try {
-        await safeQuery(() => supabase.rpc('increment_view_count', { piece_id: id }));
+        await supabase.rpc('increment_view_count', { piece_id: id });
       } catch {}
     }
   }, [id]);
 
   useEffect(() => {
     if (id) {
-      fetchPiece();
       incrementViewCount();
       addToRecentlyViewed(id);
     }
-  }, [id, fetchPiece, incrementViewCount, addToRecentlyViewed]);
+  }, [id, incrementViewCount, addToRecentlyViewed]);
 
   useEffect(() => {
     if (!settings.rememberReadingPosition || !piece || !id) return;
@@ -236,48 +209,41 @@ export default function PiecePage() {
     }
   };
 
-    const { imageUrls, pdfUrl, primaryMedia } = useMemo(() => {
-      const hasVideo = !!piece?.video_url;
-      const normalizedUrls = piece?.image_url ? normalizeImageUrl(piece.image_url) : [];
-      const images: string[] = [];
-      let pdf: string | null = null;
-      
-        const isPdf = (url: string) => {
-          if (!url) return false;
-          try {
-            const urlObj = new URL(url);
-            const path = urlObj.pathname.toLowerCase();
-            const search = urlObj.search.toLowerCase();
-            
-            // Check path and common Supabase storage patterns
-            return path.endsWith('.pdf') || 
-                   path.includes('.pdf/') || 
-                   search.includes('.pdf?') ||
-                   url.toLowerCase().includes('.pdf');
-          } catch {
-            // Fallback if URL is invalid or relative
-            const cleanUrl = url.split('?')[0].split('#')[0].toLowerCase();
-            return cleanUrl.endsWith('.pdf') || url.toLowerCase().includes('.pdf');
-          }
-        };
-
-
-      for (const url of normalizedUrls) {
-        if (isPdf(url)) {
-          pdf = url;
-        } else {
-          images.push(url);
-        }
+  const { imageUrls, pdfUrl, primaryMedia } = useMemo(() => {
+    const hasVideo = !!piece?.video_url;
+    const normalizedUrls = piece?.image_url ? normalizeImageUrl(piece.image_url) : [];
+    const images: string[] = [];
+    let pdf: string | null = null;
+    
+    const isPdf = (url: string) => {
+      if (!url) return false;
+      try {
+        const urlObj = new URL(url);
+        const path = urlObj.pathname.toLowerCase();
+        const search = urlObj.search.toLowerCase();
+        return path.endsWith('.pdf') || path.includes('.pdf/') || search.includes('.pdf?') || url.toLowerCase().includes('.pdf');
+      } catch {
+        const cleanUrl = url.split('?')[0].split('#')[0].toLowerCase();
+        return cleanUrl.endsWith('.pdf') || url.toLowerCase().includes('.pdf');
       }
-      
-      let media: MediaType = 'none';
-      if (hasVideo) media = 'video';
-      else if (pdf) media = 'pdf';
-      else if (images.length > 0) media = 'images';
-      else if (piece?.text_content && piece.text_content.trim().length >= 10) media = 'text';
-      
-      return { imageUrls: images, pdfUrl: pdf, primaryMedia: media };
-    }, [piece?.image_url, piece?.video_url, piece?.text_content]);
+    };
+
+    for (const url of normalizedUrls) {
+      if (isPdf(url)) {
+        pdf = url;
+      } else {
+        images.push(url);
+      }
+    }
+    
+    let media: MediaType = 'none';
+    if (hasVideo) media = 'video';
+    else if (pdf) media = 'pdf';
+    else if (images.length > 0) media = 'images';
+    else if (piece?.text_content && piece.text_content.trim().length >= 10) media = 'text';
+    
+    return { imageUrls: images, pdfUrl: pdf, primaryMedia: media };
+  }, [piece?.image_url, piece?.video_url, piece?.text_content]);
 
   const hasTextContent = piece?.text_content && piece.text_content.trim().length >= 10;
 
@@ -316,7 +282,7 @@ export default function PiecePage() {
     };
   }, [piece, category, imam]);
 
-  if (loading) {
+  if (pieceLoading && !piece) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
@@ -329,7 +295,7 @@ export default function PiecePage() {
     );
   }
 
-  if (!piece) {
+  if (!piece && !pieceLoading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
@@ -382,7 +348,7 @@ export default function PiecePage() {
               <span className="hidden sm:inline">{category?.name || 'Home'}</span>
               <span className="sm:hidden">Back</span>
             </Link>
-
+  
             <div className="flex items-center gap-1.5">
               <button
                 onClick={handleFavorite}
@@ -453,38 +419,37 @@ export default function PiecePage() {
             </Badge>
           </div>
         </header>
-
+  
         <div className="space-y-8">
           {piece.video_url && (
             <section>
               <EnhancedVideoPlayer src={piece.video_url} title={piece.title} />
             </section>
           )}
-
-            {imageUrls.length > 0 && (
-              <section>
-                <EnhancedImageViewer
-                  images={imageUrls}
-                  title={piece.title}
-                  onOpenFullscreen={(index) => {
-                    setCurrentImageIndex(index);
-                    setImageViewerOpen(true);
-                  }}
-                />
-              </section>
-            )}
-
-
-            {pdfUrl && (
-              <section>
-                <EnhancedPDFViewer
-                  pdfUrl={pdfUrl}
-                  title={piece.title}
-                  onOpenFullscreen={() => window.open(pdfUrl, '_blank')}
-                />
-              </section>
-            )}
-
+  
+          {imageUrls.length > 0 && (
+            <section>
+              <EnhancedImageViewer
+                images={imageUrls}
+                title={piece.title}
+                onOpenFullscreen={(index) => {
+                  setCurrentImageIndex(index);
+                  setImageViewerOpen(true);
+                }}
+              />
+            </section>
+          )}
+  
+          {pdfUrl && (
+            <section>
+              <EnhancedPDFViewer
+                pdfUrl={pdfUrl}
+                title={piece.title}
+                onOpenFullscreen={() => window.open(pdfUrl, '_blank')}
+              />
+            </section>
+          )}
+  
           {hasTextContent && (
             <section>
               <div className="flex items-center justify-center gap-3 mb-4">
@@ -519,7 +484,7 @@ export default function PiecePage() {
                   <RotateCcw className="w-4 h-4" />
                 </button>
               </div>
-
+  
               <article 
                 ref={contentRef}
                 className={`rounded-2xl px-4 py-6 sm:px-6 sm:py-8 border border-border/40 ${getReaderBgClass()}`}
@@ -544,7 +509,7 @@ export default function PiecePage() {
                   onVerseRef={(index, el) => { verseRefs.current[index] = el; }}
                 />
               </article>
-
+  
               <div className="flex justify-center mt-4">
                 <button
                   onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
@@ -557,7 +522,7 @@ export default function PiecePage() {
             </section>
           )}
         </div>
-
+  
         {(siblingPieces.prev || siblingPieces.next) && (
           <>
             <div className="flex justify-center my-10">
@@ -567,7 +532,7 @@ export default function PiecePage() {
                 <div className="w-16 h-px bg-gradient-to-l from-transparent to-border" />
               </div>
             </div>
-
+  
             <nav className="grid grid-cols-2 gap-3">
               {siblingPieces.prev ? (
                 <Link
@@ -610,11 +575,11 @@ export default function PiecePage() {
           </>
         )}
       </main>
-
+  
       <Footer />
       
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-
+  
       {imageUrls.length > 0 && (
         <FullscreenImageViewer
           src={imageUrls[currentImageIndex] || imageUrls[0]}
