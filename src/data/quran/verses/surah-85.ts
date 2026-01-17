@@ -1,0 +1,30 @@
+import { SurahVerses } from './surah-1';
+
+export const surah85AlBuruj: SurahVerses = {
+  surahNumber: 85,
+  bismillah: true,
+  ayahs: [
+    { number: 1, arabicText: 'وَالسَّمَاءِ ذَاتِ الْبُرُوجِ', urduTranslation: 'قسم ہے آسمان کی جو برجوں والا ہے', englishTranslation: 'By the sky containing great stars.' },
+    { number: 2, arabicText: 'وَالْيَوْمِ الْمَوْعُودِ', urduTranslation: 'اور وعدے والے دن کی', englishTranslation: 'And by the promised Day.' },
+    { number: 3, arabicText: 'وَشَاهِدٍ وَمَشْهُودٍ', urduTranslation: 'اور گواہی دینے والے کی اور جس کی گواہی دی جائے', englishTranslation: 'And by the witness and what is witnessed.' },
+    { number: 4, arabicText: 'قُتِلَ أَصْحَابُ الْأُخْدُودِ', urduTranslation: 'مارے گئے خندق والے', englishTranslation: 'Cursed were the companions of the trench.' },
+    { number: 5, arabicText: 'النَّارِ ذَاتِ الْوَقُودِ', urduTranslation: 'آگ جو ایندھن والی تھی', englishTranslation: 'Containing the fire full of fuel.' },
+    { number: 6, arabicText: 'إِذْ هُمْ عَلَيْهَا قُعُودٌ', urduTranslation: 'جب وہ اس کے کنارے بیٹھے تھے', englishTranslation: 'When they were sitting near it.' },
+    { number: 7, arabicText: 'وَهُمْ عَلَىٰ مَا يَفْعَلُونَ بِالْمُؤْمِنِينَ شُهُودٌ', urduTranslation: 'اور وہ مومنوں کے ساتھ جو کچھ کر رہے تھے اسے دیکھ رہے تھے', englishTranslation: 'And they, to what they were doing against the believers, were witnesses.' },
+    { number: 8, arabicText: 'وَمَا نَقَمُوا مِنْهُمْ إِلَّا أَن يُؤْمِنُوا بِاللَّهِ الْعَزِيزِ الْحَمِيدِ', urduTranslation: 'اور انہوں نے ان سے بدلہ صرف اس بات پر لیا کہ وہ اللہ غالب قابل حمد پر ایمان لائے تھے', englishTranslation: 'And they resented them not except because they believed in Allah, the Exalted in Might, the Praiseworthy.' },
+    { number: 9, arabicText: 'الَّذِي لَهُ مُلْكُ السَّمَاوَاتِ وَالْأَرْضِ ۚ وَاللَّهُ عَلَىٰ كُلِّ شَيْءٍ شَهِيدٌ', urduTranslation: 'جس کی بادشاہی آسمانوں اور زمین میں ہے اور اللہ ہر چیز کا گواہ ہے', englishTranslation: 'To whom belongs the dominion of the heavens and the earth. And Allah is Witness over all things.' },
+    { number: 10, arabicText: 'إِنَّ الَّذِينَ فَتَنُوا الْمُؤْمِنِينَ وَالْمُؤْمِنَاتِ ثُمَّ لَمْ يَتُوبُوا فَلَهُمْ عَذَابُ جَهَنَّمَ وَلَهُمْ عَذَابُ الْحَرِيقِ', urduTranslation: 'بیشک جنہوں نے مومن مردوں اور مومن عورتوں کو ایذا دی پھر توبہ نہیں کی ان کے لیے جہنم کا عذاب ہے اور جلنے کا عذاب ہے', englishTranslation: 'Indeed, those who have tortured the believing men and believing women and then have not repented will have the punishment of Hell, and they will have the punishment of the Burning Fire.' },
+    { number: 11, arabicText: 'إِنَّ الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ لَهُمْ جَنَّاتٌ تَجْرِي مِن تَحْتِهَا الْأَنْهَارُ ۚ ذَٰلِكَ الْفَوْزُ الْكَبِيرُ', urduTranslation: 'بیشک جو ایمان لائے اور انہوں نے نیک عمل کیے ان کے لیے جنتیں ہیں جن کے نیچے نہریں بہتی ہیں یہی بڑی کامیابی ہے', englishTranslation: 'Indeed, those who have believed and done righteous deeds will have gardens beneath which rivers flow. That is the great attainment.' },
+    { number: 12, arabicText: 'إِنَّ بَطْشَ رَبِّكَ لَشَدِيدٌ', urduTranslation: 'بیشک تمہارے رب کی پکڑ بہت سخت ہے', englishTranslation: 'Indeed, the vengeance of your Lord is severe.' },
+    { number: 13, arabicText: 'إِنَّهُ هُوَ يُبْدِئُ وَيُعِيدُ', urduTranslation: 'بیشک وہی پہلی بار پیدا کرتا ہے اور دوبارہ پیدا کرے گا', englishTranslation: 'Indeed, it is He who originates creation and repeats it.' },
+    { number: 14, arabicText: 'وَهُوَ الْغَفُورُ الْوَدُودُ', urduTranslation: 'اور وہ بہت بخشنے والا بہت محبت کرنے والا ہے', englishTranslation: 'And He is the Forgiving, the Affectionate.' },
+    { number: 15, arabicText: 'ذُو الْعَرْشِ الْمَجِيدُ', urduTranslation: 'عرش کا مالک بزرگ ہے', englishTranslation: 'Owner of the Throne, the Glorious.' },
+    { number: 16, arabicText: 'فَعَّالٌ لِّمَا يُرِيدُ', urduTranslation: 'جو چاہتا ہے کر گزرتا ہے', englishTranslation: 'Effecter of what He intends.' },
+    { number: 17, arabicText: 'هَلْ أَتَاكَ حَدِيثُ الْجُنُودِ', urduTranslation: 'کیا تمہیں لشکروں کی خبر پہنچی', englishTranslation: 'Has there reached you the story of the soldiers?' },
+    { number: 18, arabicText: 'فِرْعَوْنَ وَثَمُودَ', urduTranslation: 'فرعون اور ثمود کی', englishTranslation: 'Those of Pharaoh and Thamud?' },
+    { number: 19, arabicText: 'بَلِ الَّذِينَ كَفَرُوا فِي تَكْذِيبٍ', urduTranslation: 'بلکہ کافر جھٹلانے میں لگے ہیں', englishTranslation: 'But they who disbelieve are in persistent denial.' },
+    { number: 20, arabicText: 'وَاللَّهُ مِن وَرَائِهِم مُّحِيطٌ', urduTranslation: 'اور اللہ ان کو پیچھے سے گھیرے ہوئے ہے', englishTranslation: 'While Allah encompasses them from behind.' },
+    { number: 21, arabicText: 'بَلْ هُوَ قُرْآنٌ مَّجِيدٌ', urduTranslation: 'بلکہ یہ قرآن مجید ہے', englishTranslation: 'But this is an honored Quran.' },
+    { number: 22, arabicText: 'فِي لَوْحٍ مَّحْفُوظٍ', urduTranslation: 'لوح محفوظ میں ہے', englishTranslation: 'Inscribed in a Preserved Slate.' },
+  ],
+};

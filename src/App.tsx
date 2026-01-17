@@ -49,6 +49,9 @@ const ContactPage = lazy(() => import("./pages/ContactPage"));
 const ContactSubmissionsPage = lazy(() => import("./pages/ContactSubmissionsPage"));
 const FiqhHubPage = lazy(() => import("./pages/FiqhHubPage"));
 const FiqhTopicPage = lazy(() => import("./pages/FiqhTopicPage"));
+const QuranPage = lazy(() => import("./pages/QuranPage"));
+const QuranSurahPage = lazy(() => import("./pages/QuranSurahPage"));
+const QuranParaPage = lazy(() => import("./pages/QuranParaPage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageLoader() {
@@ -156,8 +159,11 @@ function AppRoutes() {
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/admin/contact-submissions" element={<ContactSubmissionsPage />} />
         <Route path="/fiqh" element={<FiqhHubPage />} />
-        <Route path="/fiqh/:topicSlug" element={<FiqhTopicPage />} />
-        <Route path="/sitemap.xml" element={<SitemapPage />} />
+          <Route path="/fiqh/:topicSlug" element={<FiqhTopicPage />} />
+          <Route path="/quran" element={<QuranPage />} />
+          <Route path="/quran/surah/:surahNumber" element={<QuranSurahPage />} />
+          <Route path="/quran/para/:paraNumber" element={<QuranParaPage />} />
+          <Route path="/sitemap.xml" element={<SitemapPage />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

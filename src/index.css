@@ -41,6 +41,12 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'AlMajeed';
+  src: url('https://slelguoygbfzlpylpxfs.supabase.co/storage/v1/object/public/project-uploads/13ea1992-c5c6-4007-81d7-949502de4b7e/Al-Majeed-Quranic-Font_shiped-1768619679428.ttf') format('truetype');
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -176,8 +182,8 @@
 
     /* Typography */
     --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
-    --font-arabic: 'Noto Nastaliq Urdu', 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'IBM Plex Sans Arabic', 'Amiri', 'Lateef', system-ui, sans-serif;
-    --font-arabic-heading: 'Noto Nastaliq Urdu', 'Lateef', 'Cairo', 'Tajawal', 'Noto Sans Arabic', system-ui, sans-serif;
+    --font-arabic: 'AlMajeed', 'Noto Nastaliq Urdu', 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'IBM Plex Sans Arabic', 'Amiri', 'Lateef', system-ui, sans-serif;
+    --font-arabic-heading: 'AlMajeed', 'Noto Nastaliq Urdu', 'Lateef', 'Cairo', 'Tajawal', 'Noto Sans Arabic', system-ui, sans-serif;
     --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
 
     --sidebar-background: 0 0% 100%;
@@ -281,8 +287,9 @@
     font-family: var(--font-arabic);
     direction: rtl;
     text-align: right;
-    line-height: 2.2;
+    line-height: 2.8;
     letter-spacing: 0.02em;
+    padding: 0.5rem 0;
   }
 
   /* Arabic/Urdu heading styling for better readability and spacing */
@@ -293,22 +300,53 @@
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    line-height: 2.5;
   }
 
-  /* Urdu heading styling with Noto Nastaliq for optimal readability */
+  /* Urdu heading styling with AlMajeed for optimal readability */
   .font-arabic-heading {
     font-family: var(--font-arabic-heading);
     font-weight: 600;
     word-spacing: 0.15em;
     letter-spacing: 0.03em;
-    line-height: 2.2;
-    padding-top: 0.2em;
-    padding-bottom: 0.2em;
+    line-height: 2.6;
+    padding-top: 0.4em;
+    padding-bottom: 0.4em;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-align: right;
     direction: rtl;
+  }
+
+  /* Quran Arabic text - optimized for AlMajeed font with NO overlapping */
+  .quran-arabic-text {
+    font-family: 'AlMajeed', var(--font-arabic-heading);
+    font-weight: 400;
+    line-height: 3.2;
+    word-spacing: 0.12em;
+    letter-spacing: 0.01em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    display: block;
+    padding-top: 0.5em;
+    padding-bottom: 0.5em;
+  }
+
+  /* Quran Urdu translation text - optimized for readability */
+  .quran-urdu-text {
+    font-family: 'AlMajeed', 'Noto Nastaliq Urdu', var(--font-arabic);
+    font-weight: 400;
+    line-height: 2.8;
+    word-spacing: 0.1em;
+    letter-spacing: 0.01em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    display: block;
+    padding-top: 0.3em;
+    padding-bottom: 0.3em;
   }
 
   /* Reader-specific styles */

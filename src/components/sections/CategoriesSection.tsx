@@ -1,4 +1,5 @@
 import { CategoryCard } from '@/components/CategoryCard';
+import { QuranCategoryCard } from '@/components/quran/QuranCategoryCard';
 import { useTheme } from '@/hooks/use-theme';
 import type { Category } from '@/lib/supabase-types';
 import { Sparkles } from 'lucide-react';
@@ -66,16 +67,17 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
             ))}
           </div>
         ) : categories.length > 0 ? (
-          <div className={`grid ${getGridCols()} gap-4 sm:gap-5 md:gap-4 lg:gap-5 w-full`}>
-            {categories.map((category, i) => (
-              <CategoryCard 
-                key={category.id} 
-                category={category} 
-                index={i}
-              />
-            ))}
-          </div>
-        ) : (
+            <div className={`grid ${getGridCols()} gap-4 sm:gap-5 md:gap-4 lg:gap-5 w-full`}>
+              <QuranCategoryCard index={0} />
+              {categories.map((category, i) => (
+                <CategoryCard 
+                  key={category.id} 
+                  category={category} 
+                  index={i + 1}
+                />
+              ))}
+            </div>
+          ) : (
           <div className="text-center py-16 sm:py-20 md:py-24">
             <div className="max-w-md mx-auto">
               <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 sm:mb-8 rounded-3xl bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center border border-border/40 shadow-lg">
