@@ -21,14 +21,43 @@ import { logger } from '@/lib/logger';
 
 const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
 const INITIAL_CHECK_DELAY = 30 * 1000; // Check 30 seconds after page load
+const AUTO_UPDATE_DELAY = 3000; // 3 seconds countdown before auto-update
+const DISMISSED_VERSION_KEY = 'app_update_dismissed'; // Track dismissed version in this session
 
 export function UpdateNotification() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [updateVersion, setUpdateVersion] = useState<any>(null);
+  const [countdown, setCountdown] = useState(3);
+  const [isAutoUpdating, setIsAutoUpdating] = useState(false);
   const notificationShownRef = useRef(false);
   const serviceWorkerRegistrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const checkingVersionRef = useRef<string | null>(null); // Track which version we're currently checking
+  const autoUpdateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastCheckTimeRef = useRef<number>(0); // Debounce checks
+  const MIN_CHECK_INTERVAL = 30 * 1000; // Minimum 30 seconds between checks
+
+  // Check if version was dismissed by user
+  const isVersionDismissed = (version: any): boolean => {
+    try {
+      const dismissed = sessionStorage.getItem(DISMISSED_VERSION_KEY);
+      if (!dismissed) return false;
+      const dismissedVersion = JSON.parse(dismissed);
+      const versionId = version.buildHash || `v${version.version}-${version.buildTime}`;
+      const dismissedId = dismissedVersion.buildHash || `v${dismissedVersion.version}-${dismissedVersion.buildTime}`;
+      return versionId === dismissedId;
+    } catch {
+      return false;
+    }
+  };
+
+  // Mark version as dismissed
+  const markVersionDismissed = (version: any): void => {
+    try {
+      sessionStorage.setItem(DISMISSED_VERSION_KEY, JSON.stringify(version));
+    } catch {}
+  };
 
   // Request notification permission if not already granted
   const requestNotificationPermission = async () => {
@@ -100,15 +129,21 @@ export function UpdateNotification() {
   };
 
   const checkForUpdates = async () => {
-    if (isChecking) return;
+    // Debounce: Don't check too frequently
+    const now = Date.now();
+    if (now - lastCheckTimeRef.current < MIN_CHECK_INTERVAL) {
+      return;
+    }
     
+    if (isChecking || updateAvailable) return;
+    
+    lastCheckTimeRef.current = now;
     setIsChecking(true);
     try {
       const currentVersion = await getCurrentAppVersion();
       const storedVersion = getStoredAppVersion();
 
       if (!currentVersion) {
-        // Version file not available, skip check
         return;
       }
 
@@ -121,10 +156,15 @@ export function UpdateNotification() {
 
       // Check if version changed
       if (hasVersionChanged(currentVersion, storedVersion)) {
+        // Check if user dismissed this version in current session
+        if (isVersionDismissed(currentVersion)) {
+          logger.info('Version dismissed by user, skipping:', currentVersion);
+          return;
+        }
+
         // Check if this version has already been shown to user
         if (hasVersionBeenShown(currentVersion)) {
           logger.info('Version already shown to user, skipping notification:', currentVersion);
-          // Still update stored version but don't show notification
           storeAppVersion(currentVersion);
           return;
         }
@@ -146,6 +186,7 @@ export function UpdateNotification() {
         const versionId = currentVersion.buildHash || `v${currentVersion.version}-${currentVersion.buildTime}`;
         if (!updateAvailable && !notificationShownRef.current && checkingVersionRef.current !== versionId) {
           checkingVersionRef.current = versionId;
+          notificationShownRef.current = true;
           setUpdateVersion(currentVersion);
           setUpdateAvailable(true);
           
@@ -212,21 +253,72 @@ export function UpdateNotification() {
   };
 
   const handleDismiss = () => {
+    // Clear auto-update timer
+    if (autoUpdateTimerRef.current) {
+      clearTimeout(autoUpdateTimerRef.current);
+      autoUpdateTimerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    
     setUpdateAvailable(false);
-    // Mark this version as shown so it won't show again
+    setIsAutoUpdating(false);
+    setCountdown(3);
+    
+    // Mark this version as dismissed AND shown so it won't show again
     if (updateVersion) {
+      markVersionDismissed(updateVersion);
       markVersionAsShown(updateVersion);
       storeAppVersion(updateVersion);
     } else {
       // Fallback: update stored version to current
       getCurrentAppVersion().then((current) => {
         if (current) {
+          markVersionDismissed(current);
           markVersionAsShown(current);
           storeAppVersion(current);
         }
       });
     }
+    
+    // Reset refs to allow checking again if a newer version comes
+    checkingVersionRef.current = null;
   };
+
+  // Start auto-update countdown when update is available
+  useEffect(() => {
+    if (updateAvailable && !isAutoUpdating) {
+      setIsAutoUpdating(true);
+      setCountdown(3);
+      
+      // Countdown interval
+      countdownIntervalRef.current = setInterval(() => {
+        setCountdown((prev) => {
+          if (prev <= 1) {
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      
+      // Auto-update after delay
+      autoUpdateTimerRef.current = setTimeout(() => {
+        logger.info('Auto-updating app...');
+        handleUpdate();
+      }, AUTO_UPDATE_DELAY);
+    }
+    
+    return () => {
+      if (autoUpdateTimerRef.current) {
+        clearTimeout(autoUpdateTimerRef.current);
+      }
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+      }
+    };
+  }, [updateAvailable]);
 
   useEffect(() => {
     // Initial check after delay
@@ -291,37 +383,43 @@ export function UpdateNotification() {
       });
 
       // Listen for messages from service worker
-      const handleMessage = async (event: MessageEvent) => {
-        if (event.data?.type === 'APP_UPDATE_AVAILABLE') {
-          logger.info('Update available message from service worker:', event.data);
-          const version = event.data.version;
-          
-          // Check if this version has already been shown
-          if (hasVersionBeenShown(version)) {
-            logger.info('Version already shown, ignoring service worker message:', version);
-            return;
-          }
-          
-          // Only show if dialog is not already open and this version hasn't been checked
-          const versionId = version.buildHash || `v${version.version}-${version.buildTime}`;
-          if (!updateAvailable && checkingVersionRef.current !== versionId) {
-            checkingVersionRef.current = versionId;
-            setUpdateVersion(version);
-            setUpdateAvailable(true);
+        const handleMessage = async (event: MessageEvent) => {
+          if (event.data?.type === 'APP_UPDATE_AVAILABLE') {
+            logger.info('Update available message from service worker:', event.data);
+            const version = event.data.version;
             
-            // Show browser notification (will check internally if already shown)
-            await showBrowserNotification(version);
+            // Check if this version was dismissed or already shown
+            if (isVersionDismissed(version) || hasVersionBeenShown(version)) {
+              logger.info('Version dismissed or already shown, ignoring service worker message:', version);
+              return;
+            }
+            
+            // Check if dialog is already open or notification was already shown
+            if (updateAvailable || notificationShownRef.current) {
+              return;
+            }
+            
+            // Only show if this version hasn't been checked
+            const versionId = version.buildHash || `v${version.version}-${version.buildTime}`;
+            if (checkingVersionRef.current !== versionId) {
+              checkingVersionRef.current = versionId;
+              notificationShownRef.current = true;
+              setUpdateVersion(version);
+              setUpdateAvailable(true);
+              
+              // Show browser notification (will check internally if already shown)
+              await showBrowserNotification(version);
+            }
+          } else if (event.data?.type === 'FORCE_APP_UPDATE') {
+            // Service worker is forcing an update
+            logger.info('Force update message from service worker');
+            await handleUpdate();
+          } else if (event.data?.type === 'SERVICE_WORKER_ACTIVATED') {
+            // Service worker activated, check for updates
+            logger.info('Service worker activated, checking for updates');
+            setTimeout(checkForUpdates, 2000);
           }
-        } else if (event.data?.type === 'FORCE_APP_UPDATE') {
-          // Service worker is forcing an update
-          logger.info('Force update message from service worker');
-          await handleUpdate();
-        } else if (event.data?.type === 'SERVICE_WORKER_ACTIVATED') {
-          // Service worker activated, check for updates
-          logger.info('Service worker activated, checking for updates');
-          setTimeout(checkForUpdates, 2000);
-        }
-      };
+        };
 
       navigator.serviceWorker.addEventListener('message', handleMessage);
 
@@ -372,11 +470,8 @@ export function UpdateNotification() {
 
   return (
     <AlertDialog open={updateAvailable} onOpenChange={(open) => {
-      setUpdateAvailable(open);
       if (!open) {
-        // Reset notification flag when dialog is closed
-        notificationShownRef.current = false;
-        checkingVersionRef.current = null;
+        handleDismiss();
       }
     }}>
       <AlertDialogContent className="sm:max-w-md">
@@ -386,7 +481,7 @@ export function UpdateNotification() {
             Update Available
           </AlertDialogTitle>
           <div className="text-sm text-muted-foreground">
-            A new version of the app is available. Click "Update Now" to get the latest features and improvements.
+            <p>A new version is available. Updating automatically in <span className="font-bold text-primary">{countdown}</span> seconds...</p>
             {updateVersion && (
               <div className="mt-3 space-y-1">
                 <div className="font-medium text-foreground">
@@ -407,7 +502,7 @@ export function UpdateNotification() {
         <AlertDialogFooter className="flex-col sm:flex-row gap-2">
           <AlertDialogCancel onClick={handleDismiss} className="w-full sm:w-auto">
             <X className="h-4 w-4 mr-2" />
-            Later
+            Skip This Update
           </AlertDialogCancel>
           <AlertDialogAction onClick={handleUpdate} className="w-full sm:w-auto">
             <RefreshCw className="h-4 w-4 mr-2" />

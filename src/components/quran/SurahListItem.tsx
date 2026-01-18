@@ -18,12 +18,12 @@ export function SurahListItem({ surah }: SurahListItemProps) {
           </span>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-1">
-            <h3 className="quran-arabic-text text-2xl font-bold text-foreground group-hover:text-primary transition-colors !leading-tight !py-1" dir="rtl">
+        <div className="flex-1 min-w-0 flex flex-col items-center justify-center">
+          <div className="flex flex-col items-center mb-1">
+            <h3 className="quran-arabic-text text-4xl font-normal text-foreground group-hover:text-primary transition-colors !leading-tight !py-1" dir="rtl">
               {surah.arabicName}
             </h3>
-            <span className="text-sm text-muted-foreground font-medium">
+            <span className="text-lg text-muted-foreground font-medium">
               {surah.englishName}
             </span>
           </div>

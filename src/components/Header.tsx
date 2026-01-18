@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Shield, Menu, X, Heart, Settings, Upload, Calendar, LogIn, User, LayoutDashboard, LogOut } from 'lucide-react';
+import { Home, BookOpen, Shield, Menu, X, Heart, Settings, Upload, Calendar, LogIn, User, LayoutDashboard, LogOut, Info } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { FiqhNotifications } from './fiqh/FiqhNotifications';
@@ -51,7 +51,6 @@ export function Header() {
       }
     };
 
-    // Add event listener with a small delay to avoid immediate closure
     const timeoutId = setTimeout(() => {
       document.addEventListener('click', handleClickOutside);
     }, 0);
@@ -59,6 +58,24 @@ export function Header() {
     return () => {
       clearTimeout(timeoutId);
       document.removeEventListener('click', handleClickOutside);
+    };
+  }, [isMenuOpen]);
+
+  // Close menu on scroll and prevent body scroll when menu is open
+  useEffect(() => {
+    if (!isMenuOpen) return;
+
+    document.body.style.overflow = 'hidden';
+
+    const handleScroll = () => {
+      setIsMenuOpen(false);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('scroll', handleScroll);
     };
   }, [isMenuOpen]);
 
@@ -146,15 +163,24 @@ export function Header() {
               <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xl:inline">Calendar</span>
             </Link>
-            <Link
-              to="/settings"
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
-                isActive('/settings') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
-              }`}
-            >
-              <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-              <span className="hidden xl:inline">Settings</span>
-            </Link>
+<Link
+                to="/settings"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                  isActive('/settings') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+              >
+                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden xl:inline">Settings</span>
+              </Link>
+              <Link
+                to="/about"
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                  isActive('/about') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                }`}
+              >
+                <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <span className="hidden xl:inline">About</span>
+              </Link>
             {user && role === 'admin' && (
               <Link
                 to="/admin"
@@ -283,8 +309,8 @@ export function Header() {
             className="lg:hidden fixed inset-0 bg-black/50 z-[60] animate-in fade-in-0"
             onClick={closeMenu}
           />
-          {/* Sidebar from right */}
-          <nav className="lg:hidden fixed top-0 right-0 h-screen w-3/4 max-w-sm bg-background border-l border-border/50 shadow-xl z-[70] animate-slide-right safe-area-inset-right overflow-y-auto">
+            {/* Sidebar from right */}
+            <nav className="lg:hidden fixed top-0 right-0 h-screen w-3/4 max-w-sm bg-background border-l border-border/50 shadow-xl z-[70] animate-slide-right safe-area-inset-right overflow-y-auto overscroll-contain">
             <div className="flex flex-col gap-2 p-4 pt-20">
               <div className="px-4 py-2 mb-2 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">Menu</h2>
@@ -320,16 +346,26 @@ export function Header() {
                 <Calendar className="w-6 h-6 flex-shrink-0" />
                 <span>Events Calendar</span>
               </Link>
-              <Link 
-                to="/settings" 
-                onClick={closeMenu} 
-                className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
-                  isActive('/settings') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
-                }`}
-              >
-                <Settings className="w-6 h-6 flex-shrink-0" />
-                <span>Reading Settings</span>
-              </Link>
+<Link 
+                  to="/settings" 
+                  onClick={closeMenu} 
+                  className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
+                    isActive('/settings') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
+                  }`}
+                >
+                  <Settings className="w-6 h-6 flex-shrink-0" />
+                  <span>Reading Settings</span>
+                </Link>
+                <Link 
+                  to="/about" 
+                  onClick={closeMenu} 
+                  className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
+                    isActive('/about') ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
+                  }`}
+                >
+                  <Info className="w-6 h-6 flex-shrink-0" />
+                  <span>About Us</span>
+                </Link>
               {user ? (
                 <>
                   <div className="border-t border-border pt-2 mt-2">

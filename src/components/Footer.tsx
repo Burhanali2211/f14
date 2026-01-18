@@ -47,11 +47,16 @@ export function Footer() {
                   </Link>
                 </li>
                 <li>
-                  <Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
-                    Contact Us
-                  </Link>
-                </li>
-              </ul>
+                    <Link to="/contact" className="text-muted-foreground hover:text-foreground transition-colors">
+                      Contact Us
+                    </Link>
+                  </li>
+                  <li>
+                    <Link to="/about" className="text-muted-foreground hover:text-foreground transition-colors">
+                      About Us
+                    </Link>
+                  </li>
+                </ul>
             </div>
 
           {/* Categories */}

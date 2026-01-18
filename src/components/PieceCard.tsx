@@ -23,86 +23,86 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
   const handleTouchEnd = () => setTimeout(() => setIsPressed(false), 150);
   
   if (compact) {
-    return (
-      <Link
-        to={`/piece/${piece.id}`}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        onMouseDown={handleTouchStart}
-        onMouseUp={handleTouchEnd}
-        onMouseLeave={() => setIsPressed(false)}
-        className={`group relative overflow-hidden bg-card rounded-2xl shadow-md border-2 border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-lg active:scale-[0.98] animate-slide-up opacity-0 ${isPressed ? 'scale-[0.98] shadow-sm border-primary/50' : ''}`}
-        style={{ 
-          animationDelay: `${index * 0.04}s`,
-          animationFillMode: 'forwards',
-        }}
-      >
-        <div className="relative h-36 sm:h-40 md:h-44 overflow-hidden bg-secondary">
-          <img 
-            src={hasImage ? firstImageUrl! : getKarbalaPlaceholder(piece.id)} 
-            alt={piece.title}
-            className={`w-full h-full object-cover transition-transform duration-500 ${isPressed ? 'scale-100' : 'group-hover:scale-105'}`}
-            loading="lazy"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement;
-              target.src = getKarbalaPlaceholder(piece.id);
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
-          
-          {hasVideo && (
-            <div className="absolute top-3 right-3 flex gap-2">
-              <div className="w-10 h-10 rounded-xl bg-accent/90 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/20">
-                <Video className="w-5 h-5 text-white" />
-              </div>
-            </div>
-          )}
-        </div>
-        
-        <div className="relative z-10 p-4 md:p-5">
-          <div className={`absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 transition-opacity duration-300 ${isPressed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
-          
-          <div className="relative z-10">
-            <h3 
-              className={`font-arabic-heading text-lg sm:text-xl font-bold text-foreground mb-3 group-hover:text-primary transition-colors duration-300 leading-[2.0] line-clamp-2 ${textAlign}`}
-              style={{
-                fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+      return (
+        <Link
+          to={`/piece/${piece.id}`}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={handleTouchStart}
+          onMouseUp={handleTouchEnd}
+          onMouseLeave={() => setIsPressed(false)}
+          className={`group relative overflow-hidden bg-card rounded-xl sm:rounded-2xl shadow-md border-2 border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-lg active:scale-[0.98] animate-slide-up opacity-0 ${isPressed ? 'scale-[0.98] shadow-sm border-primary/50' : ''}`}
+          style={{ 
+            animationDelay: `${index * 0.04}s`,
+            animationFillMode: 'forwards',
+          }}
+        >
+          <div className="relative aspect-[4/3] overflow-hidden bg-secondary">
+            <img 
+              src={hasImage ? firstImageUrl! : getKarbalaPlaceholder(piece.id)} 
+              alt={piece.title}
+              className={`w-full h-full object-cover transition-transform duration-500 ${isPressed ? 'scale-100' : 'group-hover:scale-105'}`}
+              loading="lazy"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                target.src = getKarbalaPlaceholder(piece.id);
               }}
-              dir={getTextDirection(piece.title)}
-            >
-              {piece.title}
-            </h3>
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-card via-card/40 to-transparent" />
             
-            <div className={`flex flex-wrap items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              {piece.reciter && (
-                <Badge variant="secondary" className="text-sm px-3 py-1 font-medium rounded-lg">
-                  {piece.reciter}
-                </Badge>
-              )}
-              <Badge variant="outline" className="text-sm px-3 py-1 font-medium rounded-lg">
-                {piece.language}
-              </Badge>
-            </div>
+            {hasVideo && (
+              <div className="absolute top-2 right-2 sm:top-3 sm:right-3 flex gap-2">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-accent/90 backdrop-blur-sm flex items-center justify-center shadow-lg border border-white/20">
+                  <Video className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                </div>
+              </div>
+            )}
+          </div>
+          
+          <div className="relative z-10 p-3 sm:p-4 md:p-5">
+            <div className={`absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 transition-opacity duration-300 ${isPressed ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`} />
             
-            <div className={`flex items-center justify-between pt-4 mt-4 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                {piece.view_count > 0 && (
-                  <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-                    <Eye className="w-4 h-4" />
-                    <span>{piece.view_count.toLocaleString()}</span>
-                  </span>
+            <div className="relative z-10">
+              <h3 
+                className={`font-arabic-heading text-sm sm:text-base md:text-lg font-bold text-foreground mb-2 sm:mb-3 group-hover:text-primary transition-colors duration-300 leading-[1.8] sm:leading-[2.0] line-clamp-2 ${textAlign}`}
+                style={{
+                  fontFamily: "'Noto Nastaliq Urdu', 'Lateef', 'Cairo', sans-serif",
+                }}
+                dir={getTextDirection(piece.title)}
+              >
+                {piece.title}
+              </h3>
+              
+              <div className={`flex flex-wrap items-center gap-1 sm:gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                {piece.reciter && (
+                  <Badge variant="secondary" className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium rounded-md sm:rounded-lg truncate max-w-full">
+                    {piece.reciter}
+                  </Badge>
                 )}
+                <Badge variant="outline" className="text-xs sm:text-sm px-2 sm:px-3 py-0.5 sm:py-1 font-medium rounded-md sm:rounded-lg">
+                  {piece.language}
+                </Badge>
               </div>
               
-              <div className={`w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all duration-300 ${isPressed ? 'bg-primary scale-90' : ''}`}>
-                <Play className={`w-5 h-5 transition-colors duration-300 ${isPressed ? 'text-white' : 'text-primary group-hover:text-white'}`} fill="currentColor" />
+              <div className={`flex items-center justify-between pt-2 sm:pt-4 mt-2 sm:mt-4 border-t border-border/50 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <div className={`flex items-center gap-2 sm:gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                  {piece.view_count > 0 && (
+                    <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1 sm:gap-1.5">
+                      <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>{piece.view_count.toLocaleString()}</span>
+                    </span>
+                  )}
+                </div>
+                
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary transition-all duration-300 ${isPressed ? 'bg-primary scale-90' : ''}`}>
+                  <Play className={`w-4 h-4 sm:w-5 sm:h-5 transition-colors duration-300 ${isPressed ? 'text-white' : 'text-primary group-hover:text-white'}`} fill="currentColor" />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </Link>
-    );
-  }
+        </Link>
+      );
+    }
   
   return (
     <Link
