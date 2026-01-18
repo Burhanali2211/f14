@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, ChevronRight, User, Bookmark, Eye,
   Users, ArrowUp, Heart, Share2, Home, Settings,
-  ZoomIn, ZoomOut, RotateCcw
+  ZoomIn, ZoomOut, RotateCcw, Play
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -14,6 +14,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { EnhancedVideoPlayer } from '@/components/media/EnhancedVideoPlayer';
 import { EnhancedImageViewer } from '@/components/media/EnhancedImageViewer';
 import { EnhancedPDFViewer } from '@/components/media/EnhancedPDFViewer';
+import { TeleprompterMode } from '@/components/media/TeleprompterMode';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -45,6 +46,7 @@ export default function PiecePage() {
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [teleprompterOpen, setTeleprompterOpen] = useState(false);
   
   const contentRef = useRef<HTMLDivElement>(null);
   const verseRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -349,9 +351,19 @@ export default function PiecePage() {
               <span className="sm:hidden">Back</span>
             </Link>
   
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={handleFavorite}
+<div className="flex items-center gap-1.5">
+                {(imageUrls.length > 0 || pdfUrl) && (
+                  <button
+                    onClick={() => setTeleprompterOpen(true)}
+                    className="w-10 h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center transition-all active:scale-90"
+                    aria-label="Studio Mode"
+                    title="Studio Teleprompter Mode"
+                  >
+                    <Play className="w-5 h-5" />
+                  </button>
+                )}
+                <button
+                  onClick={handleFavorite}
                 className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all active:scale-90 ${
                   favorite ? 'bg-red-500/10 text-red-500' : 'bg-secondary hover:bg-secondary/80'
                 }`}
@@ -580,17 +592,26 @@ export default function PiecePage() {
       
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
   
-      {imageUrls.length > 0 && (
-        <FullscreenImageViewer
-          src={imageUrls[currentImageIndex] || imageUrls[0]}
-          alt={piece.title}
-          isOpen={imageViewerOpen}
-          onClose={() => setImageViewerOpen(false)}
-          images={imageUrls.length > 1 ? imageUrls : undefined}
-          currentIndex={currentImageIndex}
-          onIndexChange={setCurrentImageIndex}
-        />
-      )}
-    </div>
+{imageUrls.length > 0 && (
+          <FullscreenImageViewer
+            src={imageUrls[currentImageIndex] || imageUrls[0]}
+            alt={piece.title}
+            isOpen={imageViewerOpen}
+            onClose={() => setImageViewerOpen(false)}
+            images={imageUrls.length > 1 ? imageUrls : undefined}
+            currentIndex={currentImageIndex}
+            onIndexChange={setCurrentImageIndex}
+          />
+        )}
+
+        {teleprompterOpen && (imageUrls.length > 0 || pdfUrl) && (
+          <TeleprompterMode
+            images={imageUrls}
+            pdfUrl={pdfUrl || undefined}
+            title={piece.title}
+            onClose={() => setTeleprompterOpen(false)}
+          />
+        )}
+      </div>
   );
 }
