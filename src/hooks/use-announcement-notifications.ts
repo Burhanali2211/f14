@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
+import { realtimeManager } from '@/lib/unified-realtime-manager';
 import { getNotificationTemplate } from '@/lib/notification-templates';
 
 const STORAGE_KEY = 'shown_notification_ids';
@@ -24,17 +25,17 @@ function getShownNotificationIds(): Set<string> {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (!stored) return new Set();
-    
+
     const data = JSON.parse(stored);
     const now = Date.now();
     const validIds = new Set<string>();
-    
+
     for (const [id, timestamp] of Object.entries(data)) {
       if (now - (timestamp as number) < RETENTION_MS) {
         validIds.add(id);
       }
     }
-    
+
     if (validIds.size !== Object.keys(data).length) {
       const updated: Record<string, number> = {};
       validIds.forEach(id => {
@@ -42,7 +43,7 @@ function getShownNotificationIds(): Set<string> {
       });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     }
-    
+
     return validIds;
   } catch {
     return new Set();
@@ -70,27 +71,27 @@ export function useAnnouncementNotifications() {
       if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
         audioContextRef.current = new (window.AudioContext || (window as typeof window & { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       }
-      
+
       const ctx = audioContextRef.current;
       const oscillator = ctx.createOscillator();
       const gainNode = ctx.createGain();
-      
+
       oscillator.connect(gainNode);
       gainNode.connect(ctx.destination);
-      
+
       oscillator.frequency.value = 800;
       oscillator.type = 'sine';
-      
+
       gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-      
+
       oscillator.start(ctx.currentTime);
       oscillator.stop(ctx.currentTime + 0.3);
     } catch {
       try {
         const audio = new Audio('/notification-sound.mp3');
         audio.volume = 0.5;
-        audio.play().catch(() => {});
+        audio.play().catch(() => { });
       } catch {
       }
     }
@@ -164,18 +165,18 @@ export function useAnnouncementNotifications() {
 
   const processNotification = useCallback(async (announcement: AnnouncementPayload): Promise<boolean> => {
     const { id } = announcement;
-    
+
     if (processingLocksRef.current.has(id) || shownIdsRef.current.has(id)) {
       return false;
     }
-    
+
     processingLocksRef.current.add(id);
-    
+
     try {
       if (shownIdsRef.current.has(id)) {
         return false;
       }
-      
+
       markNotificationAsShown(id, shownIdsRef.current);
       return true;
     } finally {
@@ -189,7 +190,7 @@ export function useAnnouncementNotifications() {
     if (!announcement.sent_at || Notification.permission !== 'granted') {
       return;
     }
-    
+
     const shouldProcess = await processNotification(announcement);
     if (!shouldProcess) return;
 
@@ -198,29 +199,19 @@ export function useAnnouncementNotifications() {
   }, [processNotification, fetchImamSlug, showNotification]);
 
   useEffect(() => {
-    let realtimeConnected = false;
+    // Use unified realtime manager instead of creating separate channel
+
     let lastAnnouncementId: string | null = null;
 
-    const channel = supabase
-      .channel('announcements-db-changes')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'announcements' },
-        (payload) => handleAnnouncement(payload.new as AnnouncementPayload)
-      )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          realtimeConnected = true;
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          realtimeConnected = false;
-          setTimeout(() => channel.subscribe(), 3000);
-        }
-      });
+    // Subscribe to announcement events from unified manager
+    const unsubscribe = realtimeManager.on('announcement', (payload: any) => {
+      if (payload.new) {
+        handleAnnouncement(payload.new as AnnouncementPayload);
+      }
+    });
 
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
-        channel.subscribe();
-        
         try {
           const { data } = await supabase
             .from('announcements')
@@ -228,7 +219,7 @@ export function useAnnouncementNotifications() {
             .not('sent_at', 'is', null)
             .order('created_at', { ascending: false })
             .limit(5);
-          
+
           if (data) {
             const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
             for (const ann of data) {
@@ -245,42 +236,33 @@ export function useAnnouncementNotifications() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
-    const healthCheckInterval = setInterval(() => {
-      const state = channel.state;
-      if (state !== 'joined' && state !== 'joining') {
-        realtimeConnected = false;
-        channel.subscribe();
-      } else if (state === 'joined') {
-        realtimeConnected = true;
-      }
-    }, 30000);
-
+    // Fallback polling (only if realtime fails) - reduced frequency
     const pollInterval = setInterval(async () => {
-      if (realtimeConnected || channel.state === 'joined') return;
+      const status = realtimeManager.getStatus();
+      if (status.isConnected) return; // Skip polling if realtime is working
 
-        try {
-          const { data } = await supabase
-            .from('announcements')
-            .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
-            .not('sent_at', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+      try {
+        const { data } = await supabase
+          .from('announcements')
+          .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
+          .not('sent_at', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-          if (data && data.id !== lastAnnouncementId) {
-            lastAnnouncementId = data.id;
-            await handleAnnouncement(data as AnnouncementPayload);
-          }
-        } catch {
+        if (data && data.id !== lastAnnouncementId) {
+          lastAnnouncementId = data.id;
+          await handleAnnouncement(data as AnnouncementPayload);
         }
-    }, 15000);
+      } catch {
+      }
+    }, 30000); // Increased interval to 30s
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      clearInterval(healthCheckInterval);
       clearInterval(pollInterval);
-      supabase.removeChannel(channel);
-      
+      unsubscribe(); // Unsubscribe from unified manager
+
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();
       }

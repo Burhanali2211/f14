@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
+import { PIECE_FIELDS } from '@/lib/query-optimizer';
 import type { Piece } from '@/lib/supabase-types';
 
 export default function FavoritesPage() {
@@ -28,9 +29,9 @@ export default function FavoritesPage() {
     if (favorites.length > 0) {
       const { data: favData } = await supabase
         .from('pieces')
-        .select('*')
+        .select(PIECE_FIELDS.card)
         .in('id', favorites);
-      
+
       if (favData) {
         // Maintain favorites order
         const ordered = favorites
@@ -46,9 +47,9 @@ export default function FavoritesPage() {
     if (recentlyViewed.length > 0) {
       const { data: recentData } = await supabase
         .from('pieces')
-        .select('*')
+        .select(PIECE_FIELDS.card)
         .in('id', recentlyViewed);
-      
+
       if (recentData) {
         // Maintain recent order
         const ordered = recentlyViewed
@@ -66,10 +67,10 @@ export default function FavoritesPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      
+
       <main className="container py-8 flex-1">
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className={`inline-flex items-center gap-2 ${isMobile ? 'text-base' : 'text-sm'} text-muted-foreground hover:text-foreground transition-colors mb-6 min-h-[44px] touch-manipulation`}
         >
           <ChevronLeft className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
@@ -133,8 +134,8 @@ export default function FavoritesPage() {
             {recentPieces.length > 0 ? (
               <>
                 <div className="flex justify-end mb-4">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size={isMobile ? 'lg' : 'sm'}
                     onClick={clearRecentlyViewed}
                     className={`${isMobile ? 'h-12 px-4' : ''} text-muted-foreground touch-manipulation`}

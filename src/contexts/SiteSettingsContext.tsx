@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import { realtimeManager } from '@/lib/unified-realtime-manager';
 import type { SiteSettings } from '@/lib/supabase-types';
 
 const DEFAULT_SETTINGS: SiteSettings = {
@@ -62,20 +63,12 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   }, [fetchSiteSettings]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel('site-settings-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'site_settings' },
-        () => {
-          fetchSiteSettings();
-        }
-      )
-      .subscribe();
+    // Subscribe to site settings changes via unified manager
+    const unsubscribe = realtimeManager.on('site_settings', () => {
+      fetchSiteSettings();
+    });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return unsubscribe;
   }, [fetchSiteSettings]);
 
   return (
@@ -91,7 +84,7 @@ export function useSiteSettings(): SiteSettingsContextType {
     return {
       siteSettings: DEFAULT_SETTINGS,
       isLoading: false,
-      refetch: async () => {},
+      refetch: async () => { },
     };
   }
   return context;

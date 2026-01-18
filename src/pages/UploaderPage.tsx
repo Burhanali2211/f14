@@ -13,6 +13,7 @@ import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { invalidateCache } from '@/lib/data-cache';
+import { PIECE_FIELDS, CATEGORY_FIELDS, IMAM_FIELDS } from '@/lib/query-optimizer';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 
 // Import refactored components
@@ -41,7 +42,7 @@ const ITEMS_PER_PAGE = 20;
 export default function UploaderPage() {
   const navigate = useNavigate();
   const { role, loading: roleLoading } = useUserRole();
-  
+
   // Data state
   const [categories, setCategories] = useState<Category[]>([]);
   const [allPieces, setAllPieces] = useState<Piece[]>([]);
@@ -49,14 +50,14 @@ export default function UploaderPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [earnings, setEarnings] = useState<UploaderEarnings | null>(null);
-  
+
   // UI state
   const [activeSection, setActiveSection] = useState<ActiveSection>('recitations');
   const [showStats, setShowStats] = useState(false);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
-  
+
   // Filter & sort state
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -64,21 +65,21 @@ export default function UploaderPage() {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [filterLanguage, setFilterLanguage] = useState<string>('all');
-  
+
   // Selection state
   const [selectedPieces, setSelectedPieces] = useState<Set<string>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
-  
+
   // Delete state
   const [deleteDialog, setDeleteDialog] = useState<Piece | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [deletedPieces, setDeletedPieces] = useState<DeletedPiece[]>([]);
   const [undoTimeout, setUndoTimeout] = useState<NodeJS.Timeout | null>(null);
-  
+
   // Activity tracking
   const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
-  
+
   // Refs
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,7 +87,7 @@ export default function UploaderPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const user = getCurrentUser();
       if (!user) {
@@ -97,9 +98,9 @@ export default function UploaderPage() {
       }
 
       const [catRes, imamRes, pieceRes] = await Promise.all([
-        safeQuery(async () => await supabase.from('categories').select('*').order('name')),
-        safeQuery(async () => await supabase.from('imams').select('*').order('order_index, name')),
-        safeQuery(async () => await supabase.from('pieces').select('*').eq('user_id', user.id).order('created_at', { ascending: false })),
+        safeQuery(async () => await supabase.from('categories').select(CATEGORY_FIELDS.card).order('name')),
+        safeQuery(async () => await supabase.from('imams').select(IMAM_FIELDS.card).order('order_index, name')),
+        safeQuery(async () => await supabase.from('pieces').select(PIECE_FIELDS.card).eq('user_id', user.id).order('created_at', { ascending: false })),
       ]);
 
       if (catRes.error) logger.error('Error fetching categories:', catRes.error);
@@ -114,13 +115,13 @@ export default function UploaderPage() {
       } else if (pieceRes.data) {
         const piecesData = pieceRes.data as unknown as Piece[];
         setAllPieces(piecesData);
-        
+
         const currentUser = getCurrentUser();
         if (currentUser) {
           const updatedEarnings = await syncEarningsWithPieceCountAsync(currentUser.id, piecesData.length);
-            setEarnings(updatedEarnings);
-          }
+          setEarnings(updatedEarnings);
         }
+      }
     } catch (err) {
       logger.error('Unexpected error in fetchData:', err);
       setError(err instanceof Error ? err.message : 'An unexpected error occurred');
@@ -138,28 +139,28 @@ export default function UploaderPage() {
   // Computed values
   const filteredPieces = useMemo(() => {
     let result = [...allPieces];
-    
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(p => 
+      result = result.filter(p =>
         p.title.toLowerCase().includes(query) ||
         p.text_content?.toLowerCase().includes(query) ||
         p.reciter?.toLowerCase().includes(query)
       );
     }
-    
+
     if (filterCategory !== 'all') {
       result = result.filter(p => p.category_id === filterCategory);
     }
-    
+
     if (filterLanguage !== 'all') {
       result = result.filter(p => p.language === filterLanguage);
     }
-    
+
     result.sort((a, b) => {
       let aVal: string | number = '';
       let bVal: string | number = '';
-      
+
       if (sortBy === 'created_at') {
         aVal = new Date(a.created_at).getTime();
         bVal = new Date(b.created_at).getTime();
@@ -170,18 +171,18 @@ export default function UploaderPage() {
         aVal = a.language.toLowerCase();
         bVal = b.language.toLowerCase();
       }
-      
+
       if (sortOrder === 'asc') {
         return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
       }
       return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
     });
-    
+
     return result;
   }, [allPieces, searchQuery, filterCategory, filterLanguage, sortBy, sortOrder]);
 
   const totalPages = Math.ceil(filteredPieces.length / ITEMS_PER_PAGE);
-  
+
   const paginatedPieces = useMemo(() => {
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredPieces.slice(start, start + ITEMS_PER_PAGE);
@@ -199,7 +200,7 @@ export default function UploaderPage() {
       byCategory: {} as Record<string, number>,
       byLanguage: {} as Record<string, number>,
     };
-    
+
     allPieces.forEach(piece => {
       const cat = categories.find(c => c.id === piece.category_id);
       if (cat) {
@@ -207,14 +208,14 @@ export default function UploaderPage() {
       }
       stats.byLanguage[piece.language] = (stats.byLanguage[piece.language] || 0) + 1;
     });
-    
+
     return stats;
   }, [allPieces, categories]);
 
   // Handlers
   const handleExport = useCallback((format: 'csv' | 'json') => {
     if (filteredPieces.length === 0) return;
-    
+
     if (format === 'json') {
       const data = JSON.stringify(filteredPieces, null, 2);
       const blob = new Blob([data], { type: 'application/json' });
@@ -239,7 +240,7 @@ export default function UploaderPage() {
       a.click();
       URL.revokeObjectURL(url);
     }
-    
+
     toast({ title: 'Success', description: `Exported ${filteredPieces.length} recitations as ${format.toUpperCase()}` });
   }, [filteredPieces, categories]);
 
@@ -265,7 +266,7 @@ export default function UploaderPage() {
       const { error } = await authenticatedQuery(async () =>
         await supabase.from('pieces').insert([pieceData])
       );
-      
+
       if (error) {
         logger.error('Error restoring piece:', error);
         toast({ title: 'Error', description: 'Failed to restore recitation', variant: 'destructive' });
@@ -385,7 +386,7 @@ export default function UploaderPage() {
         if (user) {
           invalidateCache(`uploader:data:userId=${user.id}*`);
         }
-        
+
         toast({
           title: 'Recitation deleted',
           description: 'You can undo this action within 10 seconds',
@@ -449,13 +450,13 @@ export default function UploaderPage() {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <UploaderSidebar 
+        <UploaderSidebar
           activeSection={activeSection}
           setActiveSection={setActiveSection}
           recitationCount={filteredPieces.length}
           earnings={earnings}
         />
-        
+
         <SidebarInset className="flex-1 flex flex-col pb-24 md:pb-0">
           <UploaderHeader
             activeSection={activeSection}
@@ -470,7 +471,7 @@ export default function UploaderPage() {
             filteredCount={filteredPieces.length}
             searchInputRef={searchInputRef}
           />
-          
+
           <main className="flex-1 p-4 md:p-6 overflow-auto w-full max-w-full">
             <div className="w-full max-w-full">
               {/* Earnings Section */}
@@ -483,137 +484,137 @@ export default function UploaderPage() {
               {/* Recitations Section */}
               {activeSection === 'recitations' && (
                 <div className="space-y-6 w-full max-w-full">
-                {/* Mobile Search */}
-                <div className="md:hidden relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    type="text"
-                    placeholder="Search recitations..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 h-12 rounded-xl text-base"
-                    aria-label="Search recitations"
-                  />
-                </div>
-                
-                {/* Error State */}
-                {error && (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-destructive">Error loading data</p>
-                      <p className="text-xs text-destructive/80 mt-1">{error}</p>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => { setError(null); fetchData(); }} className="rounded-lg">
-                      Retry
-                  </Button>
-                </div>
-                )}
-                
-                {/* Stats Panel */}
-                {showStats && (
-                  <StatsPanel 
-                    statistics={statistics} 
-                    filteredCount={filteredPieces.length} 
-                    onClose={() => setShowStats(false)} 
-                  />
-                )}
-                
-                {/* Filter Bar */}
-                <FilterBar
-                  categories={categories}
-                  filterCategory={filterCategory}
-                  setFilterCategory={setFilterCategory}
-                  filterLanguage={filterLanguage}
-                  setFilterLanguage={setFilterLanguage}
-                  sortBy={sortBy}
-                  setSortBy={setSortBy}
-                  sortOrder={sortOrder}
-                  setSortOrder={setSortOrder}
-                  searchQuery={searchQuery}
-                  setSearchQuery={setSearchQuery}
-                  onAddRecitation={() => navigate('/uploader/piece/new')}
-                />
+                  {/* Mobile Search */}
+                  <div className="md:hidden relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                    <Input
+                      type="text"
+                      placeholder="Search recitations..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-10 h-12 rounded-xl text-base"
+                      aria-label="Search recitations"
+                    />
+                  </div>
 
-                {/* Content */}
-            {paginatedPieces.length === 0 ? (
-                  <EmptyState
-                    hasFilters={hasFilters}
-                    onClearFilters={handleClearFilters}
+                  {/* Error State */}
+                  {error && (
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-destructive">Error loading data</p>
+                        <p className="text-xs text-destructive/80 mt-1">{error}</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => { setError(null); fetchData(); }} className="rounded-lg">
+                        Retry
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Stats Panel */}
+                  {showStats && (
+                    <StatsPanel
+                      statistics={statistics}
+                      filteredCount={filteredPieces.length}
+                      onClose={() => setShowStats(false)}
+                    />
+                  )}
+
+                  {/* Filter Bar */}
+                  <FilterBar
+                    categories={categories}
+                    filterCategory={filterCategory}
+                    setFilterCategory={setFilterCategory}
+                    filterLanguage={filterLanguage}
+                    setFilterLanguage={setFilterLanguage}
+                    sortBy={sortBy}
+                    setSortBy={setSortBy}
+                    sortOrder={sortOrder}
+                    setSortOrder={setSortOrder}
+                    searchQuery={searchQuery}
+                    setSearchQuery={setSearchQuery}
                     onAddRecitation={() => navigate('/uploader/piece/new')}
                   />
-                ) : (
-                  <>
-                    {/* Bulk Selection Bar */}
-                    {selectMode && (
-                      <BulkSelectionBar
-                        selectedCount={selectedPieces.size}
-                        onCancel={handleCancelSelection}
-                        onDelete={handleBulkDelete}
-                        isDeleting={bulkDeleting}
-                      />
-                    )}
 
-                    {/* Select Multiple Button */}
-                {!selectMode && paginatedPieces.length > 0 && (
-                      <div className="flex justify-between items-center">
-                        <p className="text-sm text-muted-foreground">
-                          {filteredPieces.length} recitation{filteredPieces.length !== 1 ? 's' : ''} total
-                        </p>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setSelectMode(true)} 
-                          aria-label="Enable select mode"
-                          className="rounded-lg gap-2"
-                        >
-                          <CheckSquare className="w-4 h-4" />
+                  {/* Content */}
+                  {paginatedPieces.length === 0 ? (
+                    <EmptyState
+                      hasFilters={hasFilters}
+                      onClearFilters={handleClearFilters}
+                      onAddRecitation={() => navigate('/uploader/piece/new')}
+                    />
+                  ) : (
+                    <>
+                      {/* Bulk Selection Bar */}
+                      {selectMode && (
+                        <BulkSelectionBar
+                          selectedCount={selectedPieces.size}
+                          onCancel={handleCancelSelection}
+                          onDelete={handleBulkDelete}
+                          isDeleting={bulkDeleting}
+                        />
+                      )}
+
+                      {/* Select Multiple Button */}
+                      {!selectMode && paginatedPieces.length > 0 && (
+                        <div className="flex justify-between items-center">
+                          <p className="text-sm text-muted-foreground">
+                            {filteredPieces.length} recitation{filteredPieces.length !== 1 ? 's' : ''} total
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectMode(true)}
+                            aria-label="Enable select mode"
+                            className="rounded-lg gap-2"
+                          >
+                            <CheckSquare className="w-4 h-4" />
                             Select Multiple
                           </Button>
                         </div>
-                )}
+                      )}
 
-                    {/* Recitations List */}
-                <div className="grid gap-3 w-full max-w-full overflow-hidden">
-                  {paginatedPieces.map((piece) => {
-                    const category = categories.find(c => c.id === piece.category_id);
-                    const imam = imams.find(f => f.id === piece.imam_id);
-                    
-                    return (
-                      <PieceCard
-                        key={piece.id}
-                        piece={piece}
-                        category={category}
-                        imam={imam}
-                            isDeleting={deleting === piece.id}
-                            isSelected={selectedPieces.has(piece.id)}
-                        selectMode={selectMode}
-                        onEdit={(p) => navigate(`/uploader/piece/${p.id}/edit`)}
-                        onDelete={(p) => setDeleteDialog(p)}
-                        onImageClick={(url) => { setImageViewerUrl(url); setImageViewerOpen(true); }}
-                        onToggleSelect={togglePieceSelection}
-                            onCopyUrl={handleCopyUrl}
-                        onView={(p) => navigate(`/piece/${p.id}`)}
+                      {/* Recitations List */}
+                      <div className="grid gap-3 w-full max-w-full overflow-hidden">
+                        {paginatedPieces.map((piece) => {
+                          const category = categories.find(c => c.id === piece.category_id);
+                          const imam = imams.find(f => f.id === piece.imam_id);
+
+                          return (
+                            <PieceCard
+                              key={piece.id}
+                              piece={piece}
+                              category={category}
+                              imam={imam}
+                              isDeleting={deleting === piece.id}
+                              isSelected={selectedPieces.has(piece.id)}
+                              selectMode={selectMode}
+                              onEdit={(p) => navigate(`/uploader/piece/${p.id}/edit`)}
+                              onDelete={(p) => setDeleteDialog(p)}
+                              onImageClick={(url) => { setImageViewerUrl(url); setImageViewerOpen(true); }}
+                              onToggleSelect={togglePieceSelection}
+                              onCopyUrl={handleCopyUrl}
+                              onView={(p) => navigate(`/piece/${p.id}`)}
+                            />
+                          );
+                        })}
+                      </div>
+
+                      {/* Pagination */}
+                      <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        totalItems={filteredPieces.length}
+                        itemsPerPage={ITEMS_PER_PAGE}
+                        onPageChange={setCurrentPage}
                       />
-                    );
-                  })}
-                </div>
+                    </>
+                  )}
 
-                    {/* Pagination */}
-                    <Pagination
-                      currentPage={currentPage}
-                      totalPages={totalPages}
-                      totalItems={filteredPieces.length}
-                      itemsPerPage={ITEMS_PER_PAGE}
-                      onPageChange={setCurrentPage}
-                    />
-              </>
-            )}
-                
-                {/* Recent Activity */}
-                <RecentActivity 
-                  activities={recentActivity} 
-                  onClear={() => setRecentActivity([])} 
-                />
+                  {/* Recent Activity */}
+                  <RecentActivity
+                    activities={recentActivity}
+                    onClear={() => setRecentActivity([])}
+                  />
                 </div>
               )}
             </div>

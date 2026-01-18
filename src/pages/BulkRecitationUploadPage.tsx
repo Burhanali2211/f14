@@ -27,6 +27,7 @@ import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
 import { authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
+import { CATEGORY_FIELDS, IMAM_FIELDS } from '@/lib/query-optimizer';
 import type { Category, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
 import * as pdfjsLib from 'pdfjs-dist';
@@ -133,8 +134,8 @@ export default function BulkRecitationUploadPage() {
     setLoading(true);
     try {
       const [catRes, imamRes] = await Promise.all([
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('imams').select('*').order('order_index, name'),
+        supabase.from('categories').select(CATEGORY_FIELDS.card).order('name'),
+        supabase.from('imams').select(IMAM_FIELDS.card).order('order_index, name'),
       ]);
 
       if (catRes.data) {
@@ -347,7 +348,7 @@ export default function BulkRecitationUploadPage() {
         setPdfFile(null);
         if (fileInputRef.current) fileInputRef.current.value = '';
       }
-      
+
       setSheetOpen(false);
     } catch (error: any) {
       logger.error('Save error:', error);
@@ -429,10 +430,9 @@ export default function BulkRecitationUploadPage() {
                   <div
                     key={page.id}
                     onClick={() => !isGrouped && togglePage(page.id)}
-                    className={`relative rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${
-                      isGrouped ? 'opacity-50 border-dashed cursor-default' :
-                      page.selected ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:border-primary/50'
-                    }`}
+                    className={`relative rounded-lg overflow-hidden border-2 cursor-pointer transition-all ${isGrouped ? 'opacity-50 border-dashed cursor-default' :
+                        page.selected ? 'border-primary ring-2 ring-primary/20' : 'border-transparent hover:border-primary/50'
+                      }`}
                   >
                     <div className="aspect-[3/4] bg-muted">
                       {page.imageDataUrl ? (
@@ -499,7 +499,7 @@ export default function BulkRecitationUploadPage() {
             <SheetHeader className="pb-4 border-b">
               <SheetTitle>Details & Grouping</SheetTitle>
             </SheetHeader>
-            
+
             <div className="flex-1 overflow-y-auto py-4 space-y-6">
               {/* Selection Actions */}
               {selectedCount > 0 && (

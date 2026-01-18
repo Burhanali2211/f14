@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { 
-  ChevronLeft, 
-  Upload, 
-  Loader2, 
-  Globe, 
+import {
+  ChevronLeft,
+  Upload,
+  Loader2,
+  Globe,
   Sparkles,
   Check,
   Image as ImageIcon,
@@ -55,6 +55,7 @@ import { authenticatedQuery } from '@/lib/db-utils';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { optimizeRecitationImage } from '@/lib/image-optimizer';
+import { PIECE_FIELDS, CATEGORY_FIELDS, IMAM_FIELDS } from '@/lib/query-optimizer';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
 import { SimpleRecitationEditor } from '@/components/SimpleRecitationEditor';
@@ -68,7 +69,7 @@ export default function AddPiecePage() {
   const { id } = useParams<{ id: string }>();
   const { role, loading: roleLoading } = useUserRole();
   const isEditing = !!id;
-  
+
   const [uiLang, setUiLang] = useState<UILanguage>(getUILanguage());
   const [currentStep, setCurrentStep] = useState(1);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -82,15 +83,15 @@ export default function AddPiecePage() {
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [fetchingContent, setFetchingContent] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState('');
   const [fetchDialogOpen, setFetchDialogOpen] = useState(false);
-  
+
   const [aiEnhancing, setAiEnhancing] = useState(false);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiAction, setAiAction] = useState<'improve_recitation' | 'add_pronunciation' | 'summarize' | 'explain' | 'enhance_reading'>('enhance_reading');
-  
+
   const [pieceForm, setPieceForm] = useState({
     title: '',
     category_id: '',
@@ -136,8 +137,8 @@ export default function AddPiecePage() {
     }
 
     const [catRes, imamRes] = await Promise.all([
-      supabase.from('categories').select('*').order('name'),
-      supabase.from('imams').select('*').order('order_index, name'),
+      supabase.from('categories').select(CATEGORY_FIELDS.card).order('name'),
+      supabase.from('imams').select(IMAM_FIELDS.card).order('order_index, name'),
     ]);
 
     if (catRes.data) {
@@ -153,7 +154,7 @@ export default function AddPiecePage() {
     if (isEditing && id) {
       const { data: pieceData, error } = await supabase
         .from('pieces')
-        .select('*')
+        .select(PIECE_FIELDS.full)
         .eq('id', id)
         .single();
 
@@ -165,12 +166,12 @@ export default function AddPiecePage() {
 
       const piece = pieceData as Piece;
       // Normalize image_url to array (handle both string and array for backward compatibility)
-      const imageUrls = Array.isArray(piece.image_url) 
-        ? piece.image_url 
-        : piece.image_url 
-          ? [piece.image_url] 
+      const imageUrls = Array.isArray(piece.image_url)
+        ? piece.image_url
+        : piece.image_url
+          ? [piece.image_url]
           : [];
-      
+
       setPieceForm({
         title: piece.title,
         category_id: piece.category_id,
@@ -188,35 +189,35 @@ export default function AddPiecePage() {
 
   const handleImageUpload = async (file: File) => {
     if (!file) return null;
-    
+
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
       toast({ title: t('error', uiLang), description: 'Please upload an image (JPEG, PNG, WebP)', variant: 'destructive' });
       return null;
     }
-    
+
     if (file.size > 10 * 1024 * 1024) {
       toast({ title: t('error', uiLang), description: 'Image too large. Max 10MB', variant: 'destructive' });
       return null;
     }
-    
+
     setUploading(true);
     try {
       const optimizedBlob = await optimizeRecitationImage(file);
       const fileName = `recitation-${Date.now()}.webp`;
-      
+
       const { data, error } = await supabase.storage
         .from('piece-images')
         .upload(fileName, optimizedBlob, {
           cacheControl: '31536000',
           contentType: 'image/webp',
         });
-      
+
       if (error) {
         toast({ title: t('error', uiLang), description: t('errorUpload', uiLang), variant: 'destructive' });
         return null;
       }
-      
+
       const { data: { publicUrl } } = supabase.storage.from('piece-images').getPublicUrl(data.path);
       return publicUrl;
     } catch {
@@ -230,35 +231,35 @@ export default function AddPiecePage() {
   const onImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
+
     // Handle multiple files
     const fileArray = Array.from(files);
     const uploadedUrls: string[] = [];
-    
+
     for (const file of fileArray) {
       const url = await handleImageUpload(file);
       if (url) {
         uploadedUrls.push(url);
       }
     }
-    
+
     if (uploadedUrls.length > 0) {
-      setPieceForm(f => ({ 
-        ...f, 
-        image_url: [...f.image_url, ...uploadedUrls] 
+      setPieceForm(f => ({
+        ...f,
+        image_url: [...f.image_url, ...uploadedUrls]
       }));
-      toast({ 
-        title: t('imageUploaded', uiLang), 
-        description: `${uploadedUrls.length} image(s) uploaded` 
+      toast({
+        title: t('imageUploaded', uiLang),
+        description: `${uploadedUrls.length} image(s) uploaded`
       });
     }
-    
+
     // Reset input to allow selecting same files again
     if (imageInputRef.current) {
       imageInputRef.current.value = '';
     }
   };
-  
+
   const handleRemoveImage = (index: number) => {
     setPieceForm(f => ({
       ...f,
@@ -300,7 +301,7 @@ export default function AddPiecePage() {
       return;
     }
 
-    if (!checkRateLimit(RATE_LIMITS.upload, () => {})) {
+    if (!checkRateLimit(RATE_LIMITS.upload, () => { })) {
       toast({ title: t('error', uiLang), description: 'Please wait', variant: 'destructive' });
       return;
     }
@@ -389,28 +390,28 @@ export default function AddPiecePage() {
 
     try {
       if (isEditing && id) {
-          const { error } = await authenticatedQuery(async () =>
-            await supabase.from('pieces').update(data).eq('id', id)
-          );
-          if (error) throw error;
-          toast({ title: t('saved', uiLang), description: t('recitationUpdated', uiLang) });
-        } else {
-          const { error } = await authenticatedQuery(async () =>
-            await supabase.from('pieces').insert([data])
-          );
-          if (error) throw error;
-          
-          const categoryName = categories.find(c => c.id === pieceForm.category_id)?.name;
-          notifyNewRecitation({
-            title: pieceForm.title,
-            category: categoryName || 'Unknown',
-            language: pieceForm.language,
-            reciter: pieceForm.reciter || 'Unknown',
-            uploader_name: user.full_name || user.email,
-          }).catch(() => {});
-          
-          toast({ title: t('saved', uiLang), description: t('recitationCreated', uiLang) });
-        }
+        const { error } = await authenticatedQuery(async () =>
+          await supabase.from('pieces').update(data).eq('id', id)
+        );
+        if (error) throw error;
+        toast({ title: t('saved', uiLang), description: t('recitationUpdated', uiLang) });
+      } else {
+        const { error } = await authenticatedQuery(async () =>
+          await supabase.from('pieces').insert([data])
+        );
+        if (error) throw error;
+
+        const categoryName = categories.find(c => c.id === pieceForm.category_id)?.name;
+        notifyNewRecitation({
+          title: pieceForm.title,
+          category: categoryName || 'Unknown',
+          language: pieceForm.language,
+          reciter: pieceForm.reciter || 'Unknown',
+          uploader_name: user.full_name || user.email,
+        }).catch(() => { });
+
+        toast({ title: t('saved', uiLang), description: t('recitationCreated', uiLang) });
+      }
       navigate(role === 'admin' ? '/admin' : '/uploader');
     } catch {
       toast({ title: t('error', uiLang), description: t('errorSave', uiLang), variant: 'destructive' });
@@ -466,10 +467,10 @@ export default function AddPiecePage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container max-w-2xl py-4 px-4 pb-32">
         <div className="flex items-center justify-between mb-4">
-          <Link 
+          <Link
             to={role === 'admin' ? '/admin' : '/uploader'}
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           >
@@ -482,8 +483,8 @@ export default function AddPiecePage() {
               onClick={() => handleLanguageChange('ur')}
               className={cn(
                 "px-4 py-2 text-sm font-medium rounded-full transition-all",
-                uiLang === 'ur' 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
+                uiLang === 'ur'
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -493,8 +494,8 @@ export default function AddPiecePage() {
               onClick={() => handleLanguageChange('en')}
               className={cn(
                 "px-4 py-2 text-sm font-medium rounded-full transition-all",
-                uiLang === 'en' 
-                  ? "bg-primary text-primary-foreground shadow-sm" 
+                uiLang === 'en'
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -718,15 +719,15 @@ export default function AddPiecePage() {
                     <ImageIcon className="w-4 h-4" />
                     {t('coverImage', uiLang)} {pieceForm.image_url.length > 0 && `(${pieceForm.image_url.length})`}
                   </Label>
-                  
+
                   {pieceForm.image_url.length > 0 ? (
                     <div className="space-y-3">
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {pieceForm.image_url.map((url, index) => (
                           <div key={index} className="relative rounded-xl overflow-hidden border-2 border-dashed border-primary/30 group">
-                            <img 
-                              src={url} 
-                              alt={`Page ${index + 1}`} 
+                            <img
+                              src={url}
+                              alt={`Page ${index + 1}`}
                               className="w-full h-32 object-cover cursor-pointer"
                               onClick={() => {
                                 setImageViewerUrl(url);
@@ -813,26 +814,26 @@ export default function AddPiecePage() {
 
               <div className="bg-muted/30 rounded-xl p-4 space-y-3">
                 <h3 className="font-medium text-sm mb-3">{t('summary', uiLang)}</h3>
-                
+
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div className="text-muted-foreground">{t('title', uiLang)}:</div>
                   <div className="font-medium truncate">{pieceForm.title || '-'}</div>
-                  
+
                   <div className="text-muted-foreground">{t('category', uiLang)}:</div>
                   <div>{categories.find(c => c.id === pieceForm.category_id)?.name || '-'}</div>
-                  
+
                   <div className="text-muted-foreground">{t('language', uiLang)}:</div>
                   <div>{pieceForm.language}</div>
-                  
+
                   <div className="text-muted-foreground">{t('inHonorOf', uiLang)}:</div>
                   <div>{imams.find(i => i.id === pieceForm.imam_id)?.name || t('none', uiLang)}</div>
-                  
+
                   <div className="text-muted-foreground">{t('reciter', uiLang)}:</div>
                   <div>{pieceForm.reciter || '-'}</div>
-                  
+
                   <div className="text-muted-foreground">{t('step2', uiLang)}:</div>
                   <div>{pieceForm.text_content.trim().split(/\s+/).length} {t('words', uiLang)}</div>
-                  
+
                   <div className="text-muted-foreground">{t('step3', uiLang)}:</div>
                   <div>{pieceForm.image_url.length > 0 ? `${pieceForm.image_url.length} ${t('images', uiLang)}` : t('no', uiLang)}</div>
                 </div>
@@ -872,20 +873,20 @@ export default function AddPiecePage() {
             {uiLang === 'ur' ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
             {t('previous', uiLang)}
           </Button>
-          
+
           <div className="flex items-center gap-1">
             {STEPS.map(step => (
               <div
                 key={step.id}
                 className={cn(
                   "w-2 h-2 rounded-full transition-all",
-                  currentStep === step.id ? "w-6 bg-primary" : 
-                  step.id < currentStep ? "bg-primary/60" : "bg-muted"
+                  currentStep === step.id ? "w-6 bg-primary" :
+                    step.id < currentStep ? "bg-primary/60" : "bg-muted"
                 )}
               />
             ))}
           </div>
-          
+
           {currentStep < 4 ? (
             <Button
               onClick={nextStep}

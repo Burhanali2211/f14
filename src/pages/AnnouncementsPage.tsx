@@ -39,6 +39,7 @@ import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { ensureAuthenticated } from '@/lib/session-utils';
 import { optimizeAnnouncementThumbnail, formatFileSize } from '@/lib/image-optimizer';
+import { IMAM_FIELDS } from '@/lib/query-optimizer';
 import type { EventType, Imam } from '@/lib/supabase-types';
 import { getNotificationTemplate } from '@/lib/notification-templates';
 
@@ -96,7 +97,7 @@ export default function AnnouncementsPage() {
       const { data, error } = await safeQuery(async () =>
         await supabase
           .from('imams')
-          .select('*')
+          .select(IMAM_FIELDS.card)
           .order('order_index, name')
       );
 
@@ -118,7 +119,7 @@ export default function AnnouncementsPage() {
 
     // Security: Refresh role from database to get latest role changes
     await refreshRole();
-    
+
     // Get refreshed role - fetch directly from DB to verify
     const { data: userData, error: roleError } = await safeQuery(async () => {
       return await supabase
@@ -170,7 +171,7 @@ export default function AnnouncementsPage() {
       const { data, error } = await safeQuery(async () =>
         await supabase
           .from('announcements')
-          .select('*')
+          .select('id, title, message, created_by, sent_at, created_at, updated_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
           .order('created_at', { ascending: false })
       );
 
@@ -228,7 +229,7 @@ export default function AnnouncementsPage() {
       }
 
       // Get imam name if imam_id is selected
-      const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none' 
+      const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none'
         ? imams.find(i => i.id === announcementForm.imamId)
         : null;
       const imamName = selectedImam?.name || '';
@@ -275,9 +276,9 @@ export default function AnnouncementsPage() {
       });
 
       setAnnouncementDialogOpen(false);
-      setAnnouncementForm({ 
-        title: '', 
-        message: '', 
+      setAnnouncementForm({
+        title: '',
+        message: '',
         eventType: 'general',
         imamId: 'none',
         eventDate: '',
@@ -299,7 +300,7 @@ export default function AnnouncementsPage() {
 
   const handleThumbnailUpload = async (file: File) => {
     if (!file) return;
-    
+
     // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
@@ -310,7 +311,7 @@ export default function AnnouncementsPage() {
       });
       return;
     }
-    
+
     // Validate file size (max 5MB for thumbnails)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
@@ -321,14 +322,14 @@ export default function AnnouncementsPage() {
       });
       return;
     }
-    
+
     setUploadingThumbnail(true);
     try {
       // Optimize thumbnail for announcements - balanced optimization
       const optimizedBlob = await optimizeAnnouncementThumbnail(file);
 
       const fileName = `announcements/${Date.now()}.webp`;
-      
+
       // Upload optimized thumbnail
       const { data, error } = await supabase.storage
         .from('piece-images')
@@ -337,7 +338,7 @@ export default function AnnouncementsPage() {
           upsert: false,
           contentType: 'image/webp',
         });
-      
+
       if (error) {
         logger.error('Thumbnail upload error:', error);
         toast({
@@ -347,7 +348,7 @@ export default function AnnouncementsPage() {
         });
         return;
       }
-      
+
       if (!data?.path) {
         logger.error('Upload succeeded but no path returned');
         toast({
@@ -357,11 +358,11 @@ export default function AnnouncementsPage() {
         });
         return;
       }
-      
+
       const { data: { publicUrl } } = supabase.storage
         .from('piece-images')
         .getPublicUrl(data.path);
-      
+
       setAnnouncementForm(prev => ({ ...prev, thumbnailUrl: publicUrl }));
       toast({
         title: 'Success',
@@ -419,7 +420,7 @@ export default function AnnouncementsPage() {
         // TODO: Implement Web Push sending via Supabase Edge Function
         // This requires VAPID keys and a backend service
       }
-      
+
     } catch (error) {
       logger.error('Error sending notifications:', error);
       throw error;
@@ -485,10 +486,10 @@ export default function AnnouncementsPage() {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <main className="container py-4 sm:py-6 md:py-8">
-        <Link 
-          to="/admin" 
+        <Link
+          to="/admin"
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4 sm:mb-6 text-sm sm:text-base"
         >
           <ChevronLeft className="w-4 h-4" />
@@ -720,7 +721,7 @@ export default function AnnouncementsPage() {
                 <Label htmlFor="title">Title</Label>
                 <Input
                   id="title"
-                  placeholder={announcementForm.eventType === 'general' 
+                  placeholder={announcementForm.eventType === 'general'
                     ? "Enter announcement title"
                     : "Title will be auto-generated if imam is selected"}
                   value={announcementForm.title}
@@ -780,11 +781,11 @@ export default function AnnouncementsPage() {
                               ? imams.find(i => i.id === announcementForm.imamId)
                               : null;
                             const imamName = selectedImam?.name || '';
-                            
+
                             if (announcementForm.title) {
                               return announcementForm.title;
                             }
-                            
+
                             switch (announcementForm.eventType) {
                               case 'birthday':
                                 return imamName ? `🎂 Birth Anniversary: ${imamName}` : 'Birth Anniversary';
@@ -806,7 +807,7 @@ export default function AnnouncementsPage() {
                               : null;
                             const imamName = selectedImam?.name || '';
                             let body = announcementForm.message || 'Your message will appear here...';
-                            
+
                             if (announcementForm.eventType !== 'general' && imamName && announcementForm.eventDate) {
                               if (announcementForm.eventType === 'birthday') {
                                 body = `${imamName}'s birth anniversary is approaching.\n\n${body}`;
@@ -815,14 +816,14 @@ export default function AnnouncementsPage() {
                               } else if (announcementForm.eventType === 'death') {
                                 body = `Commemorating the passing of ${imamName}.\n\n${body}`;
                               }
-                              
+
                               if (announcementForm.hijriDate) {
                                 body += `\n\n📅 Date: ${new Date(announcementForm.eventDate).toLocaleDateString()} (${announcementForm.hijriDate})`;
                               } else if (announcementForm.eventDate) {
                                 body += `\n\n📅 Date: ${new Date(announcementForm.eventDate).toLocaleDateString()}`;
                               }
                             }
-                            
+
                             return body;
                           })()}
                         </div>
@@ -912,9 +913,9 @@ export default function AnnouncementsPage() {
                 variant="outline"
                 onClick={() => {
                   setAnnouncementDialogOpen(false);
-                  setAnnouncementForm({ 
-                    title: '', 
-                    message: '', 
+                  setAnnouncementForm({
+                    title: '',
+                    message: '',
                     eventType: 'general',
                     imamId: 'none',
                     eventDate: '',
