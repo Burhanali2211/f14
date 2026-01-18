@@ -1,21 +1,63 @@
-import { toArabicNumber } from '@/lib/quran-types';
+import { Bookmark, BookmarkCheck } from 'lucide-react';
 import type { Ayah } from '@/data/quran/verses';
+import { Button } from '@/components/ui/button';
 
 interface AyahDisplayProps {
   ayah: Ayah;
   showUrdu?: boolean;
   showEnglish?: boolean;
+  surahNumber?: number;
+  surahName?: string;
+  paraNumber?: number;
+  paraName?: string;
+  isLastSeen?: boolean;
+  onMarkLastSeen?: () => void;
 }
 
-export function AyahDisplay({ ayah, showUrdu = true, showEnglish = true }: AyahDisplayProps) {
+export function AyahDisplay({ 
+  ayah, 
+  showUrdu = true, 
+  showEnglish = true,
+  surahNumber,
+  surahName,
+  paraNumber,
+  paraName,
+  isLastSeen,
+  onMarkLastSeen
+}: AyahDisplayProps) {
   return (
-    <div className="group bg-card rounded-2xl border border-border/40 hover:border-primary/30 transition-all duration-300 overflow-hidden">
+    <div 
+      id={`ayah-${ayah.number}`}
+      className={`group bg-card rounded-2xl border transition-all duration-300 overflow-hidden ${
+        isLastSeen 
+          ? 'border-primary/50 ring-2 ring-primary/20' 
+          : 'border-border/40 hover:border-primary/30'
+      }`}
+    >
       <div className="p-5 sm:p-6 md:p-8">
         <div className="flex items-center justify-between mb-4">
-          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
-            <span className="font-sans text-sm sm:text-base font-bold text-primary">
-              {ayah.number}
-            </span>
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 border border-primary/20">
+              <span className="font-sans text-sm sm:text-base font-bold text-primary">
+                {ayah.number}
+              </span>
+            </div>
+            {onMarkLastSeen && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onMarkLastSeen}
+                className={`h-9 px-3 gap-1.5 ${isLastSeen ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                title={isLastSeen ? 'Currently marked as last seen' : 'Mark as last seen'}
+              >
+                {isLastSeen ? (
+                  <BookmarkCheck className="w-4 h-4" />
+                ) : (
+                  <Bookmark className="w-4 h-4" />
+                )}
+                <span className="text-xs hidden sm:inline">{isLastSeen ? 'Last Seen' : 'Mark'}</span>
+              </Button>
+            )}
           </div>
           <div className="px-3 py-1.5 rounded-full bg-muted/50 border border-border/30">
             <span className="font-sans text-xs text-muted-foreground">
@@ -35,9 +77,9 @@ export function AyahDisplay({ ayah, showUrdu = true, showEnglish = true }: AyahD
               style={{ lineHeight: 2.4 }}
             >
               {ayah.arabicText}
-              <span className="inline-block mx-3 text-primary/70 text-lg sm:text-xl">
-                ﴿{toArabicNumber(ayah.number)}﴾
-              </span>
+                <span className="inline-block mx-3 text-primary/70 text-lg sm:text-xl font-sans">
+                  ﴿{ayah.number}﴾
+                </span>
             </p>
           </div>
           

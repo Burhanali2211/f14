@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useUserRole } from '@/hooks/use-user-role';
-import { useSiteSettings } from '@/contexts/SiteSettingsContext';
+import { useSiteSettings } from '@/hooks/use-site-settings';
 import { signOut } from '@/lib/auth-utils';
 
 export function Header() {

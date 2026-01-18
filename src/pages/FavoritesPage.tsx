@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { supabase } from '@/integrations/supabase/client';
-import { PIECE_FIELDS } from '@/lib/query-optimizer';
 import type { Piece } from '@/lib/supabase-types';
 
 export default function FavoritesPage() {
@@ -25,15 +24,15 @@ export default function FavoritesPage() {
   }, [favorites, recentlyViewed]);
 
   const fetchPieces = async () => {
-    // Fetch favorite pieces
+    const PIECES_COLUMNS = 'id, title, category_id, reciter, language, image_url, view_count, created_at, imam_id, user_id';
+    
     if (favorites.length > 0) {
       const { data: favData } = await supabase
         .from('pieces')
-        .select(PIECE_FIELDS.card)
+        .select(PIECES_COLUMNS)
         .in('id', favorites);
-
+      
       if (favData) {
-        // Maintain favorites order
         const ordered = favorites
           .map(id => favData.find(p => p.id === id))
           .filter(Boolean) as Piece[];
@@ -43,15 +42,13 @@ export default function FavoritesPage() {
       setFavoritePieces([]);
     }
 
-    // Fetch recently viewed pieces
     if (recentlyViewed.length > 0) {
       const { data: recentData } = await supabase
         .from('pieces')
-        .select(PIECE_FIELDS.card)
+        .select(PIECES_COLUMNS)
         .in('id', recentlyViewed);
-
+      
       if (recentData) {
-        // Maintain recent order
         const ordered = recentlyViewed
           .map(id => recentData.find(p => p.id === id))
           .filter(Boolean) as Piece[];
@@ -67,10 +64,10 @@ export default function FavoritesPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-
+      
       <main className="container py-8 flex-1">
-        <Link
-          to="/"
+        <Link 
+          to="/" 
           className={`inline-flex items-center gap-2 ${isMobile ? 'text-base' : 'text-sm'} text-muted-foreground hover:text-foreground transition-colors mb-6 min-h-[44px] touch-manipulation`}
         >
           <ChevronLeft className={`${isMobile ? 'w-5 h-5' : 'w-4 h-4'}`} />
@@ -134,8 +131,8 @@ export default function FavoritesPage() {
             {recentPieces.length > 0 ? (
               <>
                 <div className="flex justify-end mb-4">
-                  <Button
-                    variant="ghost"
+                  <Button 
+                    variant="ghost" 
                     size={isMobile ? 'lg' : 'sm'}
                     onClick={clearRecentlyViewed}
                     className={`${isMobile ? 'h-12 px-4' : ''} text-muted-foreground touch-manipulation`}

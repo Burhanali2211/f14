@@ -7,7 +7,6 @@ import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { getCachedData, setCachedData, getCacheKey, invalidateCache } from '@/lib/data-cache';
 import { getTableVersion } from '@/lib/cache-change-detector';
-import { PIECE_FIELDS, CATEGORY_FIELDS, IMAM_FIELDS } from '@/lib/query-optimizer';
 import type { Category, Piece, Imam, UserProfile, Artiste, AhlulBaitEvent } from '@/lib/supabase-types';
 
 interface AdminContextType {
@@ -18,12 +17,12 @@ interface AdminContextType {
   artistes: Artiste[];
   userProfiles: UserProfile[];
   events: AhlulBaitEvent[];
-
+  
   // State
   loading: boolean;
   currentUser: any;
   currentRole: string | null;
-
+  
   // Actions
   fetchData: () => Promise<void>;
   setCategories: React.Dispatch<React.SetStateAction<Category[]>>;
@@ -32,7 +31,7 @@ interface AdminContextType {
   setArtistes: React.Dispatch<React.SetStateAction<Artiste[]>>;
   setUserProfiles: React.Dispatch<React.SetStateAction<UserProfile[]>>;
   setEvents: React.Dispatch<React.SetStateAction<AhlulBaitEvent[]>>;
-
+  
   // Delete handler
   handleDelete: (type: 'category' | 'piece' | 'imam' | 'event' | 'artiste', id: string) => Promise<boolean>;
 }
@@ -54,7 +53,7 @@ interface AdminProviderProps {
 export const AdminProvider = ({ children }: AdminProviderProps) => {
   const navigate = useNavigate();
   const { role: currentRole, loading: roleLoading, user: currentUser } = useUserRole();
-
+  
   const [categories, setCategories] = useState<Category[]>([]);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [imams, setImams] = useState<Imam[]>([]);
@@ -64,7 +63,7 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
   const [loading, setLoading] = useState(true);
   const redirectingRef = useRef(false);
   const dataFetchedRef = useRef(false);
-
+  
   useEffect(() => {
     if (roleLoading || redirectingRef.current) return;
 
@@ -101,7 +100,7 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-
+      
       // Check cache for admin data
       const cacheKey = getCacheKey('admin:data');
       const cached = getCachedData<{
@@ -154,19 +153,32 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
         }
       }
 
-      // Fetch from API with optimized field selections
-      const [catRes, pieceRes, imamRes, artistesRes, usersRes, eventsRes] = await Promise.all([
-        safeQuery(async () => await supabase.from('categories').select(CATEGORY_FIELDS.full).order('name')),
-        safeQuery(async () => await supabase.from('pieces').select(PIECE_FIELDS.card).order('created_at', { ascending: false }).limit(100)), // Limit to 100 most recent
-        safeQuery(async () => {
-          const { data, error } = await supabase.from('imams').select(IMAM_FIELDS.full).order('order_index, name');
-          if (error) return { data: null, error };
-          return { data, error: null };
-        }),
-        safeQuery(async () => await supabase.from('artistes').select('id, name, slug, description, image_url').order('name')),
-        safeQuery(async () => await supabase.from('users').select('id, email, full_name, phone_number, address, role, is_active, created_at, updated_at').order('created_at', { ascending: false })),
-        safeQuery(async () => await supabase.from('ahlul_bait_events').select('*, imam:imams(id, name, slug, title)').order('event_date', { ascending: true })),
-      ]);
+      // Fetch from API
+        const CATEGORIES_COLUMNS = 'id, name, slug, description, icon, created_at, bg_image_url, bg_image_position, bg_image_size, bg_image_opacity, bg_image_blur, bg_image_scale, custom_path, updated_at';
+        const PIECES_COLUMNS = 'id, title, category_id, reciter, language, text_content, video_url, tags, image_url, view_count, created_at, updated_at, imam_id, user_id';
+        const IMAMS_COLUMNS = 'id, name, slug, title, description, image_url, order_index, created_at, category_id, updated_at';
+        const ARTISTES_COLUMNS = 'id, name, slug, image_url, created_at, updated_at';
+        const EVENTS_COLUMNS = 'id, imam_id, event_type, event_date, event_name, description, is_annual, created_at, updated_at';
+        const EVENTS_IMAM_COLUMNS = 'id, name, slug, image_url';
+
+        const [catRes, pieceRes, imamRes, artistesRes, usersRes, eventsRes] = await Promise.all([
+          safeQuery(async () => await supabase.from('categories').select(CATEGORIES_COLUMNS).order('name')),
+          safeQuery(async () => await supabase.from('pieces').select(PIECES_COLUMNS).order('created_at', { ascending: false })),
+          safeQuery(async () => {
+            const { data, error } = await supabase.from('imams').select(IMAMS_COLUMNS);
+            if (error) return { data: null, error };
+            const sorted = (data || []).sort((a: Imam, b: Imam) => {
+              const orderA = a.order_index || 1;
+              const orderB = b.order_index || 1;
+              if (orderA !== orderB) return orderA - orderB;
+              return (a.name || '').localeCompare(b.name || '');
+            });
+            return { data: sorted, error: null };
+          }),
+          safeQuery(async () => await supabase.from('artistes').select(ARTISTES_COLUMNS).order('name')),
+          safeQuery(async () => await supabase.from('users').select('id, email, full_name, phone_number, address, role, is_active, created_at, updated_at').order('created_at', { ascending: false })),
+          safeQuery(async () => await supabase.from('ahlul_bait_events').select(`${EVENTS_COLUMNS}, imam:imams(${EVENTS_IMAM_COLUMNS})`).order('event_date', { ascending: true })),
+        ]);
 
       if (catRes.data) setCategories(catRes.data as Category[]);
       if (pieceRes.data) setPieces(pieceRes.data as Piece[]);
@@ -219,7 +231,7 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       artiste: 'artistes',
     };
     const table = tableMap[type] || 'categories';
-
+    
     try {
       const { data, error } = await authenticatedQuery(async () =>
         await supabase.from(table).delete().eq('id', id).select()
@@ -227,17 +239,17 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
 
       if (error) {
         logger.error(`Error deleting ${type}:`, error);
-        toast({
-          title: 'Error',
-          description: error.message || `Failed to delete ${type}`,
-          variant: 'destructive'
+        toast({ 
+          title: 'Error', 
+          description: error.message || `Failed to delete ${type}`, 
+          variant: 'destructive' 
         });
         return false;
       }
 
       if (data && data.length > 0) {
         toast({ title: 'Success', description: `${type} deleted successfully` });
-
+        
         // Invalidate cache
         if (type === 'piece') {
           invalidateCache('pieces:*');
@@ -254,13 +266,13 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
           invalidateCache('index:*');
         }
         invalidateCache('admin:data');
-
+        
         await fetchData();
         return true;
       }
-
-      toast({
-        title: 'Warning',
+      
+      toast({ 
+        title: 'Warning', 
         description: 'Delete operation completed but could not verify.',
         variant: 'destructive'
       });
@@ -268,10 +280,10 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       return false;
     } catch (error: any) {
       logger.error(`Unexpected error deleting ${type}:`, error);
-      toast({
-        title: 'Error',
-        description: error?.message || `An unexpected error occurred`,
-        variant: 'destructive'
+      toast({ 
+        title: 'Error', 
+        description: error?.message || `An unexpected error occurred`, 
+        variant: 'destructive' 
       });
       return false;
     }

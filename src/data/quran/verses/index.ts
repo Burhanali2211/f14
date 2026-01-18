@@ -5,6 +5,19 @@ import { surah1AlFatiha, SurahVerses } from './surah-1';
 import { surah2AlBaqarah } from './surah-2';
 import { surah3AlImran } from './surah-3';
 import { surah36YaSin } from './surah-36';
+import { surah37AsSaffat } from './surah-37';
+import { surah38Sad } from './surah-38';
+import { surah39AzZumar } from './surah-39';
+import { surah40Ghafir } from './surah-40';
+import { surah46AlAhqaf } from './surah-46';
+import { surah47Muhammad } from './surah-47';
+import { surah48AlFath } from './surah-48';
+import { surah49AlHujurat } from './surah-49';
+import { surah50Qaf } from './surah-50';
+import { surah51AdhDhariyat } from './surah-51';
+import { surah52AtTur } from './surah-52';
+import { surah53AnNajm } from './surah-53';
+import { surah54AlQamar } from './surah-54';
 import { surah55ArRahman } from './surah-55';
 import { surah56AlWaqiah } from './surah-56';
 import { surah57AlHadid } from './surah-57';
@@ -71,6 +84,19 @@ export const surahVersesMap: Record<number, SurahVerses> = {
   2: surah2AlBaqarah,
   3: surah3AlImran,
   36: surah36YaSin,
+  37: surah37AsSaffat,
+  38: surah38Sad,
+  39: surah39AzZumar,
+  40: surah40Ghafir,
+  46: surah46AlAhqaf,
+  47: surah47Muhammad,
+  48: surah48AlFath,
+  49: surah49AlHujurat,
+  50: surah50Qaf,
+  51: surah51AdhDhariyat,
+  52: surah52AtTur,
+  53: surah53AnNajm,
+  54: surah54AlQamar,
   55: surah55ArRahman,
   56: surah56AlWaqiah,
   57: surah57AlHadid,

@@ -61,21 +61,22 @@ export default function FiqhHubPage() {
     return () => window.removeEventListener('auth:change', handleAuthChange);
   }, []);
 
-  const fetchCategories = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('fiqh_categories')
-        .select('*')
-        .order('display_order', { ascending: true });
+    const fetchCategories = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('fiqh_categories')
+          .select('id, name, name_ar, description, icon, display_order')
+          .order('display_order', { ascending: true });
 
-      if (error) throw error;
-      setCategories(data || []);
-    } catch (error) {
-      logger.error('Error fetching Fiqh categories:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (error) throw error;
+        setCategories(data || []);
+      } catch (error) {
+        logger.error('Error fetching Fiqh categories:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
 
   const handleAskQuestion = () => {
     if (!user) {

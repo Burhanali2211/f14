@@ -1,364 +1,186 @@
-/**
- * Centralized data fetching hooks for pieces
- * Replaces scattered queries with optimized, consistent implementations
- * Uses specific field selections instead of SELECT *
- */
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { PIECE_FIELDS } from '@/lib/query-optimizer';
-import { toast } from '@/hooks/use-toast';
+import { safeQuery } from '@/lib/db-utils';
+import { getCachedData, setCachedData, getCacheKey, invalidateCache } from '@/lib/data-cache';
+import { logger } from '@/lib/logger';
+import { deduplicateRequest } from '@/lib/request-utils';
+import type { Piece, Category, Imam } from '@/lib/supabase-types';
 
-export interface Piece {
-    id: string;
-    title: string;
-    text_content?: string;
-    image_url?: string;
-    video_url?: string;
-    reciter?: string;
-    language: string;
-    view_count: number;
-    created_at: string;
-    updated_at?: string;
-    category_id: string;
-    imam_id?: string;
-    tags?: string[];
-    user_id?: string;
+const PIECES_LIST_COLUMNS = 'id, title, category_id, reciter, language, image_url, view_count, created_at, imam_id, user_id';
+const PIECES_FULL_COLUMNS = 'id, title, category_id, reciter, language, text_content, video_url, tags, image_url, view_count, created_at, updated_at, imam_id, user_id';
+
+export interface UsePiecesOptions {
+  userId?: string;
+  categoryId?: string;
+  imamId?: string;
+  language?: string;
+  limit?: number;
+  offset?: number;
+  orderBy?: 'created_at' | 'view_count' | 'title';
+  orderDirection?: 'asc' | 'desc';
+  includeRelations?: boolean;
+  fullColumns?: boolean;
 }
 
-export interface PieceWithRelations extends Piece {
-    category?: {
-        id: string;
-        name: string;
-        slug: string;
-        icon?: string;
-    };
-    imam?: {
-        id: string;
-        name: string;
-        slug: string;
-        title?: string;
-    };
+export interface UsePiecesReturn {
+  pieces: Piece[];
+  loading: boolean;
+  error: string | null;
+  total: number;
+  refetch: () => Promise<void>;
+  invalidate: () => void;
 }
 
-interface UsePiecesOptions {
-    categoryId?: string;
-    imamId?: string;
-    reciter?: string;
-    userId?: string;
-    language?: string;
-    limit?: number;
-    includeRelations?: boolean;
-    orderBy?: 'created_at' | 'view_count' | 'title';
-    ascending?: boolean;
-}
+export function usePieces(options: UsePiecesOptions = {}): UsePiecesReturn {
+  const {
+    userId,
+    categoryId,
+    imamId,
+    language,
+    limit = 50,
+    offset = 0,
+    orderBy = 'created_at',
+    orderDirection = 'desc',
+    includeRelations = false,
+    fullColumns = false,
+  } = options;
 
-/**
- * Fetch pieces with optimized queries
- */
-export function usePieces(options: UsePiecesOptions = {}) {
-    const {
-        categoryId,
-        imamId,
-        reciter,
-        userId,
-        language,
-        limit = 50,
-        includeRelations = false,
-        orderBy = 'created_at',
-        ascending = false,
-    } = options;
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
 
-    return useQuery({
-        queryKey: ['pieces', options],
-        queryFn: async () => {
-            // Build select string based on includeRelations
-            const selectString = includeRelations
-                ? `
-          ${PIECE_FIELDS.card},
-          category:categories(id, name, slug, icon),
-          imam:imams(id, name, slug, title)
-        `
-                : PIECE_FIELDS.card;
-
-            let query = supabase.from('pieces').select(selectString);
-
-            // Apply filters
-            if (categoryId) query = query.eq('category_id', categoryId);
-            if (imamId) query = query.eq('imam_id', imamId);
-            if (reciter) query = query.eq('reciter', reciter);
-            if (userId) query = query.eq('user_id', userId);
-            if (language) query = query.eq('language', language);
-
-            // Apply ordering
-            query = query.order(orderBy, { ascending });
-
-            // Apply limit
-            query = query.limit(limit);
-
-            const { data, error } = await query;
-
-            if (error) throw error;
-            return data as PieceWithRelations[];
-        },
-        staleTime: 5 * 60 * 1000, // 5 minutes
-        gcTime: 30 * 60 * 1000, // 30 minutes
+  const cacheKey = useMemo(() => {
+    return getCacheKey('pieces', {
+      userId,
+      categoryId,
+      imamId,
+      language,
+      limit,
+      offset,
+      orderBy,
+      orderDirection,
+      includeRelations,
+      fullColumns,
     });
+  }, [userId, categoryId, imamId, language, limit, offset, orderBy, orderDirection, includeRelations, fullColumns]);
+
+  const fetchPieces = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const cached = getCachedData<{ pieces: Piece[]; total: number }>(cacheKey);
+      if (cached) {
+        setPieces(cached.data.pieces);
+        setTotal(cached.data.total);
+        setLoading(false);
+        return;
+      }
+
+      const result = await deduplicateRequest(cacheKey, async () => {
+        const columns = fullColumns ? PIECES_FULL_COLUMNS : PIECES_LIST_COLUMNS;
+        let query = supabase
+          .from('pieces')
+          .select(includeRelations ? `${columns}, category:categories(id, name, slug), imam:imams(id, name, slug, image_url)` : columns, { count: 'exact' });
+
+        if (userId) query = query.eq('user_id', userId);
+        if (categoryId) query = query.eq('category_id', categoryId);
+        if (imamId) query = query.eq('imam_id', imamId);
+        if (language) query = query.eq('language', language);
+
+        query = query.order(orderBy, { ascending: orderDirection === 'asc' });
+        query = query.range(offset, offset + limit - 1);
+
+        const { data, error: queryError, count } = await safeQuery(async () => query);
+
+        if (queryError) throw queryError;
+
+        return {
+          pieces: (data || []) as Piece[],
+          total: count || 0
+        };
+      });
+
+      setPieces(result.pieces);
+      setTotal(result.total);
+      setCachedData(cacheKey, result);
+    } catch (err: any) {
+      logger.error('Error fetching pieces:', err);
+      setError(err.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, [cacheKey, userId, categoryId, imamId, language, limit, offset, orderBy, orderDirection, includeRelations, fullColumns]);
+
+  const invalidatePiecesCache = useCallback(() => {
+    invalidateCache('pieces:*');
+    invalidateCache('index:*');
+  }, []);
+
+  useEffect(() => {
+    fetchPieces();
+  }, [fetchPieces]);
+
+  return {
+    pieces,
+    loading,
+    error,
+    total,
+    refetch: fetchPieces,
+    invalidate: invalidatePiecesCache,
+  };
 }
 
-/**
- * Fetch a single piece by ID with full details
- */
 export function usePiece(id: string | undefined) {
-    return useQuery({
-        queryKey: ['piece', id],
-        queryFn: async () => {
-            if (!id) throw new Error('Piece ID is required');
+  const [piece, setPiece] = useState<Piece | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-            const { data, error } = await supabase
-                .from('pieces')
-                .select(
-                    `
-          ${PIECE_FIELDS.full},
-          category:categories(id, name, slug, icon),
-          imam:imams(id, name, slug, title)
-        `
-                )
-                .eq('id', id)
-                .single();
+  const fetchPiece = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
 
-            if (error) throw error;
-            return data as PieceWithRelations;
-        },
-        enabled: !!id,
-        staleTime: 10 * 60 * 1000, // 10 minutes
-    });
-}
+    setLoading(true);
+    setError(null);
 
-/**
- * Fetch pieces for search with optimized fields
- */
-export function useSearchPieces(searchTerm: string) {
-    return useQuery({
-        queryKey: ['pieces', 'search', searchTerm],
-        queryFn: async () => {
-            if (!searchTerm || searchTerm.length < 2) return [];
+    try {
+      const cacheKey = getCacheKey('piece', { id });
+      const cached = getCachedData<Piece>(cacheKey);
+      if (cached) {
+        setPiece(cached.data);
+        setLoading(false);
+        return;
+      }
 
-            const { data, error } = await supabase
-                .from('pieces')
-                .select(PIECE_FIELDS.search)
-                .or(
-                    `title.ilike.%${searchTerm}%,reciter.ilike.%${searchTerm}%,text_content.ilike.%${searchTerm}%`
-                )
-                .limit(20);
+      const data = await deduplicateRequest(cacheKey, async () => {
+        const { data, error: queryError } = await safeQuery(async () =>
+          supabase
+            .from('pieces')
+            .select(`${PIECES_FULL_COLUMNS}, category:categories(id, name, slug, icon), imam:imams(id, name, slug, image_url, title)`)
+            .eq('id', id)
+            .single()
+        );
 
-            if (error) throw error;
-            return data as Piece[];
-        },
-        enabled: searchTerm.length >= 2,
-        staleTime: 2 * 60 * 1000, // 2 minutes
-    });
-}
+        if (queryError) throw queryError;
+        return data as Piece;
+      });
 
-/**
- * Fetch popular pieces (by view count)
- */
-export function usePopularPieces(limit: number = 10) {
-    return useQuery({
-        queryKey: ['pieces', 'popular', limit],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('pieces')
-                .select(
-                    `
-          ${PIECE_FIELDS.card},
-          category:categories(id, name, slug, icon)
-        `
-                )
-                .order('view_count', { ascending: false })
-                .limit(limit);
+      setPiece(data);
+      setCachedData(cacheKey, data);
+    } catch (err: any) {
+      logger.error('Error fetching piece:', err);
+      setError(err.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
-            if (error) throw error;
-            return data as PieceWithRelations[];
-        },
-        staleTime: 15 * 60 * 1000, // 15 minutes
-    });
-}
+  useEffect(() => {
+    fetchPiece();
+  }, [fetchPiece]);
 
-/**
- * Fetch recent pieces
- */
-export function useRecentPieces(limit: number = 10) {
-    return useQuery({
-        queryKey: ['pieces', 'recent', limit],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('pieces')
-                .select(
-                    `
-          ${PIECE_FIELDS.card},
-          category:categories(id, name, slug, icon)
-        `
-                )
-                .order('created_at', { ascending: false })
-                .limit(limit);
-
-            if (error) throw error;
-            return data as PieceWithRelations[];
-        },
-        staleTime: 5 * 60 * 1000, // 5 minutes
-    });
-}
-
-/**
- * Increment piece view count
- */
-export function useIncrementViewCount() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (pieceId: string) => {
-            const { error } = await supabase.rpc('increment_view_count', {
-                piece_id: pieceId,
-            });
-
-            if (error) throw error;
-        },
-        onSuccess: (_, pieceId) => {
-            // Invalidate piece query to refetch updated view count
-            queryClient.invalidateQueries({ queryKey: ['piece', pieceId] });
-            queryClient.invalidateQueries({ queryKey: ['pieces', 'popular'] });
-        },
-    });
-}
-
-/**
- * Create a new piece
- */
-export function useCreatePiece() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (piece: Partial<Piece>) => {
-            const { data, error } = await supabase
-                .from('pieces')
-                .insert(piece)
-                .select(PIECE_FIELDS.full)
-                .single();
-
-            if (error) throw error;
-            return data as Piece;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pieces'] });
-            toast({
-                title: 'Success',
-                description: 'Piece created successfully',
-            });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
-        },
-    });
-}
-
-/**
- * Update an existing piece
- */
-export function useUpdatePiece() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async ({
-            id,
-            updates,
-        }: {
-            id: string;
-            updates: Partial<Piece>;
-        }) => {
-            const { data, error } = await supabase
-                .from('pieces')
-                .update(updates)
-                .eq('id', id)
-                .select(PIECE_FIELDS.full)
-                .single();
-
-            if (error) throw error;
-            return data as Piece;
-        },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['pieces'] });
-            queryClient.invalidateQueries({ queryKey: ['piece', data.id] });
-            toast({
-                title: 'Success',
-                description: 'Piece updated successfully',
-            });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
-        },
-    });
-}
-
-/**
- * Delete a piece
- */
-export function useDeletePiece() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (id: string) => {
-            const { error } = await supabase.from('pieces').delete().eq('id', id);
-
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pieces'] });
-            toast({
-                title: 'Success',
-                description: 'Piece deleted successfully',
-            });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
-        },
-    });
-}
-
-/**
- * Get piece count by category
- */
-export function usePieceCountByCategory() {
-    return useQuery({
-        queryKey: ['pieces', 'count-by-category'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('pieces')
-                .select('category_id')
-                .select('category_id, count');
-
-            if (error) throw error;
-
-            // Group by category_id
-            const counts: Record<string, number> = {};
-            data.forEach((item: any) => {
-                counts[item.category_id] = (counts[item.category_id] || 0) + 1;
-            });
-
-            return counts;
-        },
-        staleTime: 15 * 60 * 1000, // 15 minutes
-    });
+  return { piece, loading, error, refetch: fetchPiece };
 }

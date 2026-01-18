@@ -14,12 +14,15 @@ const SPEEDS = [
 
 export function AutoScrollControl() {
   const [isActive, setIsActive] = useState(false);
-  const [speedIndex, setSpeedIndex] = useState(1); // Default to 1x
+  const [speedIndex, setSpeedIndex] = useState(1);
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
   const scrollInterval = useRef<number | null>(null);
   const lastScrollY = useRef(0);
+  const userScrollTimeout = useRef<number | null>(null);
+  const isUserScrolling = useRef(false);
   const location = useLocation();
 
   const currentSpeed = SPEEDS[speedIndex];
@@ -33,18 +36,20 @@ export function AutoScrollControl() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Hide on scroll down, show on scroll up
   useEffect(() => {
     if (!isMobile) return;
 
     const handleScroll = () => {
+      if (isActive) {
+        setIsVisible(true);
+        return;
+      }
+      
       const currentScrollY = window.scrollY;
       
       if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-        // Scrolling down
         setIsVisible(false);
       } else {
-        // Scrolling up
         setIsVisible(true);
       }
       
@@ -53,12 +58,43 @@ export function AutoScrollControl() {
 
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [isMobile]);
+  }, [isMobile, isActive]);
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    const handleUserScroll = (e: WheelEvent | TouchEvent) => {
+      isUserScrolling.current = true;
+      setIsPaused(true);
+      
+      if (userScrollTimeout.current) {
+        clearTimeout(userScrollTimeout.current);
+      }
+      
+      userScrollTimeout.current = window.setTimeout(() => {
+        isUserScrolling.current = false;
+        setIsPaused(false);
+      }, 500);
+    };
+
+    window.addEventListener('wheel', handleUserScroll, { passive: true });
+    window.addEventListener('touchmove', handleUserScroll, { passive: true });
+    
+    return () => {
+      window.removeEventListener('wheel', handleUserScroll);
+      window.removeEventListener('touchmove', handleUserScroll);
+      if (userScrollTimeout.current) {
+        clearTimeout(userScrollTimeout.current);
+      }
+    };
+  }, [isActive]);
 
   const startScrolling = useCallback(() => {
     if (scrollInterval.current) clearInterval(scrollInterval.current);
     
     scrollInterval.current = window.setInterval(() => {
+      if (isUserScrolling.current) return;
+      
       window.scrollBy({
         top: currentSpeed.step,
         behavior: 'auto'

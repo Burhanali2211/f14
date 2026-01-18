@@ -105,9 +105,10 @@ export default function ContactSubmissionsPage() {
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
+      const CONTACT_COLUMNS = 'id, name, email, subject, message, status, created_at, updated_at, admin_notes, replied_at';
       const { data, error } = await supabase
         .from('contact_submissions')
-        .select('id, name, email, subject, message, status, created_at, updated_at, admin_notes, replied_at')
+        .select(CONTACT_COLUMNS)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -389,10 +390,11 @@ export default function ContactSubmissionsPage() {
           {filteredSubmissions.map((submission) => (
             <div
               key={submission.id}
-              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 bg-card rounded-lg shadow-soft border ${submission.status === 'unread'
+              className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 p-4 bg-card rounded-lg shadow-soft border ${
+                submission.status === 'unread'
                   ? 'border-primary/50 bg-primary/5'
                   : 'border-border'
-                }`}
+              }`}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">

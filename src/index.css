@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
+
 /* AlMajeed Quran Font - Load FIRST with block display to prevent font flash */
 @font-face {
   font-family: 'AlMajeed';
@@ -6,9 +8,6 @@
   font-weight: 400;
   font-style: normal;
 }
-
-/* Google Fonts - Secondary fonts with swap */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -38,6 +37,13 @@
     overflow-x: hidden !important;
     width: 100% !important;
     max-width: 100% !important;
+    /* Hide scrollbar globally */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  html::-webkit-scrollbar {
+    display: none;
   }
 
   body {

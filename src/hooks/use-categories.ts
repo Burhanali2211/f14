@@ -1,220 +1,150 @@
-/**
- * Centralized data fetching hooks for categories
- * Optimized queries with specific field selections
- */
-
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { CATEGORY_FIELDS } from '@/lib/query-optimizer';
-import { toast } from '@/hooks/use-toast';
+import { safeQuery } from '@/lib/db-utils';
+import { getCachedData, setCachedData, getCacheKey, invalidateCache } from '@/lib/data-cache';
+import { logger } from '@/lib/logger';
+import { deduplicateRequest } from '@/lib/request-utils';
+import type { Category } from '@/lib/supabase-types';
 
-export interface Category {
-    id: string;
-    name: string;
-    slug: string;
-    description?: string;
-    icon?: string;
-    bg_image_url?: string;
-    bg_image_opacity?: number;
-    bg_image_blur?: number;
-    bg_image_position?: string;
-    bg_image_size?: string;
-    bg_image_scale?: number;
+const CATEGORIES_LIST_COLUMNS = 'id, name, slug, description, icon, custom_path';
+const CATEGORIES_FULL_COLUMNS = 'id, name, slug, description, icon, created_at, bg_image_url, bg_image_position, bg_image_size, bg_image_opacity, bg_image_blur, bg_image_scale, custom_path, updated_at';
+
+export interface UseCategoriesOptions {
+  fullColumns?: boolean;
 }
 
-export interface CategoryWithStats extends Category {
-    piece_count?: number;
+export interface UseCategoriesReturn {
+  categories: Category[];
+  loading: boolean;
+  error: string | null;
+  refetch: () => Promise<void>;
+  invalidate: () => void;
+  getCategoryById: (id: string) => Category | undefined;
+  getCategoryBySlug: (slug: string) => Category | undefined;
 }
 
-interface UseCategoriesOptions {
-    includeStats?: boolean;
-    orderBy?: 'name' | 'created_at';
-    ascending?: boolean;
+export function useCategories(options: UseCategoriesOptions = {}): UseCategoriesReturn {
+  const { fullColumns = false } = options;
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const cacheKey = getCacheKey('categories', { fullColumns });
+
+  const fetchCategories = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const cached = getCachedData<Category[]>(cacheKey);
+      if (cached) {
+        setCategories(cached.data);
+        setLoading(false);
+        return;
+      }
+
+      const data = await deduplicateRequest(cacheKey, async () => {
+        const columns = fullColumns ? CATEGORIES_FULL_COLUMNS : CATEGORIES_LIST_COLUMNS;
+        const { data, error: queryError } = await safeQuery(async () =>
+          supabase.from('categories').select(columns).order('name')
+        );
+
+        if (queryError) throw queryError;
+        return data as Category[];
+      });
+
+      setCategories(data || []);
+      setCachedData(cacheKey, data || []);
+    } catch (err: any) {
+      logger.error('Error fetching categories:', err);
+      setError(err.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, [cacheKey, fullColumns]);
+
+  const invalidateCategoriesCache = useCallback(() => {
+    invalidateCache('categories:*');
+    invalidateCache('index:*');
+  }, []);
+
+  const getCategoryById = useCallback(
+    (id: string) => categories.find((c) => c.id === id),
+    [categories]
+  );
+
+  const getCategoryBySlug = useCallback(
+    (slug: string) => categories.find((c) => c.slug === slug),
+    [categories]
+  );
+
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  return {
+    categories,
+    loading,
+    error,
+    refetch: fetchCategories,
+    invalidate: invalidateCategoriesCache,
+    getCategoryById,
+    getCategoryBySlug,
+  };
 }
 
-/**
- * Fetch all categories with optional stats
- */
-export function useCategories(options: UseCategoriesOptions = {}) {
-    const { includeStats = false, orderBy = 'name', ascending = true } = options;
+export function useCategory(idOrSlug: string | undefined) {
+  const [category, setCategory] = useState<Category | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    return useQuery({
-        queryKey: ['categories', options],
-        queryFn: async () => {
-            const selectString = includeStats
-                ? `${CATEGORY_FIELDS.card}, pieces:pieces(count)`
-                : CATEGORY_FIELDS.card;
+  const fetchCategory = useCallback(async () => {
+    if (!idOrSlug) {
+      setLoading(false);
+      return;
+    }
 
-            const { data, error } = await supabase
-                .from('categories')
-                .select(selectString)
-                .order(orderBy, { ascending });
+    setLoading(true);
+    setError(null);
 
-            if (error) throw error;
+    try {
+      const cacheKey = getCacheKey('category', { idOrSlug });
+      const cached = getCachedData<Category>(cacheKey);
+      if (cached) {
+        setCategory(cached.data);
+        setLoading(false);
+        return;
+      }
 
-            // Transform stats if included
-            if (includeStats && data) {
-                return data.map((cat: any) => ({
-                    ...cat,
-                    piece_count: cat.pieces?.[0]?.count || 0,
-                    pieces: undefined, // Remove the pieces array
-                })) as CategoryWithStats[];
-            }
+      const data = await deduplicateRequest(cacheKey, async () => {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+        const column = isUuid ? 'id' : 'slug';
 
-            return data as Category[];
-        },
-        staleTime: 30 * 60 * 1000, // 30 minutes (categories don't change often)
-        gcTime: 60 * 60 * 1000, // 1 hour
-    });
-}
+        const { data, error: queryError } = await safeQuery(async () =>
+          supabase
+            .from('categories')
+            .select(CATEGORIES_FULL_COLUMNS)
+            .eq(column, idOrSlug)
+            .single()
+        );
 
-/**
- * Fetch a single category by slug
- */
-export function useCategory(slug: string | undefined) {
-    return useQuery({
-        queryKey: ['category', slug],
-        queryFn: async () => {
-            if (!slug) throw new Error('Category slug is required');
+        if (queryError) throw queryError;
+        return data as Category;
+      });
 
-            const { data, error } = await supabase
-                .from('categories')
-                .select(CATEGORY_FIELDS.full)
-                .eq('slug', slug)
-                .single();
+      setCategory(data);
+      setCachedData(cacheKey, data);
+    } catch (err: any) {
+      logger.error('Error fetching category:', err);
+      setError(err.message || 'An unexpected error occurred');
+    } finally {
+      setLoading(false);
+    }
+  }, [idOrSlug]);
 
-            if (error) throw error;
-            return data as Category;
-        },
-        enabled: !!slug,
-        staleTime: 30 * 60 * 1000, // 30 minutes
-    });
-}
+  useEffect(() => {
+    fetchCategory();
+  }, [fetchCategory]);
 
-/**
- * Fetch a single category by ID
- */
-export function useCategoryById(id: string | undefined) {
-    return useQuery({
-        queryKey: ['category', 'by-id', id],
-        queryFn: async () => {
-            if (!id) throw new Error('Category ID is required');
-
-            const { data, error } = await supabase
-                .from('categories')
-                .select(CATEGORY_FIELDS.full)
-                .eq('id', id)
-                .single();
-
-            if (error) throw error;
-            return data as Category;
-        },
-        enabled: !!id,
-        staleTime: 30 * 60 * 1000,
-    });
-}
-
-/**
- * Create a new category
- */
-export function useCreateCategory() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (category: Partial<Category>) => {
-            const { data, error } = await supabase
-                .from('categories')
-                .insert(category)
-                .select(CATEGORY_FIELDS.full)
-                .single();
-
-            if (error) throw error;
-            return data as Category;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['categories'] });
-            toast({
-                title: 'Success',
-                description: 'Category created successfully',
-            });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
-        },
-    });
-}
-
-/**
- * Update an existing category
- */
-export function useUpdateCategory() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async ({
-            id,
-            updates,
-        }: {
-            id: string;
-            updates: Partial<Category>;
-        }) => {
-            const { data, error } = await supabase
-                .from('categories')
-                .update(updates)
-                .eq('id', id)
-                .select(CATEGORY_FIELDS.full)
-                .single();
-
-            if (error) throw error;
-            return data as Category;
-        },
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['categories'] });
-            queryClient.invalidateQueries({ queryKey: ['category', data.slug] });
-            toast({
-                title: 'Success',
-                description: 'Category updated successfully',
-            });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
-        },
-    });
-}
-
-/**
- * Delete a category
- */
-export function useDeleteCategory() {
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: async (id: string) => {
-            const { error } = await supabase.from('categories').delete().eq('id', id);
-
-            if (error) throw error;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['categories'] });
-            toast({
-                title: 'Success',
-                description: 'Category deleted successfully',
-            });
-        },
-        onError: (error: Error) => {
-            toast({
-                title: 'Error',
-                description: error.message,
-                variant: 'destructive',
-            });
-        },
-    });
+  return { category, loading, error, refetch: fetchCategory };
 }

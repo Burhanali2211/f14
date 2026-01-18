@@ -81,7 +81,7 @@ export default function ProfilePage() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id)
-        .select()
+        .select('id, email, full_name, role, is_active, phone_number, address, created_at, updated_at')
         .single();
 
       if (error) {

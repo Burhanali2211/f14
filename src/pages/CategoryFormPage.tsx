@@ -92,18 +92,20 @@ export default function CategoryFormPage() {
     }
   };
 
-  const fetchCategory = async () => {
-    if (!id) return;
+    const fetchCategory = async () => {
+      if (!id) return;
 
-    setLoading(true);
-    try {
-      const { data, error } = await safeQuery(async () =>
-        await supabase
-          .from('categories')
-          .select('*')
-          .eq('id', id)
-          .maybeSingle()
-      );
+      setLoading(true);
+      try {
+        const CATEGORY_COLUMNS = 'id, name, slug, description, icon, custom_path, bg_image_url, bg_image_position, bg_image_size, bg_image_opacity, bg_image_blur, bg_image_scale, created_at, updated_at';
+        const { data, error } = await safeQuery(async () =>
+          await supabase
+            .from('categories')
+            .select(CATEGORY_COLUMNS)
+            .eq('id', id)
+            .maybeSingle()
+        );
+
 
       if (error) {
         logger.error('Error fetching category:', error);

@@ -3,7 +3,22 @@ export const QURAN_STATUS = {
   
   completed: [
     { number: 1, name: 'Al-Fatiha', arabicName: 'الفاتحة', totalVerses: 7, addedVerses: 7, status: 'complete' },
+    { number: 2, name: 'Al-Baqarah', arabicName: 'البقرة', totalVerses: 286, addedVerses: 286, status: 'complete' },
+    { number: 3, name: 'Al-Imran', arabicName: 'آل عمران', totalVerses: 200, addedVerses: 200, status: 'complete' },
     { number: 36, name: 'Ya-Sin', arabicName: 'يس', totalVerses: 83, addedVerses: 83, status: 'complete' },
+    { number: 37, name: 'As-Saffat', arabicName: 'الصافات', totalVerses: 182, addedVerses: 182, status: 'complete' },
+    { number: 38, name: 'Sad', arabicName: 'ص', totalVerses: 88, addedVerses: 88, status: 'complete' },
+    { number: 39, name: 'Az-Zumar', arabicName: 'الزمر', totalVerses: 75, addedVerses: 75, status: 'complete' },
+    { number: 40, name: 'Ghafir', arabicName: 'غافر', totalVerses: 85, addedVerses: 85, status: 'complete' },
+    { number: 46, name: 'Al-Ahqaf', arabicName: 'الأحقاف', totalVerses: 35, addedVerses: 35, status: 'complete' },
+    { number: 47, name: 'Muhammad', arabicName: 'محمد', totalVerses: 38, addedVerses: 38, status: 'complete' },
+    { number: 48, name: 'Al-Fath', arabicName: 'الفتح', totalVerses: 29, addedVerses: 29, status: 'complete' },
+    { number: 49, name: 'Al-Hujurat', arabicName: 'الحجرات', totalVerses: 18, addedVerses: 18, status: 'complete' },
+    { number: 50, name: 'Qaf', arabicName: 'ق', totalVerses: 45, addedVerses: 45, status: 'complete' },
+    { number: 51, name: 'Adh-Dhariyat', arabicName: 'الذاريات', totalVerses: 60, addedVerses: 60, status: 'complete' },
+    { number: 52, name: 'At-Tur', arabicName: 'الطور', totalVerses: 49, addedVerses: 49, status: 'complete' },
+    { number: 53, name: 'An-Najm', arabicName: 'النجم', totalVerses: 62, addedVerses: 62, status: 'complete' },
+    { number: 54, name: 'Al-Qamar', arabicName: 'القمر', totalVerses: 55, addedVerses: 55, status: 'complete' },
     { number: 55, name: 'Ar-Rahman', arabicName: 'الرحمن', totalVerses: 78, addedVerses: 78, status: 'complete' },
     { number: 56, name: 'Al-Waqiah', arabicName: 'الواقعة', totalVerses: 96, addedVerses: 96, status: 'complete' },
     { number: 57, name: 'Al-Hadid', arabicName: 'الحديد', totalVerses: 29, addedVerses: 29, status: 'complete' },
@@ -66,10 +81,7 @@ export const QURAN_STATUS = {
     { number: 114, name: 'An-Nas', arabicName: 'الناس', totalVerses: 6, addedVerses: 6, status: 'complete' },
   ],
 
-  incomplete: [
-    { number: 2, name: 'Al-Baqarah', arabicName: 'البقرة', totalVerses: 286, addedVerses: 50, status: 'incomplete', remaining: 236 },
-    { number: 3, name: 'Al-Imran', arabicName: 'آل عمران', totalVerses: 200, addedVerses: 50, status: 'incomplete', remaining: 150 },
-  ],
+  incomplete: [],
 
   missing: [
     { number: 4, name: 'An-Nisa', arabicName: 'النساء', totalVerses: 176, status: 'missing' },
@@ -104,35 +116,23 @@ export const QURAN_STATUS = {
     { number: 33, name: 'Al-Ahzab', arabicName: 'الأحزاب', totalVerses: 73, status: 'missing' },
     { number: 34, name: 'Saba', arabicName: 'سبأ', totalVerses: 54, status: 'missing' },
     { number: 35, name: 'Fatir', arabicName: 'فاطر', totalVerses: 45, status: 'missing' },
-    { number: 37, name: 'As-Saffat', arabicName: 'الصافات', totalVerses: 182, status: 'missing' },
-    { number: 38, name: 'Sad', arabicName: 'ص', totalVerses: 88, status: 'missing' },
-    { number: 39, name: 'Az-Zumar', arabicName: 'الزمر', totalVerses: 75, status: 'missing' },
-    { number: 40, name: 'Ghafir', arabicName: 'غافر', totalVerses: 85, status: 'missing' },
+
     { number: 41, name: 'Fussilat', arabicName: 'فصلت', totalVerses: 54, status: 'missing' },
     { number: 42, name: 'Ash-Shura', arabicName: 'الشورى', totalVerses: 53, status: 'missing' },
     { number: 43, name: 'Az-Zukhruf', arabicName: 'الزخرف', totalVerses: 89, status: 'missing' },
     { number: 44, name: 'Ad-Dukhan', arabicName: 'الدخان', totalVerses: 59, status: 'missing' },
     { number: 45, name: 'Al-Jathiyah', arabicName: 'الجاثية', totalVerses: 37, status: 'missing' },
-    { number: 46, name: 'Al-Ahqaf', arabicName: 'الأحقاف', totalVerses: 35, status: 'missing' },
-    { number: 47, name: 'Muhammad', arabicName: 'محمد', totalVerses: 38, status: 'missing' },
-    { number: 48, name: 'Al-Fath', arabicName: 'الفتح', totalVerses: 29, status: 'missing' },
-    { number: 49, name: 'Al-Hujurat', arabicName: 'الحجرات', totalVerses: 18, status: 'missing' },
-    { number: 50, name: 'Qaf', arabicName: 'ق', totalVerses: 45, status: 'missing' },
-    { number: 51, name: 'Adh-Dhariyat', arabicName: 'الذاريات', totalVerses: 60, status: 'missing' },
-    { number: 52, name: 'At-Tur', arabicName: 'الطور', totalVerses: 49, status: 'missing' },
-    { number: 53, name: 'An-Najm', arabicName: 'النجم', totalVerses: 62, status: 'missing' },
-    { number: 54, name: 'Al-Qamar', arabicName: 'القمر', totalVerses: 55, status: 'missing' },
   ],
 
   summary: {
-    totalCompleted: 62,
-    totalIncomplete: 2,
-    totalMissing: 50,
-    completedVerses: 1340,
-    incompleteVerses: 100,
-    missingVerses: 4804,
+    totalCompleted: 77,
+    totalIncomplete: 0,
+    totalMissing: 37,
+    completedVerses: 2647,
+    incompleteVerses: 0,
+    missingVerses: 3589,
     totalVersesInQuran: 6236,
-    progressPercentage: '23.1%',
+    progressPercentage: '42.4%',
   },
 
   priority: {
@@ -142,11 +142,9 @@ export const QURAN_STATUS = {
       'Surah 12 Yusuf (111 verses) - Beautiful story surah',
       'Surah 18 Al-Kahf (110 verses) - Recommended for Fridays',
       'Surah 19 Maryam (98 verses) - Story of Maryam and Isa',
-      'Complete Surah 2 Al-Baqarah (remaining 236 verses)',
-      'Complete Surah 3 Al-Imran (remaining 150 verses)',
     ],
     mediumPriority: [
-      'Surahs 46-54 (fill the gap before 55)',
+      'Surahs 37-45 (fill the gap)',
       'Surah 6 Al-Anam (165 verses)',
       'Surah 7 Al-Araf (206 verses)',
     ],
@@ -155,9 +153,9 @@ export const QURAN_STATUS = {
   notes: [
     'All Arabic text includes proper tashkeel (diacritical marks)',
     'Each verse includes Arabic, Urdu translation, and English translation',
-    'Surahs 57-114 are complete (Juz Amma and surrounding surahs)',
+    'Surahs 46-114 are complete (continuous coverage)',
     'Popular surahs (Ya-Sin, Ar-Rahman, Al-Waqiah, Al-Mulk) are complete',
-    'Long surahs (2, 3) have first 50 verses added',
+    'Long surahs (2-Al-Baqarah, 3-Al-Imran) are now complete',
   ],
 };
 
