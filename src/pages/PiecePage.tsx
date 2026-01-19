@@ -604,14 +604,15 @@ export default function PiecePage() {
           />
         )}
 
-        {teleprompterOpen && (imageUrls.length > 0 || pdfUrl) && (
-          <TeleprompterMode
-            images={imageUrls}
-            pdfUrl={pdfUrl || undefined}
-            title={piece.title}
-            onClose={() => setTeleprompterOpen(false)}
-          />
-        )}
+{teleprompterOpen && (imageUrls.length > 0 || pdfUrl) && (
+            <TeleprompterMode
+              images={imageUrls}
+              pdfUrl={pdfUrl || undefined}
+              title={piece.title}
+              pieceId={piece.id}
+              onClose={() => setTeleprompterOpen(false)}
+            />
+          )}
       </div>
   );
 }
