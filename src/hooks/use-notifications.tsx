@@ -32,26 +32,22 @@ class NotificationService {
     // Service worker is optional - notifications can work without it
     if ('serviceWorker' in navigator) {
       try {
-        // Register service worker
-        const registration = await navigator.serviceWorker.register('/sw.js', {
-          scope: '/'
-        });
+        // Use existing registration from main.tsx
+        let registration = await navigator.serviceWorker.getRegistration();
+        
+        // If no registration yet, wait a bit or try to get it
+        if (!registration) {
+          registration = await navigator.serviceWorker.ready;
+        }
         
         this.serviceWorkerRegistration = registration;
-
-        // Wait for service worker to be ready (but don't block if it fails)
-        try {
-          await navigator.serviceWorker.ready;
-        } catch (swError) {
-          logger.warn('Service worker ready check failed, continuing anyway:', swError);
-        }
+        logger.info('Notification service initialized with Service Worker');
       } catch (error) {
-        logger.warn('Service Worker registration failed, notifications will still work:', error);
-        // Continue without service worker - notifications can still work
+        logger.warn('Could not get Service Worker registration, notifications will still work via window API:', error);
       }
     }
     
-    return true; // Return true even without service worker
+    return true;
   }
 
   async requestPermission(): Promise<NotificationPermission> {

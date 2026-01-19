@@ -271,25 +271,32 @@ const checkViewportMismatch = (): boolean => {
 // Initialize performance monitoring
 performanceMonitor.measurePageLoad();
 
-// Register service worker for update detection (even if notifications aren't enabled)
+// Register service worker for update detection and PWA features
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
       .then((registration) => {
+        logger.info('Service Worker registered with scope:', registration.scope);
+        
+        // Check for updates every 5 minutes
         setInterval(() => {
-          registration.update();
+          registration.update().catch(err => logger.warn('SW update check failed:', err));
         }, 5 * 60 * 1000);
         
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
           if (newWorker) {
             newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                logger.info('New Service Worker version available');
+              }
             });
           }
         });
       })
-      .catch(() => {
+      .catch((error) => {
+        logger.error('Service Worker registration failed:', error);
       });
   });
 }

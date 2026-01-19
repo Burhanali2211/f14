@@ -17,40 +17,48 @@ export function UpdateNotification() {
 
   const performSilentUpdate = async () => {
     if (isUpdatingRef.current) return;
+    
+    // Check if we just updated in the last 30 seconds to prevent loops
+    const lastUpdate = sessionStorage.getItem('last_app_update_time');
+    const now = Date.now();
+    if (lastUpdate && now - parseInt(lastUpdate) < 30000) {
+      logger.info('Update recently performed, skipping to prevent loop');
+      return;
+    }
+
     isUpdatingRef.current = true;
+    sessionStorage.setItem('last_app_update_time', now.toString());
 
     try {
       logger.info('Performing silent background update...');
       
-      await clearAllCachesOnUpdate();
-
-      if ('serviceWorker' in navigator) {
-        try {
-          const registration = await navigator.serviceWorker.getRegistration();
-          if (registration) {
-            await registration.update();
-            if (registration.waiting) {
-              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-            }
-          }
-        } catch (error) {
-          logger.error('Error updating service worker:', error);
-        }
-      }
-
-      if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
-      }
-
       const currentVersion = await getCurrentAppVersion();
       if (currentVersion) {
         markVersionAsShown(currentVersion);
         storeAppVersion(currentVersion);
       }
 
-      logger.info('Silent update complete, reloading...');
-      window.location.reload();
+      await clearAllCachesOnUpdate();
+
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration();
+          if (registration) {
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+            await registration.update();
+          }
+        } catch (error) {
+          logger.error('Error updating service worker:', error);
+        }
+      }
+
+      logger.info('Silent update complete, reloading in 1 second...');
+      // Small delay to ensure storage operations complete
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     } catch (error) {
       logger.error('Error in silent update:', error);
       isUpdatingRef.current = false;
