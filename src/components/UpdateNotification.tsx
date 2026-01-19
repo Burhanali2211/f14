@@ -22,7 +22,8 @@ import { logger } from '@/lib/logger';
 const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
 const INITIAL_CHECK_DELAY = 30 * 1000; // Check 30 seconds after page load
 const AUTO_UPDATE_DELAY = 3000; // 3 seconds countdown before auto-update
-const DISMISSED_VERSION_KEY = 'app_update_dismissed'; // Track dismissed version in this session
+const DISMISSED_VERSION_KEY = 'app_update_dismissed_version'; // Persist dismissed version in localStorage
+const DIALOG_SHOWN_KEY = 'app_update_dialog_shown'; // Track if dialog was shown for current version
 
 export function UpdateNotification() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
@@ -38,24 +39,41 @@ export function UpdateNotification() {
   const lastCheckTimeRef = useRef<number>(0); // Debounce checks
   const MIN_CHECK_INTERVAL = 30 * 1000; // Minimum 30 seconds between checks
 
-  // Check if version was dismissed by user
+  const getVersionId = (version: any): string => {
+    return version?.buildHash || `v${version?.version}-${version?.buildTime}`;
+  };
+
   const isVersionDismissed = (version: any): boolean => {
     try {
-      const dismissed = sessionStorage.getItem(DISMISSED_VERSION_KEY);
-      if (!dismissed) return false;
-      const dismissedVersion = JSON.parse(dismissed);
-      const versionId = version.buildHash || `v${version.version}-${version.buildTime}`;
-      const dismissedId = dismissedVersion.buildHash || `v${dismissedVersion.version}-${dismissedVersion.buildTime}`;
-      return versionId === dismissedId;
+      const dismissedId = localStorage.getItem(DISMISSED_VERSION_KEY);
+      if (!dismissedId) return false;
+      return getVersionId(version) === dismissedId;
     } catch {
       return false;
     }
   };
 
-  // Mark version as dismissed
+  const wasDialogShownForVersion = (version: any): boolean => {
+    try {
+      const shownId = localStorage.getItem(DIALOG_SHOWN_KEY);
+      if (!shownId) return false;
+      return getVersionId(version) === shownId;
+    } catch {
+      return false;
+    }
+  };
+
   const markVersionDismissed = (version: any): void => {
     try {
-      sessionStorage.setItem(DISMISSED_VERSION_KEY, JSON.stringify(version));
+      const versionId = getVersionId(version);
+      localStorage.setItem(DISMISSED_VERSION_KEY, versionId);
+      localStorage.setItem(DIALOG_SHOWN_KEY, versionId);
+    } catch {}
+  };
+
+  const markDialogShownForVersion = (version: any): void => {
+    try {
+      localStorage.setItem(DIALOG_SHOWN_KEY, getVersionId(version));
     } catch {}
   };
 
@@ -129,7 +147,6 @@ export function UpdateNotification() {
   };
 
   const checkForUpdates = async () => {
-    // Debounce: Don't check too frequently
     const now = Date.now();
     if (now - lastCheckTimeRef.current < MIN_CHECK_INTERVAL) {
       return;
@@ -147,29 +164,33 @@ export function UpdateNotification() {
         return;
       }
 
-      // If no stored version, store current one and mark as shown (first load)
       if (!storedVersion) {
         storeAppVersion(currentVersion);
         markVersionAsShown(currentVersion);
+        markDialogShownForVersion(currentVersion);
         return;
       }
 
-      // Check if version changed
       if (hasVersionChanged(currentVersion, storedVersion)) {
-        // Check if user dismissed this version in current session
         if (isVersionDismissed(currentVersion)) {
           logger.info('Version dismissed by user, skipping:', currentVersion);
-          return;
-        }
-
-        // Check if this version has already been shown to user
-        if (hasVersionBeenShown(currentVersion)) {
-          logger.info('Version already shown to user, skipping notification:', currentVersion);
           storeAppVersion(currentVersion);
           return;
         }
 
-        // Check if this is the latest version (compare with latest shown)
+        if (wasDialogShownForVersion(currentVersion)) {
+          logger.info('Dialog already shown for this version, skipping:', currentVersion);
+          storeAppVersion(currentVersion);
+          return;
+        }
+
+        if (hasVersionBeenShown(currentVersion)) {
+          logger.info('Version already shown to user, skipping notification:', currentVersion);
+          storeAppVersion(currentVersion);
+          markDialogShownForVersion(currentVersion);
+          return;
+        }
+
         const latestShown = getLatestShownVersion();
         if (latestShown && currentVersion.buildTime <= latestShown.buildTime) {
           logger.info('Newer version already shown, skipping older version:', currentVersion);
@@ -182,15 +203,14 @@ export function UpdateNotification() {
           stored: storedVersion,
         });
         
-        // Only show if not already shown and dialog is not already open
-        const versionId = currentVersion.buildHash || `v${currentVersion.version}-${currentVersion.buildTime}`;
-        if (!updateAvailable && !notificationShownRef.current && checkingVersionRef.current !== versionId) {
+        const versionId = getVersionId(currentVersion);
+        if (!updateAvailable && checkingVersionRef.current !== versionId) {
           checkingVersionRef.current = versionId;
           notificationShownRef.current = true;
+          markDialogShownForVersion(currentVersion);
           setUpdateVersion(currentVersion);
           setUpdateAvailable(true);
           
-          // Show browser notification (will check internally if already shown)
           await showBrowserNotification(currentVersion);
         }
       }
@@ -388,34 +408,43 @@ export function UpdateNotification() {
             logger.info('Update available message from service worker:', event.data);
             const version = event.data.version;
             
-            // Check if this version was dismissed or already shown
-            if (isVersionDismissed(version) || hasVersionBeenShown(version)) {
-              logger.info('Version dismissed or already shown, ignoring service worker message:', version);
+            if (isVersionDismissed(version)) {
+              logger.info('Version dismissed, ignoring service worker message:', version);
+              storeAppVersion(version);
               return;
             }
             
-            // Check if dialog is already open or notification was already shown
-            if (updateAvailable || notificationShownRef.current) {
+            if (wasDialogShownForVersion(version)) {
+              logger.info('Dialog already shown for this version, ignoring:', version);
+              storeAppVersion(version);
               return;
             }
             
-            // Only show if this version hasn't been checked
-            const versionId = version.buildHash || `v${version.version}-${version.buildTime}`;
+            if (hasVersionBeenShown(version)) {
+              logger.info('Version already shown, ignoring service worker message:', version);
+              storeAppVersion(version);
+              markDialogShownForVersion(version);
+              return;
+            }
+            
+            if (updateAvailable) {
+              return;
+            }
+            
+            const versionId = getVersionId(version);
             if (checkingVersionRef.current !== versionId) {
               checkingVersionRef.current = versionId;
               notificationShownRef.current = true;
+              markDialogShownForVersion(version);
               setUpdateVersion(version);
               setUpdateAvailable(true);
               
-              // Show browser notification (will check internally if already shown)
               await showBrowserNotification(version);
             }
           } else if (event.data?.type === 'FORCE_APP_UPDATE') {
-            // Service worker is forcing an update
             logger.info('Force update message from service worker');
             await handleUpdate();
           } else if (event.data?.type === 'SERVICE_WORKER_ACTIVATED') {
-            // Service worker activated, check for updates
             logger.info('Service worker activated, checking for updates');
             setTimeout(checkForUpdates, 2000);
           }
