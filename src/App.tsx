@@ -87,14 +87,14 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000,
       gcTime: 30 * 60 * 1000,
-      refetchOnMount: false,
+      refetchOnMount: true,
       refetchOnReconnect: true,
       structuralSharing: true,
-      networkMode: 'offlineFirst',
+      networkMode: 'always',
     },
     mutations: {
       retry: 1,
-      networkMode: 'offlineFirst',
+      networkMode: 'always',
     },
   },
 });

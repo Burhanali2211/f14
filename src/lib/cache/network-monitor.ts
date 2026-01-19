@@ -21,13 +21,30 @@ interface NetworkInfo {
 type NetworkChangeCallback = (info: NetworkInfo) => void;
 
 const listeners: Set<NetworkChangeCallback> = new Set();
-let currentNetworkInfo: NetworkInfo = {
-  status: 'online',
-  effectiveType: 'unknown',
-  downlink: 10,
-  rtt: 50,
-  saveData: false,
-};
+
+function getInitialNetworkInfo(): NetworkInfo {
+  if (typeof navigator === 'undefined') {
+    return {
+      status: 'online',
+      effectiveType: 'unknown',
+      downlink: 10,
+      rtt: 50,
+      saveData: false,
+    };
+  }
+
+  const isCurrentlyOnline = navigator.onLine !== false;
+  
+  return {
+    status: isCurrentlyOnline ? 'online' : 'offline',
+    effectiveType: 'unknown',
+    downlink: 10,
+    rtt: 50,
+    saveData: false,
+  };
+}
+
+let currentNetworkInfo: NetworkInfo = getInitialNetworkInfo();
 
 function getNavigatorConnection(): NetworkConnection | null {
   const nav = navigator as Navigator & { 

@@ -117,10 +117,6 @@ export async function smartFetch<T>(
     }
   }
 
-  if (!isOnline()) {
-    throw new Error('No cached data available and device is offline');
-  }
-
   return deduplicatedFetch(key, async () => {
     const data = await fetchFn();
     

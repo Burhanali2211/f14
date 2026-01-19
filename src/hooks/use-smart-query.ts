@@ -35,12 +35,12 @@ export function useSmartQuery<T>({
     queryFn: async () => {
       return smartFetch<T>(cacheKey, queryFn, table);
     },
-    enabled: enabled && isOnline(),
+    enabled,
     staleTime: networkConfig.staleTime,
     gcTime: networkConfig.cacheTime,
     refetchOnWindowFocus: networkConfig.refetchOnWindowFocus,
     refetchInterval: networkConfig.refetchInterval,
-    retry: isOnline() ? 2 : 0,
+    retry: 2,
   });
 
   // Handle side effects in a separate effect
