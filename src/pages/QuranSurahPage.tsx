@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ChevronLeft, BookOpen } from 'lucide-react';
+import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react';
 import { Header } from '@/components/Header';
+import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEOHead';
+import { Button } from '@/components/ui/button';
 import { surahs } from '@/data/quran';
 import { getSurahVerses } from '@/data/quran/verses';
-import { useLastSeen } from '@/hooks/useLastSeen';
-
-import { AyahDisplay, Bismillah, TranslationToggle, AutoScrollControl } from '@/components/quran';
+import { toArabicNumber } from '@/lib/quran-types';
+import { AyahDisplay, Bismillah, TranslationToggle } from '@/components/quran';
 
 export default function QuranSurahPage() {
   const { surahNumber } = useParams<{ surahNumber: string }>();
@@ -15,9 +16,10 @@ export default function QuranSurahPage() {
   
   const [showUrdu, setShowUrdu] = useState(true);
   const [showEnglish, setShowEnglish] = useState(true);
-  const { lastSeen, saveLastSeen } = useLastSeen();
   
   const surah = surahs.find(s => s.number === number);
+  const prevSurah = surahs.find(s => s.number === number - 1);
+  const nextSurah = surahs.find(s => s.number === number + 1);
   const verses = getSurahVerses(number);
 
   if (!surah) {
@@ -30,14 +32,15 @@ export default function QuranSurahPage() {
             <Link to="/quran" className="text-primary hover:underline">
               Back to Quran
             </Link>
-            </div>
-          </main>
-        </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col scrollbar-hide">
+    <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         title={`Surah ${surah.englishName} (${surah.arabicName}) | The Holy Quran`}
         description={`Read Surah ${surah.englishName} - ${surah.englishMeaning}. ${surah.verseCount} verses. ${surah.revelationType === 'meccan' ? 'Revealed in Mecca' : 'Revealed in Medina'}.`}
@@ -54,19 +57,43 @@ export default function QuranSurahPage() {
           Back to Quran
         </Link>
 
-          <div className="text-center mb-6">
+        <div className="flex items-center justify-between mb-6">
+          {prevSurah ? (
+            <Link to={`/quran/surah/${prevSurah.number}`}>
+              <Button variant="outline" className="gap-2 rounded-xl">
+                <ChevronLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">{prevSurah.englishName}</span>
+              </Button>
+            </Link>
+          ) : (
+            <div />
+          )}
+
+          <div className="text-center">
             <span className="text-sm text-muted-foreground">
               Surah {number} of 114
             </span>
           </div>
 
+          {nextSurah ? (
+            <Link to={`/quran/surah/${nextSurah.number}`}>
+              <Button variant="outline" className="gap-2 rounded-xl">
+                <span className="hidden sm:inline">{nextSurah.englishName}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          ) : (
+            <div />
+          )}
+        </div>
+
         <div className="bg-card rounded-3xl border border-border/40 p-8 mb-8">
           <div className="text-center">
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                <span className="font-sans text-3xl font-bold text-primary leading-none">
-                  {surah.number}
-                </span>
-              </div>
+            <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <span className="font-arabic-heading text-3xl font-bold text-primary leading-none">
+                {toArabicNumber(surah.number)}
+              </span>
+            </div>
             
             <h1 className="font-arabic-heading text-5xl sm:text-6xl font-bold text-foreground mb-4">
               {surah.arabicName}
@@ -80,8 +107,8 @@ export default function QuranSurahPage() {
             
             <div className="flex items-center justify-center gap-4 flex-wrap">
               <span className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-sm font-semibold">
-                  {surah.verseCount} Verses
-                </span>
+                {toArabicNumber(surah.verseCount)} Verses
+              </span>
               <span className={`px-4 py-2 rounded-xl text-sm font-semibold ${
                 surah.revelationType === 'meccan'
                   ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
@@ -109,25 +136,16 @@ export default function QuranSurahPage() {
               <Bismillah />
             )}
             
-<div className="space-y-4">
-                {verses.ayahs.map((ayah) => (
-                  <AyahDisplay
-                    key={ayah.number}
-                    ayah={ayah}
-                    showUrdu={showUrdu}
-                    showEnglish={showEnglish}
-                    surahNumber={number}
-                    surahName={surah.englishName}
-                    isLastSeen={lastSeen?.type === 'surah' && lastSeen?.surahNumber === number && lastSeen?.ayahNumber === ayah.number}
-                    onMarkLastSeen={() => saveLastSeen({
-                      type: 'surah',
-                      surahNumber: number,
-                      surahName: surah.englishName,
-                      ayahNumber: ayah.number
-                    })}
-                  />
-                ))}
-              </div>
+            <div className="space-y-4">
+              {verses.ayahs.map((ayah) => (
+                <AyahDisplay
+                  key={ayah.number}
+                  ayah={ayah}
+                  showUrdu={showUrdu}
+                  showEnglish={showEnglish}
+                />
+              ))}
+            </div>
           </>
         ) : (
           <div className="bg-card rounded-3xl border border-border/40 p-8 text-center">
@@ -139,9 +157,32 @@ export default function QuranSurahPage() {
           </div>
         )}
 
-        </main>
+        <div className="flex items-center justify-between mt-8 pt-6 border-t border-border/40">
+          {prevSurah ? (
+            <Link to={`/quran/surah/${prevSurah.number}`}>
+              <Button variant="outline" className="gap-2 rounded-xl">
+                <ChevronLeft className="w-4 h-4" />
+                <span>{prevSurah.englishName}</span>
+              </Button>
+            </Link>
+          ) : (
+            <div />
+          )}
 
-        <AutoScrollControl />
-      </div>
+          {nextSurah ? (
+            <Link to={`/quran/surah/${nextSurah.number}`}>
+              <Button variant="outline" className="gap-2 rounded-xl">
+                <span>{nextSurah.englishName}</span>
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </Link>
+          ) : (
+            <div />
+          )}
+        </div>
+      </main>
+
+      <Footer />
+    </div>
   );
 }

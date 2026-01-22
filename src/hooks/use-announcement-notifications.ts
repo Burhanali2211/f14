@@ -2,7 +2,6 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { logger } from '@/lib/logger';
 import { getNotificationTemplate } from '@/lib/notification-templates';
-import { realtimeManager } from '@/lib/realtime-manager';
 
 const STORAGE_KEY = 'shown_notification_ids';
 const RETENTION_MS = 24 * 60 * 60 * 1000;
@@ -199,14 +198,29 @@ export function useAnnouncementNotifications() {
   }, [processNotification, fetchImamSlug, showNotification]);
 
   useEffect(() => {
-    const subscriptionId = realtimeManager.subscribe(
-      'announcements',
-      'INSERT',
-      (payload) => handleAnnouncement(payload.new as AnnouncementPayload)
-    );
+    let realtimeConnected = false;
+    let lastAnnouncementId: string | null = null;
+
+    const channel = supabase
+      .channel('announcements-db-changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'announcements' },
+        (payload) => handleAnnouncement(payload.new as AnnouncementPayload)
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          realtimeConnected = true;
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          realtimeConnected = false;
+          setTimeout(() => channel.subscribe(), 3000);
+        }
+      });
 
     const handleVisibilityChange = async () => {
       if (!document.hidden) {
+        channel.subscribe();
+        
         try {
           const { data } = await supabase
             .from('announcements')
@@ -231,9 +245,41 @@ export function useAnnouncementNotifications() {
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    const healthCheckInterval = setInterval(() => {
+      const state = channel.state;
+      if (state !== 'joined' && state !== 'joining') {
+        realtimeConnected = false;
+        channel.subscribe();
+      } else if (state === 'joined') {
+        realtimeConnected = true;
+      }
+    }, 30000);
+
+    const pollInterval = setInterval(async () => {
+      if (realtimeConnected || channel.state === 'joined') return;
+
+        try {
+          const { data } = await supabase
+            .from('announcements')
+            .select('id, title, message, sent_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url')
+            .not('sent_at', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (data && data.id !== lastAnnouncementId) {
+            lastAnnouncementId = data.id;
+            await handleAnnouncement(data as AnnouncementPayload);
+          }
+        } catch {
+        }
+    }, 15000);
+
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      realtimeManager.unsubscribe(subscriptionId);
+      clearInterval(healthCheckInterval);
+      clearInterval(pollInterval);
+      supabase.removeChannel(channel);
       
       if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
         audioContextRef.current.close();

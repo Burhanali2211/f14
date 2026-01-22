@@ -5,17 +5,19 @@
   import { Button } from '@/components/ui/button';
   import { toast } from '@/hooks/use-toast';
   
-  interface EnhancedPDFViewerProps {
-    pdfUrl: string;
-    title: string;
-    onOpenFullscreen?: () => void;
-  }
-  
-  export const EnhancedPDFViewer = memo(function EnhancedPDFViewer({ 
-    pdfUrl, 
-    title, 
-    onOpenFullscreen
-  }: EnhancedPDFViewerProps) {
+interface EnhancedPDFViewerProps {
+  pdfUrl: string;
+  title: string;
+  onOpenFullscreen?: () => void;
+  hideToolbar?: boolean;
+}
+
+export const EnhancedPDFViewer = memo(function EnhancedPDFViewer({ 
+  pdfUrl, 
+  title, 
+  onOpenFullscreen,
+  hideToolbar = false
+}: EnhancedPDFViewerProps) {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
   
@@ -60,57 +62,59 @@
     }, [pdfUrl, onOpenFullscreen]);
 
   return (
-    <div className="w-full">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 px-1">
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <FileText className="w-4 h-4 text-red-500" />
-          <span>PDF Document</span>
-        </div>
-        
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handlePrint}
-              className="h-9 px-3 rounded-lg gap-2"
-            >
-              <Printer className="w-4 h-4" />
-              <span className="hidden sm:inline">Print</span>
-            </Button>
+    <div className="w-full h-full flex flex-col">
+      {!hideToolbar && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 px-1">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <FileText className="w-4 h-4 text-red-500" />
+            <span>PDF Document</span>
+          </div>
+          
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                className="h-9 px-3 rounded-lg gap-2"
+              >
+                <Printer className="w-4 h-4" />
+                <span className="hidden sm:inline">Print</span>
+              </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownload}
-              className="h-9 px-3 rounded-lg gap-2"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">Download</span>
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                className="h-9 px-3 rounded-lg gap-2"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Download</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleOpenExternal}
+                className="h-9 px-3 rounded-lg gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span className="hidden sm:inline">Open in New Tab</span>
+              </Button>
             
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              onClick={handleOpenExternal}
+              onClick={handleFullscreen}
               className="h-9 px-3 rounded-lg gap-2"
             >
-              <ExternalLink className="w-4 h-4" />
-              <span className="hidden sm:inline">Open in New Tab</span>
+              <Maximize2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Fullscreen</span>
             </Button>
-          
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleFullscreen}
-            className="h-9 px-3 rounded-lg gap-2"
-          >
-            <Maximize2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Fullscreen</span>
-          </Button>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="relative w-full bg-muted/30 rounded-2xl overflow-hidden border border-border">
+      <div className={`relative w-full bg-muted/30 overflow-hidden border border-border ${hideToolbar ? 'h-full flex-1' : 'rounded-2xl'}`}>
         {loading && !error && (
           <div className="absolute inset-0 flex items-center justify-center bg-card z-10">
             <div className="text-center">
@@ -142,7 +146,7 @@
               src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=1&view=FitH`}
               title={title}
               className="w-full border-0"
-              style={{ height: '80vh', minHeight: '500px' }}
+              style={{ height: hideToolbar ? '100%' : '80vh', minHeight: '500px' }}
               onLoad={() => setLoading(false)}
               onError={() => {
                 setLoading(false);
@@ -152,9 +156,11 @@
         )}
       </div>
       
-      <p className="text-center text-xs text-muted-foreground mt-3">
-        If the PDF doesn't display, use the buttons above to open or download it.
-      </p>
+      {!hideToolbar && (
+        <p className="text-center text-xs text-muted-foreground mt-3">
+          If the PDF doesn't display, use the buttons above to open or download it.
+        </p>
+      )}
     </div>
   );
 });

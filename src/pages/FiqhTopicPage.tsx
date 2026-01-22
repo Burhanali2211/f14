@@ -65,7 +65,7 @@ export default function FiqhTopicPage() {
       setLoading(true);
       const { data: categoryData, error: categoryError } = await supabase
         .from('fiqh_categories')
-        .select('id, name, name_ar, description, icon, display_order')
+        .select('*')
         .eq('id', topicSlug)
         .maybeSingle();
 
@@ -76,8 +76,8 @@ export default function FiqhTopicPage() {
       const { data: questionsData, error: questionsError } = await supabase
         .from('fiqh_questions')
         .select(`
-          id, question, category_id, is_published, created_at, updated_at,
-          answers:fiqh_answers (id, question_id, marja, answer, source, created_at, updated_at)
+          *,
+          answers:fiqh_answers (*)
         `)
         .eq('category_id', categoryData.id)
         .eq('is_published', true)
@@ -88,7 +88,7 @@ export default function FiqhTopicPage() {
 
       const { data: allCategories } = await supabase
         .from('fiqh_categories')
-        .select('id, name, name_ar, description, icon, display_order')
+        .select('*')
         .order('display_order', { ascending: true });
       setCategories(allCategories || []);
     } catch (error) {

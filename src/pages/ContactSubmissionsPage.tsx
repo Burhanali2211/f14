@@ -105,10 +105,9 @@ export default function ContactSubmissionsPage() {
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
-      const CONTACT_COLUMNS = 'id, name, email, subject, message, status, created_at, updated_at, admin_notes, replied_at';
       const { data, error } = await supabase
         .from('contact_submissions')
-        .select(CONTACT_COLUMNS)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) {

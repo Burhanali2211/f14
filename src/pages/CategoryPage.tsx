@@ -1,8 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Filter, Grid3X3, List, SortAsc, 
-  ArrowUpDown, Video, Eye, X, Play, Headphones
+  ArrowUpDown, Video, Eye, ArrowUpRight, X, Play, Headphones
 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Header } from '@/components/Header';
@@ -14,6 +14,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Label } from '@/components/ui/label';
 import {
   generateCollectionPageStructuredData,
   generateBreadcrumbStructuredData,
@@ -31,7 +32,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useSupabaseQuery } from '@/hooks/use-smart-query';
+import { supabase } from '@/integrations/supabase/client';
+import { safeQuery } from '@/lib/db-utils';
+import { logger } from '@/lib/logger';
 import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
 import type { Category, Piece } from '@/lib/supabase-types';
 
@@ -40,36 +43,80 @@ type ViewMode = 'grid' | 'list';
 
 export default function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [category, setCategory] = useState<Category | null>(null);
+  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [languages, setLanguages] = useState<string[]>([]);
+  const [reciters, setReciters] = useState<string[]>([]);
   const [selectedLanguage, setSelectedLanguage] = useState<string>('all');
   const [selectedReciter, setSelectedReciter] = useState<string>('all');
   const [hasVideo, setHasVideo] = useState<boolean | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
+  const [loading, setLoading] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  // 1. Fetch Category
-  const { data: category, isLoading: categoryLoading } = useSupabaseQuery<Category>({
-    queryKey: ['categories', 'slug', slug],
-    table: 'categories',
-    filters: { slug: slug },
-    single: true,
-    enabled: !!slug,
-  });
+  useEffect(() => {
+    if (slug) {
+      fetchCategory();
+    }
+  }, [slug]);
 
-  // 2. Fetch Pieces for this category
-  const { data: pieces = [], isLoading: piecesLoading } = useSupabaseQuery<Piece[]>({
-    queryKey: ['pieces', 'category_id', category?.id],
-    table: 'pieces',
-    select: 'id, title, image_url, reciter, language, view_count, video_url, created_at, category_id, text_content',
-    filters: { category_id: category?.id },
-    enabled: !!category?.id,
-  });
+  const fetchCategory = async () => {
+    try {
+      // Skip cache - always fetch fresh data
+      logger.debug('Fetching category:', slug);
 
-  const loading = categoryLoading || (piecesLoading && !pieces.length);
+      const { data: catData, error: catError } = await safeQuery(() =>
+        supabase
+          .from('categories')
+          .select('*')
+          .eq('slug', slug)
+          .maybeSingle()
+      );
 
-  const languages = useMemo(() => [...new Set(pieces.map(p => p.language))], [pieces]);
-  const reciters = useMemo(() => [...new Set(pieces.map(p => p.reciter).filter(Boolean))] as string[], [pieces]);
+      if (catError) {
+        logger.error('Error fetching category:', catError);
+        setLoading(false);
+        return;
+      }
+
+      if (!catData) {
+        logger.warn('Category not found:', slug);
+        setLoading(false);
+        return;
+      }
+
+      logger.debug('Category loaded:', catData.name);
+      setCategory(catData as Category);
+
+      const { data: piecesData, error: piecesError } = await safeQuery(() =>
+        supabase
+          .from('pieces')
+          .select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id, text_content')
+          .eq('category_id', catData.id)
+      );
+
+      if (piecesError) {
+        logger.error('Error fetching pieces:', piecesError);
+      } else if (piecesData) {
+        logger.debug('Pieces loaded:', piecesData.length);
+        const typedPieces = piecesData as Piece[];
+        setPieces(typedPieces);
+        
+        const uniqueLanguages = [...new Set(typedPieces.map(p => p.language))];
+        setLanguages(uniqueLanguages);
+        
+        const uniqueReciters = [...new Set(typedPieces.map(p => p.reciter).filter(Boolean))] as string[];
+        setReciters(uniqueReciters);
+      }
+    } catch (error) {
+      logger.error('Unexpected error in fetchCategory:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredPieces = useMemo(() => {
     let filtered = [...pieces];
@@ -180,7 +227,7 @@ export default function CategoryPage() {
     };
   }, [category, filteredPieces]);
 
-  if (loading && !category) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
@@ -198,7 +245,7 @@ export default function CategoryPage() {
     );
   }
 
-  if (!category && !loading) {
+  if (!category) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <Header />
@@ -246,48 +293,46 @@ export default function CategoryPage() {
           Back to Home
         </Link>
 
-        {category && (
-          <div className="mb-8">
-            <h1 
-              className={`font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 ${getTextAlignmentClass(category.name)}`}
-              dir={getTextDirection(category.name)}
+        <div className="mb-8">
+          <h1 
+            className={`font-display text-3xl sm:text-4xl md:text-5xl font-bold text-foreground mb-3 ${getTextAlignmentClass(category.name)}`}
+            dir={getTextDirection(category.name)}
+          >
+            {category.name}
+          </h1>
+          {category.description && (
+            <p 
+              className={`text-muted-foreground text-lg sm:text-xl mb-6 ${getTextAlignmentClass(category.description)}`}
+              dir={getTextDirection(category.description)}
             >
-              {category.name}
-            </h1>
-            {category.description && (
-              <p 
-                className={`text-muted-foreground text-lg sm:text-xl mb-6 ${getTextAlignmentClass(category.description)}`}
-                dir={getTextDirection(category.description)}
-              >
-                {category.description}
-              </p>
-            )}
-            
-            <div className="flex flex-wrap gap-3">
-              <Badge variant="secondary" className="gap-2 py-2 px-4 text-base rounded-xl">
-                <SortAsc className="w-4 h-4" />
-                {stats.total} pieces
-              </Badge>
-              {stats.withVideo > 0 && (
-                <Badge variant="outline" className="gap-2 py-2 px-4 text-base rounded-xl">
-                  <Video className="w-4 h-4" />
-                  {stats.withVideo} with video
-                </Badge>
-              )}
+              {category.description}
+            </p>
+          )}
+          
+          <div className="flex flex-wrap gap-3">
+            <Badge variant="secondary" className="gap-2 py-2 px-4 text-base rounded-xl">
+              <SortAsc className="w-4 h-4" />
+              {stats.total} pieces
+            </Badge>
+            {stats.withVideo > 0 && (
               <Badge variant="outline" className="gap-2 py-2 px-4 text-base rounded-xl">
-                <Eye className="w-4 h-4" />
-                {stats.totalViews.toLocaleString()} views
+                <Video className="w-4 h-4" />
+                {stats.withVideo} with video
               </Badge>
-            </div>
+            )}
+            <Badge variant="outline" className="gap-2 py-2 px-4 text-base rounded-xl">
+              <Eye className="w-4 h-4" />
+              {stats.totalViews.toLocaleString()} views
+            </Badge>
           </div>
-        )}
+        </div>
 
         <div className="space-y-4 mb-8">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <SearchBar 
                 onSearch={setSearchQuery}
-                placeholder={category ? `Search in ${category.name}...` : "Search recitations..."}
+                placeholder={`Search in ${category.name}...`}
                 initialValue={searchQuery}
               />
             </div>

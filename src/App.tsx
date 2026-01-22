@@ -25,9 +25,6 @@ import { clearExpiredCache } from "@/lib/data-cache";
 import { logger } from "@/lib/logger";
 import { useServiceWorkerMessages } from "@/hooks/use-service-worker-messages";
 import { useAnnouncementNotifications } from "@/hooks/use-announcement-notifications";
-import { initializeCache, initNetworkMonitor, clearExpiredEntries, checkAndClearOutdatedCache } from "@/lib/cache";
-import { OfflineIndicator } from "@/components/OfflineIndicator";
-import HoverReceiver from "@/visual-edits/VisualEditsMessenger";
 
 const Index = lazy(() => import("./pages/Index"));
 const CategoryPage = lazy(() => import("./pages/CategoryPage"));
@@ -55,7 +52,10 @@ const FiqhTopicPage = lazy(() => import("./pages/FiqhTopicPage"));
 const QuranPage = lazy(() => import("./pages/QuranPage"));
 const QuranSurahPage = lazy(() => import("./pages/QuranSurahPage"));
 const QuranParaPage = lazy(() => import("./pages/QuranParaPage"));
-const AboutPage = lazy(() => import("./pages/AboutPage"));
+const TeleprompterPage = lazy(() => import("./pages/TeleprompterPage"));
+const TeleprompterEditorPage = lazy(() => import("./pages/TeleprompterEditorPage"));
+const ImageSegmentEditorPage = lazy(() => import("./pages/ImageSegmentEditorPage"));
+const AirSendMobilePage = lazy(() => import("./pages/AirSendMobilePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageLoader() {
@@ -78,23 +78,13 @@ function PageLoader() {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: (failureCount, error) => {
-        if ((error as any)?.status === 404) return false;
-        if ((error as any)?.message?.includes('offline')) return false;
-        return failureCount < 2;
-      },
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retry: 1,
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000,
-      gcTime: 30 * 60 * 1000,
-      refetchOnMount: true,
+      gcTime: 10 * 60 * 1000,
+      refetchOnMount: false,
       refetchOnReconnect: true,
       structuralSharing: true,
-      networkMode: 'always',
-    },
-    mutations: {
-      retry: 1,
-      networkMode: 'always',
     },
   },
 });
@@ -127,26 +117,17 @@ function BackendHealthCheck() {
 
 function CacheSystemInitializer() {
   useEffect(() => {
-    checkAndClearOutdatedCache();
-    initializeCache();
-    const cleanupNetwork = initNetworkMonitor();
-    
     const cleared = clearExpiredCache();
     if (cleared > 0) {
       logger.debug(`Cleared ${cleared} expired cache entries on app start`);
     }
-    const cleanupRealtime = initializeCacheRealtimeSubscriptions();
-    
-    return () => {
-      cleanupNetwork();
-      cleanupRealtime();
-    };
+    const cleanup = initializeCacheRealtimeSubscriptions();
+    return cleanup;
   }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
       clearExpiredCache();
-      clearExpiredEntries();
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
@@ -159,8 +140,11 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/category/:slug" element={<CategoryPage />} />
-      <Route path="/piece/:id" element={<PiecePage />} />
-      <Route path="/figure/:slug" element={<FigurePage />} />
+        <Route path="/piece/:id" element={<PiecePage />} />
+        <Route path="/piece/:id/teleprompter" element={<TeleprompterPage />} />
+          <Route path="/piece/:id/teleprompter/edit" element={<TeleprompterEditorPage />} />
+          <Route path="/piece/:id/teleprompter/image-edit" element={<ImageSegmentEditorPage />} />
+          <Route path="/figure/:slug" element={<FigurePage />} />
       <Route path="/ahlul-bayt" element={<AhlulBaytPage />} />
       <Route path="/artist/:reciterName" element={<ArtistPage />} />
       <Route path="/auth" element={<AuthPage />} />
@@ -186,7 +170,7 @@ function AppRoutes() {
           <Route path="/quran" element={<QuranPage />} />
           <Route path="/quran/surah/:surahNumber" element={<QuranSurahPage />} />
             <Route path="/quran/para/:paraNumber" element={<QuranParaPage />} />
-            <Route path="/about" element={<AboutPage />} />
+            <Route path="/airsend" element={<AirSendMobilePage />} />
             <Route path="/sitemap.xml" element={<SitemapPage />} />
 
       <Route path="*" element={<NotFound />} />
@@ -208,7 +192,6 @@ function App() {
                       <TooltipProvider>
                         <Toaster />
                         <Sonner />
-                        <HoverReceiver />
                         <BrowserRouter
                           future={{
                             v7_startTransition: true,
@@ -225,9 +208,8 @@ function App() {
                           <Suspense fallback={<PageLoader />}>
                             <AppRoutes />
                           </Suspense>
-                            <MobileBottomNavWrapper />
-                            <OfflineIndicator />
-                          </BrowserRouter>
+                          <MobileBottomNavWrapper />
+                        </BrowserRouter>
                       </TooltipProvider>
                     </SiteSettingsProvider>
                   </UserRoleProvider>

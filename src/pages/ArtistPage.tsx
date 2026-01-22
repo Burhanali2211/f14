@@ -1,11 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Loader2, Mic, LayoutGrid, List } from 'lucide-react';
+import { ChevronLeft, Loader2, Mic } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEOHead';
 import { PieceCard } from '@/components/PieceCard';
-import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
@@ -20,16 +19,6 @@ export default function ArtistPage() {
   const [artiste, setArtiste] = useState<Artiste | null>(null);
   const [loading, setLoading] = useState(true);
   const [artistName, setArtistName] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
-    const saved = localStorage.getItem('artist-view-mode');
-    return (saved as 'grid' | 'list') || 'grid';
-  });
-
-  const toggleViewMode = () => {
-    const newMode = viewMode === 'grid' ? 'list' : 'grid';
-    setViewMode(newMode);
-    localStorage.setItem('artist-view-mode', newMode);
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -181,53 +170,13 @@ export default function ArtistPage() {
         </div>
 
         {/* Pieces Grid */}
-          {pieces.length > 0 ? (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-muted-foreground">
-                  {pieces.length} recitation{pieces.length !== 1 ? 's' : ''}
-                </p>
-                <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-                  <Button
-                    variant={viewMode === 'grid' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => {
-                      setViewMode('grid');
-                      localStorage.setItem('artist-view-mode', 'grid');
-                    }}
-                    className="h-8 w-8 p-0"
-                  >
-                    <LayoutGrid className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant={viewMode === 'list' ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => {
-                      setViewMode('list');
-                      localStorage.setItem('artist-view-mode', 'list');
-                    }}
-                    className="h-8 w-8 p-0"
-                  >
-                    <List className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className={
-                viewMode === 'grid'
-                  ? "grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
-                  : "flex flex-col gap-3"
-              }>
-                {pieces.map((piece, index) => (
-                  <PieceCard 
-                    key={piece.id} 
-                    piece={piece} 
-                    index={index} 
-                    compact={viewMode === 'grid'}
-                  />
-                ))}
-              </div>
-            </>
-          ) : (
+        {pieces.length > 0 ? (
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {pieces.map((piece, index) => (
+              <PieceCard key={piece.id} piece={piece} index={index} compact />
+            ))}
+          </div>
+        ) : (
           <div className="text-center py-12 text-muted-foreground">
             <Mic className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p>No recitations found for {artistName} yet.</p>

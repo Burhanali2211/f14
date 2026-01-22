@@ -32,7 +32,6 @@ export const MobileBottomNavWrapper = () => {
     /^\/uploader\/piece\/.*$/, // Add/edit piece pages for uploader
     /^\/admin\/piece\/.*$/, // Add/edit piece pages for admin
     /^\/admin\/category\/.*$/, // Add/edit category pages
-    /^\/quran\/.*$/, // Quran pages (surah, para, etc.)
   ];
 
   // Check if current path matches any hidden pattern

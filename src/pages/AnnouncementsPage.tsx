@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, Plus, Trash2, Send, Loader2, ChevronLeft, Cake, Flame, Heart, Info, Image, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -38,9 +38,9 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { safeQuery, authenticatedQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
 import { ensureAuthenticated } from '@/lib/session-utils';
-import { optimizeAnnouncementThumbnail } from '@/lib/image-optimizer';
-import { realtimeManager } from '@/lib/realtime-manager';
+import { optimizeAnnouncementThumbnail, formatFileSize } from '@/lib/image-optimizer';
 import type { EventType, Imam } from '@/lib/supabase-types';
+import { getNotificationTemplate } from '@/lib/notification-templates';
 
 interface Announcement {
   id: string;
@@ -93,11 +93,10 @@ export default function AnnouncementsPage() {
 
   const fetchImams = async () => {
     try {
-      const IMAMS_COLUMNS = 'id, name, slug, title, image_url, order_index, category_id';
       const { data, error } = await safeQuery(async () =>
         await supabase
           .from('imams')
-          .select(IMAMS_COLUMNS)
+          .select('*')
           .order('order_index, name')
       );
 
@@ -111,13 +110,16 @@ export default function AnnouncementsPage() {
   const checkAuth = async () => {
     if (roleLoading) return;
 
+    // Check custom auth session first
     if (!currentUser) {
       navigate('/auth');
       return;
     }
 
+    // Security: Refresh role from database to get latest role changes
     await refreshRole();
     
+    // Get refreshed role - fetch directly from DB to verify
     const { data: userData, error: roleError } = await safeQuery(async () => {
       return await supabase
         .from('users')
@@ -127,6 +129,7 @@ export default function AnnouncementsPage() {
         .single();
     });
 
+    // Security: If we can't verify the role from DB, deny access
     if (roleError || !userData) {
       logger.error('AnnouncementsPage: Could not verify user role from database', { error: roleError });
       toast({
@@ -138,8 +141,19 @@ export default function AnnouncementsPage() {
       return;
     }
 
+    // Security: Verify user ID matches
+    if (userData.id && userData.id !== currentUser.id) {
+      logger.error('AnnouncementsPage: User ID mismatch - potential security issue', {
+        sessionId: currentUser.id,
+        dbId: userData.id
+      });
+      navigate('/auth');
+      return;
+    }
+
     const actualRole = userData?.role || currentRole;
 
+    // Security: Strict role check - only 'admin' role allowed
     if (actualRole !== 'admin') {
       toast({
         title: 'Access Denied',
@@ -151,13 +165,12 @@ export default function AnnouncementsPage() {
     }
   };
 
-  const fetchAnnouncements = useCallback(async () => {
+  const fetchAnnouncements = async () => {
     try {
-      const ANNOUNCEMENTS_COLUMNS = 'id, title, message, created_by, sent_at, created_at, updated_at, event_type, imam_id, event_date, hijri_date, template_data, thumbnail_url';
       const { data, error } = await safeQuery(async () =>
         await supabase
           .from('announcements')
-          .select(ANNOUNCEMENTS_COLUMNS)
+          .select('*')
           .order('created_at', { ascending: false })
       );
 
@@ -173,25 +186,10 @@ export default function AnnouncementsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  useEffect(() => {
-    if (currentRole !== 'admin') return;
-
-    const subscriptionId = realtimeManager.subscribe(
-      'announcements',
-      '*',
-      () => {
-        fetchAnnouncements();
-      }
-    );
-
-    return () => {
-      realtimeManager.unsubscribe(subscriptionId);
-    };
-  }, [currentRole, fetchAnnouncements]);
+  };
 
   const handleCreateAnnouncement = async () => {
+    // Auto-generate title if event type is not general and imam is selected
     let finalTitle = announcementForm.title.trim();
     if (!finalTitle && announcementForm.eventType !== 'general' && announcementForm.imamId && announcementForm.imamId !== 'none') {
       const selectedImam = imams.find(i => i.id === announcementForm.imamId);
@@ -223,16 +221,20 @@ export default function AnnouncementsPage() {
 
     setSending(true);
     try {
+      // Ensure user is authenticated before proceeding
       const user = await ensureAuthenticated();
       if (!user) {
         throw new Error('Not authenticated. Please refresh the page and try again.');
       }
 
+      // Get imam name if imam_id is selected
       const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none' 
         ? imams.find(i => i.id === announcementForm.imamId)
         : null;
       const imamName = selectedImam?.name || '';
 
+      // Create announcement with sent_at timestamp set immediately
+      // This ensures the Realtime INSERT event includes sent_at, so all listeners will receive it
       const sentAt = new Date().toISOString();
       const { data: announcement, error: createError } = await authenticatedQuery(async () => {
         return await supabase
@@ -241,7 +243,7 @@ export default function AnnouncementsPage() {
             title: finalTitle,
             message: announcementForm.message.trim(),
             created_by: user.id,
-            sent_at: sentAt,
+            sent_at: sentAt, // Set sent_at during INSERT so Realtime event includes it
             event_type: announcementForm.eventType === 'general' ? null : announcementForm.eventType,
             imam_id: (announcementForm.imamId && announcementForm.imamId !== 'none') ? announcementForm.imamId : null,
             event_date: announcementForm.eventDate || null,
@@ -256,12 +258,20 @@ export default function AnnouncementsPage() {
           .single();
       });
 
-      if (createError) throw createError;
-      if (!announcement) throw new Error('Failed to create announcement');
+      if (createError) {
+        throw createError;
+      }
+
+      if (!announcement) {
+        throw new Error('Failed to create announcement');
+      }
+
+      // Send notifications using template
+      await sendNotificationToAllUsers(announcement);
 
       toast({
         title: 'Success',
-        description: 'Announcement created successfully',
+        description: 'Announcement created and notifications sent to all users',
       });
 
       setAnnouncementDialogOpen(false);
@@ -290,6 +300,7 @@ export default function AnnouncementsPage() {
   const handleThumbnailUpload = async (file: File) => {
     if (!file) return;
     
+    // Validate file type
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
       toast({
@@ -300,7 +311,8 @@ export default function AnnouncementsPage() {
       return;
     }
     
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size (max 5MB for thumbnails)
+    const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
       toast({
         title: 'Error',
@@ -312,19 +324,39 @@ export default function AnnouncementsPage() {
     
     setUploadingThumbnail(true);
     try {
+      // Optimize thumbnail for announcements - balanced optimization
       const optimizedBlob = await optimizeAnnouncementThumbnail(file);
+
       const fileName = `announcements/${Date.now()}.webp`;
       
+      // Upload optimized thumbnail
       const { data, error } = await supabase.storage
         .from('piece-images')
         .upload(fileName, optimizedBlob, {
-          cacheControl: '31536000',
+          cacheControl: '31536000', // 1 year cache
           upsert: false,
           contentType: 'image/webp',
         });
       
-      if (error) throw error;
-      if (!data?.path) throw new Error('No path returned');
+      if (error) {
+        logger.error('Thumbnail upload error:', error);
+        toast({
+          title: 'Error',
+          description: error.message || 'Failed to upload thumbnail. Please try again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+      
+      if (!data?.path) {
+        logger.error('Upload succeeded but no path returned');
+        toast({
+          title: 'Error',
+          description: 'Upload succeeded but failed to get image URL',
+          variant: 'destructive',
+        });
+        return;
+      }
       
       const { data: { publicUrl } } = supabase.storage
         .from('piece-images')
@@ -339,7 +371,7 @@ export default function AnnouncementsPage() {
       logger.error('Unexpected error during thumbnail upload:', error);
       toast({
         title: 'Error',
-        description: 'An unexpected error occurred during upload',
+        description: error.message || 'An unexpected error occurred during upload',
         variant: 'destructive',
       });
     } finally {
@@ -347,13 +379,61 @@ export default function AnnouncementsPage() {
     }
   };
 
+  const sendNotificationToAllUsers = async (announcement: Announcement) => {
+    try {
+      // Get all users with notifications enabled (using users table for custom auth)
+      const { data: users, error: usersError } = await supabase
+        .from('users')
+        .select('id, notifications_enabled, notification_permission_granted')
+        .eq('notifications_enabled', true)
+        .eq('notification_permission_granted', true);
+
+      if (usersError) {
+        logger.error('Error fetching users for notifications:', usersError);
+        return;
+      }
+
+      if (!users || users.length === 0) {
+        toast({
+          title: 'Info',
+          description: 'No users have notifications enabled yet',
+        });
+        return;
+      }
+
+      // The database INSERT will trigger Realtime listeners on all clients
+      // All users who have the app open are listening to INSERT events on announcements table
+      // The Realtime listener in App.tsx will handle showing notifications to all users
+      // We don't need to manually show notifications here - let Realtime handle it
+      // This prevents duplicate notifications (especially on mobile devices)
+
+      // Method 3: For future implementation - Web Push to all subscriptions
+      // This would require a backend service with VAPID keys
+      // For now, we'll check that subscriptions exist for future use
+      const { data: subscriptions } = await supabase
+        .from('push_subscriptions')
+        .select('id, user_id, endpoint')
+        .in('user_id', users.map(u => u.id));
+
+      if (subscriptions && subscriptions.length > 0) {
+        // TODO: Implement Web Push sending via Supabase Edge Function
+        // This requires VAPID keys and a backend service
+      }
+      
+    } catch (error) {
+      logger.error('Error sending notifications:', error);
+      throw error;
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
+      // Ensure user is authenticated before proceeding
       const user = await ensureAuthenticated();
       if (!user) {
         toast({
           title: 'Error',
-          description: 'Not authenticated',
+          description: 'Not authenticated. Please refresh the page and try again.',
           variant: 'destructive',
         });
         return;
@@ -366,7 +446,9 @@ export default function AnnouncementsPage() {
           .eq('id', id);
       });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       toast({
         title: 'Success',
@@ -378,7 +460,7 @@ export default function AnnouncementsPage() {
       logger.error('Error deleting announcement:', error);
       toast({
         title: 'Error',
-        description: 'Failed to delete announcement',
+        description: error instanceof Error ? error.message : 'Failed to delete announcement',
         variant: 'destructive',
       });
     } finally {
@@ -386,6 +468,7 @@ export default function AnnouncementsPage() {
     }
   };
 
+  // Show loading state while role is being determined
   if (roleLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -435,31 +518,46 @@ export default function AnnouncementsPage() {
             announcements.map((announcement) => {
               const getEventTypeIcon = () => {
                 switch (announcement.event_type) {
-                  case 'birthday': return <Cake className="w-4 h-4" />;
-                  case 'martyrdom': return <Flame className="w-4 h-4" />;
-                  case 'death': return <Heart className="w-4 h-4" />;
-                  case 'other': return <Bell className="w-4 h-4" />;
-                  default: return <Info className="w-4 h-4" />;
+                  case 'birthday':
+                    return <Cake className="w-4 h-4" />;
+                  case 'martyrdom':
+                    return <Flame className="w-4 h-4" />;
+                  case 'death':
+                    return <Heart className="w-4 h-4" />;
+                  case 'other':
+                    return <Bell className="w-4 h-4" />;
+                  default:
+                    return <Info className="w-4 h-4" />;
                 }
               };
 
               const getEventTypeColor = () => {
                 switch (announcement.event_type) {
-                  case 'birthday': return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
-                  case 'martyrdom': return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
-                  case 'death': return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
-                  case 'other': return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
-                  default: return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20';
+                  case 'birthday':
+                    return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+                  case 'martyrdom':
+                    return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+                  case 'death':
+                    return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+                  case 'other':
+                    return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+                  default:
+                    return 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20';
                 }
               };
 
               const getEventTypeLabel = () => {
                 switch (announcement.event_type) {
-                  case 'birthday': return 'Birthday';
-                  case 'martyrdom': return 'Martyrdom';
-                  case 'death': return 'Death';
-                  case 'other': return 'Other Event';
-                  default: return 'General';
+                  case 'birthday':
+                    return 'Birthday';
+                  case 'martyrdom':
+                    return 'Martyrdom';
+                  case 'death':
+                    return 'Death';
+                  case 'other':
+                    return 'Other Event';
+                  default:
+                    return 'General';
                 }
               };
 
@@ -536,6 +634,7 @@ export default function AnnouncementsPage() {
           )}
         </div>
 
+        {/* Create Announcement Dialog */}
         <Dialog open={announcementDialogOpen} onOpenChange={setAnnouncementDialogOpen}>
           <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
@@ -629,19 +728,120 @@ export default function AnnouncementsPage() {
                     setAnnouncementForm({ ...announcementForm, title: e.target.value })
                   }
                 />
+                {announcementForm.eventType !== 'general' && announcementForm.imamId && (
+                  <p className="text-xs text-muted-foreground">
+                    Leave empty to auto-generate based on event type and imam
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="message">Message</Label>
                 <Textarea
                   id="message"
-                  placeholder="Enter announcement message..."
+                  placeholder="Enter announcement message. Include event details, significance, and any important information."
                   value={announcementForm.message}
                   onChange={(e) =>
                     setAnnouncementForm({ ...announcementForm, message: e.target.value })
                   }
                   rows={6}
                 />
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-semibold text-blue-900 dark:text-blue-100">💡 Writing Suggestions:</p>
+                  <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                    <li>Keep the message clear and concise (2-3 sentences recommended)</li>
+                    <li>Include the significance or importance of the event</li>
+                    <li>Mention any special recitations or programs related to the event</li>
+                    <li>Add a call to action if relevant (e.g., "Join us in remembrance")</li>
+                    <li>Event date and hijri date will be automatically added if provided</li>
+                  </ul>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  This message will be included in the notification. Event date and hijri date will be automatically appended if provided.
+                </p>
               </div>
+
+              {/* Notification Preview */}
+              {(announcementForm.title || announcementForm.message) && (
+                <div className="space-y-2">
+                  <Label>Notification Preview</Label>
+                  <div className="bg-muted/50 border border-border rounded-lg p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      {announcementForm.thumbnailUrl && (
+                        <img
+                          src={announcementForm.thumbnailUrl}
+                          alt="Preview"
+                          className="w-12 h-12 object-cover rounded border border-border flex-shrink-0"
+                        />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-foreground mb-1">
+                          {(() => {
+                            const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none'
+                              ? imams.find(i => i.id === announcementForm.imamId)
+                              : null;
+                            const imamName = selectedImam?.name || '';
+                            
+                            if (announcementForm.title) {
+                              return announcementForm.title;
+                            }
+                            
+                            switch (announcementForm.eventType) {
+                              case 'birthday':
+                                return imamName ? `🎂 Birth Anniversary: ${imamName}` : 'Birth Anniversary';
+                              case 'martyrdom':
+                                return imamName ? `🕊️ Martyrdom: ${imamName}` : 'Martyrdom Commemoration';
+                              case 'death':
+                                return imamName ? `🕯️ Passing: ${imamName}` : 'Commemoration';
+                              case 'other':
+                                return '📢 Important Event';
+                              default:
+                                return '📢 Announcement';
+                            }
+                          })()}
+                        </div>
+                        <div className="text-xs text-muted-foreground whitespace-pre-wrap">
+                          {(() => {
+                            const selectedImam = announcementForm.imamId && announcementForm.imamId !== 'none'
+                              ? imams.find(i => i.id === announcementForm.imamId)
+                              : null;
+                            const imamName = selectedImam?.name || '';
+                            let body = announcementForm.message || 'Your message will appear here...';
+                            
+                            if (announcementForm.eventType !== 'general' && imamName && announcementForm.eventDate) {
+                              if (announcementForm.eventType === 'birthday') {
+                                body = `${imamName}'s birth anniversary is approaching.\n\n${body}`;
+                              } else if (announcementForm.eventType === 'martyrdom') {
+                                body = `Commemorating the martyrdom of ${imamName}.\n\n${body}`;
+                              } else if (announcementForm.eventType === 'death') {
+                                body = `Commemorating the passing of ${imamName}.\n\n${body}`;
+                              }
+                              
+                              if (announcementForm.hijriDate) {
+                                body += `\n\n📅 Date: ${new Date(announcementForm.eventDate).toLocaleDateString()} (${announcementForm.hijriDate})`;
+                              } else if (announcementForm.eventDate) {
+                                body += `\n\n📅 Date: ${new Date(announcementForm.eventDate).toLocaleDateString()}`;
+                              }
+                            }
+                            
+                            return body;
+                          })()}
+                        </div>
+                        <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                          <div className="text-xs px-2 py-1 bg-primary/10 text-primary rounded">
+                            View Recitations
+                          </div>
+                          <div className="text-xs px-2 py-1 bg-secondary text-secondary-foreground rounded">
+                            Subscribe
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    This is how the notification will appear to users. Clicking the notification or "View Recitations" will open the holy personality's page.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="thumbnail">Thumbnail Image (Optional)</Label>
@@ -668,15 +868,20 @@ export default function AnnouncementsPage() {
                       <input
                         type="file"
                         id="thumbnail"
-                        accept="image/*"
+                        accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) handleThumbnailUpload(file);
+                          if (file) {
+                            handleThumbnailUpload(file);
+                          }
                         }}
                         disabled={uploadingThumbnail}
                       />
-                      <label htmlFor="thumbnail" className="cursor-pointer flex flex-col items-center gap-2">
+                      <label
+                        htmlFor="thumbnail"
+                        className="cursor-pointer flex flex-col items-center gap-2"
+                      >
                         {uploadingThumbnail ? (
                           <>
                             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -685,13 +890,21 @@ export default function AnnouncementsPage() {
                         ) : (
                           <>
                             <Image className="w-8 h-8 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">Click to upload thumbnail</span>
+                            <span className="text-sm text-muted-foreground">
+                              Click to upload thumbnail image
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              JPEG, PNG, WebP, or GIF (max 5MB)
+                            </span>
                           </>
                         )}
                       </label>
                     </div>
                   )}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Add a thumbnail image to make notifications more visually appealing. This image will be displayed in push notifications on mobile and desktop devices.
+                </p>
               </div>
             </div>
             <DialogFooter>
@@ -714,13 +927,23 @@ export default function AnnouncementsPage() {
                 Cancel
               </Button>
               <Button onClick={handleCreateAnnouncement} disabled={sending}>
-                {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Send className="w-4 h-4 mr-2" />}
-                {sending ? 'Sending...' : 'Send Announcement'}
+                {sending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Send Announcement
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
 
+        {/* Delete Confirmation Dialog */}
         <AlertDialog open={!!deleteDialog} onOpenChange={(open) => !open && setDeleteDialog(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>

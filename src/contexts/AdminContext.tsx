@@ -154,31 +154,24 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       }
 
       // Fetch from API
-        const CATEGORIES_COLUMNS = 'id, name, slug, description, icon, created_at, bg_image_url, bg_image_position, bg_image_size, bg_image_opacity, bg_image_blur, bg_image_scale, custom_path, updated_at';
-        const PIECES_COLUMNS = 'id, title, category_id, reciter, language, text_content, video_url, tags, image_url, view_count, created_at, updated_at, imam_id, user_id';
-        const IMAMS_COLUMNS = 'id, name, slug, title, description, image_url, order_index, created_at, category_id, updated_at';
-        const ARTISTES_COLUMNS = 'id, name, slug, image_url, created_at, updated_at';
-        const EVENTS_COLUMNS = 'id, imam_id, event_type, event_date, event_name, description, is_annual, created_at, updated_at';
-        const EVENTS_IMAM_COLUMNS = 'id, name, slug, image_url';
-
-        const [catRes, pieceRes, imamRes, artistesRes, usersRes, eventsRes] = await Promise.all([
-          safeQuery(async () => await supabase.from('categories').select(CATEGORIES_COLUMNS).order('name')),
-          safeQuery(async () => await supabase.from('pieces').select(PIECES_COLUMNS).order('created_at', { ascending: false })),
-          safeQuery(async () => {
-            const { data, error } = await supabase.from('imams').select(IMAMS_COLUMNS);
-            if (error) return { data: null, error };
-            const sorted = (data || []).sort((a: Imam, b: Imam) => {
-              const orderA = a.order_index || 1;
-              const orderB = b.order_index || 1;
-              if (orderA !== orderB) return orderA - orderB;
-              return (a.name || '').localeCompare(b.name || '');
-            });
-            return { data: sorted, error: null };
-          }),
-          safeQuery(async () => await supabase.from('artistes').select(ARTISTES_COLUMNS).order('name')),
-          safeQuery(async () => await supabase.from('users').select('id, email, full_name, phone_number, address, role, is_active, created_at, updated_at').order('created_at', { ascending: false })),
-          safeQuery(async () => await supabase.from('ahlul_bait_events').select(`${EVENTS_COLUMNS}, imam:imams(${EVENTS_IMAM_COLUMNS})`).order('event_date', { ascending: true })),
-        ]);
+      const [catRes, pieceRes, imamRes, artistesRes, usersRes, eventsRes] = await Promise.all([
+        safeQuery(async () => await supabase.from('categories').select('*').order('name')),
+        safeQuery(async () => await supabase.from('pieces').select('*').order('created_at', { ascending: false })),
+        safeQuery(async () => {
+          const { data, error } = await supabase.from('imams').select('*');
+          if (error) return { data: null, error };
+          const sorted = (data || []).sort((a: Imam, b: Imam) => {
+            const orderA = a.order_index || 1;
+            const orderB = b.order_index || 1;
+            if (orderA !== orderB) return orderA - orderB;
+            return (a.name || '').localeCompare(b.name || '');
+          });
+          return { data: sorted, error: null };
+        }),
+        safeQuery(async () => await supabase.from('artistes').select('*').order('name')),
+        safeQuery(async () => await supabase.from('users').select('id, email, full_name, phone_number, address, role, is_active, created_at, updated_at').order('created_at', { ascending: false })),
+        safeQuery(async () => await supabase.from('ahlul_bait_events').select('*, imam:imams(*)').order('event_date', { ascending: true })),
+      ]);
 
       if (catRes.data) setCategories(catRes.data as Category[]);
       if (pieceRes.data) setPieces(pieceRes.data as Piece[]);

@@ -246,20 +246,36 @@ export async function clearAllCachesOnUpdate(): Promise<void> {
     if ('caches' in window) {
       try {
         const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(cacheName => {
-          // Keep the sacred-static cache if possible to avoid re-downloading everything
-          // but clear the dynamic ones
-          if (cacheName.includes('sacred-recitations')) {
-            return caches.delete(cacheName);
-          }
-          return Promise.resolve(false);
-        }));
+        await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName).catch(() => false)));
+      } catch {}
+    }
+
+    if ('indexedDB' in window) {
+      try {
+        const deleteDB = (dbName: string) => {
+          return new Promise<void>((resolve) => {
+            const deleteRequest = indexedDB.deleteDatabase(dbName);
+            deleteRequest.onsuccess = () => resolve();
+            deleteRequest.onerror = () => resolve();
+            deleteRequest.onblocked = () => resolve();
+          });
+        };
+        await deleteDB('app-version-db');
       } catch {}
     }
 
     try {
       sessionStorage.clear();
     } catch {}
+
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.unregister();
+        }
+      } catch {}
+    }
   } catch {}
 }
 

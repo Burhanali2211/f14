@@ -132,13 +132,10 @@ export default function BulkRecitationUploadPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const CATEGORIES_COLUMNS = 'id, name, slug, description, icon, custom_path';
-        const IMAMS_COLUMNS = 'id, name, slug, title, image_url, order_index, category_id';
-
-        const [catRes, imamRes] = await Promise.all([
-          supabase.from('categories').select(CATEGORIES_COLUMNS).order('name'),
-          supabase.from('imams').select(IMAMS_COLUMNS).order('order_index, name'),
-        ]);
+      const [catRes, imamRes] = await Promise.all([
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('imams').select('*').order('order_index, name'),
+      ]);
 
       if (catRes.data) {
         setCategories(catRes.data as Category[]);

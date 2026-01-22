@@ -24,15 +24,15 @@ export default function FavoritesPage() {
   }, [favorites, recentlyViewed]);
 
   const fetchPieces = async () => {
-    const PIECES_COLUMNS = 'id, title, category_id, reciter, language, image_url, view_count, created_at, imam_id, user_id';
-    
+    // Fetch favorite pieces
     if (favorites.length > 0) {
       const { data: favData } = await supabase
         .from('pieces')
-        .select(PIECES_COLUMNS)
+        .select('*')
         .in('id', favorites);
       
       if (favData) {
+        // Maintain favorites order
         const ordered = favorites
           .map(id => favData.find(p => p.id === id))
           .filter(Boolean) as Piece[];
@@ -42,13 +42,15 @@ export default function FavoritesPage() {
       setFavoritePieces([]);
     }
 
+    // Fetch recently viewed pieces
     if (recentlyViewed.length > 0) {
       const { data: recentData } = await supabase
         .from('pieces')
-        .select(PIECES_COLUMNS)
+        .select('*')
         .in('id', recentlyViewed);
       
       if (recentData) {
+        // Maintain recent order
         const ordered = recentlyViewed
           .map(id => recentData.find(p => p.id === id))
           .filter(Boolean) as Piece[];

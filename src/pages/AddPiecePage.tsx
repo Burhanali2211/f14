@@ -135,14 +135,10 @@ export default function AddPiecePage() {
       return;
     }
 
-    const CATEGORIES_COLUMNS = 'id, name, slug, description, icon, custom_path';
-      const IMAMS_COLUMNS = 'id, name, slug, title, image_url, order_index, category_id';
-      const PIECE_COLUMNS = 'id, title, category_id, reciter, language, text_content, video_url, tags, image_url, view_count, created_at, updated_at, imam_id, user_id';
-
-      const [catRes, imamRes] = await Promise.all([
-        supabase.from('categories').select(CATEGORIES_COLUMNS).order('name'),
-        supabase.from('imams').select(IMAMS_COLUMNS).order('order_index, name'),
-      ]);
+    const [catRes, imamRes] = await Promise.all([
+      supabase.from('categories').select('*').order('name'),
+      supabase.from('imams').select('*').order('order_index, name'),
+    ]);
 
     if (catRes.data) {
       setCategories(catRes.data as Category[]);
@@ -156,10 +152,10 @@ export default function AddPiecePage() {
 
     if (isEditing && id) {
       const { data: pieceData, error } = await supabase
-          .from('pieces')
-          .select(PIECE_COLUMNS)
-          .eq('id', id)
-          .single();
+        .from('pieces')
+        .select('*')
+        .eq('id', id)
+        .single();
 
       if (error) {
         toast({ title: t('error', uiLang), description: 'Failed to load recitation', variant: 'destructive' });

@@ -96,15 +96,11 @@ export default function UploaderPage() {
         return;
       }
 
-      const CATEGORIES_COLUMNS = 'id, name, slug, description, icon, custom_path';
-        const IMAMS_COLUMNS = 'id, name, slug, title, image_url, order_index, category_id';
-        const PIECES_COLUMNS = 'id, title, category_id, reciter, language, text_content, video_url, tags, image_url, view_count, created_at, updated_at, imam_id, user_id';
-
-        const [catRes, imamRes, pieceRes] = await Promise.all([
-          safeQuery(async () => await supabase.from('categories').select(CATEGORIES_COLUMNS).order('name')),
-          safeQuery(async () => await supabase.from('imams').select(IMAMS_COLUMNS).order('order_index, name')),
-          safeQuery(async () => await supabase.from('pieces').select(PIECES_COLUMNS).eq('user_id', user.id).order('created_at', { ascending: false })),
-        ]);
+      const [catRes, imamRes, pieceRes] = await Promise.all([
+        safeQuery(async () => await supabase.from('categories').select('*').order('name')),
+        safeQuery(async () => await supabase.from('imams').select('*').order('order_index, name')),
+        safeQuery(async () => await supabase.from('pieces').select('*').eq('user_id', user.id).order('created_at', { ascending: false })),
+      ]);
 
       if (catRes.error) logger.error('Error fetching categories:', catRes.error);
       if (catRes.data) setCategories(catRes.data as Category[]);

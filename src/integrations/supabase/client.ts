@@ -53,14 +53,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
   global: {
     headers: {
       'x-client-info': 'sacred-recitations-hub',
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-    },
-    fetch: (url, options = {}) => {
-      return fetch(url, {
-        ...options,
-        cache: 'no-store',
-      });
     },
   },
   realtime: {
