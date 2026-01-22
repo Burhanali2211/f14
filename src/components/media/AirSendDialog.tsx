@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, Wifi, CheckCircle, RefreshCw, Music, Copy, Check, Download, FolderOpen, Loader2, PlayCircle } from 'lucide-react';
+import { Smartphone, Wifi, CheckCircle, RefreshCw, Music, Copy, Check, Download, FolderOpen, Loader2, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -332,7 +332,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived }: 
                       }
                     }}
                   >
-                    <PlayCircle className="w-4 h-4" />
+                    <Play className="w-4 h-4" />
                     Use Now
                   </Button>
                 </div>
