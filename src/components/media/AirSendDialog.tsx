@@ -74,6 +74,10 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived }: 
           setP2PStatus(s);
           if (s.includes('Direct connection') || s.includes('transfer')) setStatus('connecting');
           if (s.includes('Receiving')) setStatus('receiving');
+          if (s.includes('failed')) {
+            setStatus('error');
+            toast.error(s);
+          }
         },
       onProgress: (p) => setProgress(p),
       onFileReceived: (file) => {

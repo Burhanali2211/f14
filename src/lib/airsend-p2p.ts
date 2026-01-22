@@ -21,6 +21,11 @@ export class AirSendP2P {
   private onFileReceived?: (file: AirSendFile) => void;
   private onStatusChange?: (status: string) => void;
   private onProgress?: (progress: number) => void;
+  
+  private iceCandidatesQueue: RTCIceCandidateInit[] = [];
+  private remoteDescriptionSet = false;
+  private signalingQueue: any[] = [];
+  private isSubscribed = false;
 
   constructor(sessionCode: string, isReceiver: boolean) {
     this.sessionCode = sessionCode;
@@ -36,7 +41,7 @@ export class AirSendP2P {
     this.onStatusChange = callbacks.onStatusChange;
     this.onProgress = callbacks.onProgress;
 
-    this.onStatusChange?.('Initializing...');
+    this.onStatusChange?.('Initializing signaling...');
 
     // Join signaling channel
     this.channel = airsendSupabase.channel(`airsend:${this.sessionCode}`, {
@@ -47,13 +52,27 @@ export class AirSendP2P {
 
     this.channel
       .on('broadcast', { event: 'signaling' }, (payload) => {
+        console.log('Received signaling message:', payload.payload.type);
         this.handleSignalingMessage(payload.payload as SignalingMessage);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
+          console.log('Signaling channel subscribed');
+          this.isSubscribed = true;
           this.onStatusChange?.('Signaling ready');
+          
+          // Send queued messages
+          while (this.signalingQueue.length > 0) {
+            const msg = this.signalingQueue.shift();
+            this.sendSignalingMessage(msg);
+          }
+
+          // Wait a bit before initiating to ensure receiver is also ready
           if (!this.isReceiver) {
-            this.initiateConnection();
+            setTimeout(() => {
+              this.onStatusChange?.('Initiating connection...');
+              this.initiateConnection();
+            }, 1000);
           }
         }
       });
@@ -61,21 +80,26 @@ export class AirSendP2P {
     this.setupPeerConnection();
   }
 
-    private setupPeerConnection() {
-      const configuration = {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' },
-          { urls: 'stun:stun2.l.google.com:19302' },
-          { urls: 'stun:stun3.l.google.com:19302' },
-          { urls: 'stun:stun4.l.google.com:19302' },
-          { urls: 'stun:stun.services.mozilla.com' },
-          { urls: 'stun:stun.stunprotocol.org:3478' },
-          { urls: 'stun:stun.sipgate.net:3478' },
-        ],
-        iceCandidatePoolSize: 10,
-      };
-
+  private setupPeerConnection() {
+    const configuration: RTCConfiguration = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:stun.services.mozilla.com' },
+        { urls: 'stun:stun.sipgate.net:3478' },
+        { urls: 'stun:stun.ekiga.net' },
+        { urls: 'stun:stun.ideasip.com' },
+        { urls: 'stun:stun.schlund.de' },
+        { urls: 'stun:stun.voiparound.com' },
+        { urls: 'stun:stun.voipbuster.com' },
+        { urls: 'stun:stun.voipstunt.com' },
+        { urls: 'stun:stun.voxgratia.org' },
+      ],
+      iceCandidatePoolSize: 10,
+    };
 
     this.pc = new RTCPeerConnection(configuration);
 
@@ -90,15 +114,26 @@ export class AirSendP2P {
 
     this.pc.onconnectionstatechange = () => {
       const state = this.pc?.connectionState;
+      console.log('Connection state changed:', state);
       if (state === 'connected') {
         this.onStatusChange?.('Direct connection established');
+      } else if (state === 'failed' || state === 'disconnected') {
+        this.onStatusChange?.('Connection failed. Retrying...');
       } else {
         this.onStatusChange?.(`Connection: ${state}`);
       }
     };
 
+    this.pc.oniceconnectionstatechange = () => {
+      console.log('ICE connection state:', this.pc?.iceConnectionState);
+      if (this.pc?.iceConnectionState === 'failed') {
+        this.onStatusChange?.('ICE gathering failed. Check network.');
+      }
+    };
+
     if (this.isReceiver) {
       this.pc.ondatachannel = (event) => {
+        console.log('Data channel received');
         this.setupDataChannel(event.channel);
       };
     }
@@ -112,6 +147,7 @@ export class AirSendP2P {
     let receivedSize = 0;
 
     this.dataChannel.onopen = () => {
+      console.log('Data channel opened');
       this.onStatusChange?.('Ready to transfer');
     };
 
@@ -150,23 +186,34 @@ export class AirSendP2P {
         }
       }
     };
+
+    this.dataChannel.onerror = (err) => {
+      console.error('Data channel error:', err);
+      this.onStatusChange?.('Transfer error');
+    };
   }
 
   private async initiateConnection() {
     if (!this.pc) return;
 
+    console.log('Creating offer...');
     this.dataChannel = this.pc.createDataChannel('fileTransfer', {
       ordered: true
     });
     this.setupDataChannel(this.dataChannel);
 
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
+    try {
+      const offer = await this.pc.createOffer();
+      await this.pc.setLocalDescription(offer);
 
-    this.sendSignalingMessage({
-      type: 'offer',
-      sdp: offer,
-    });
+      this.sendSignalingMessage({
+        type: 'offer',
+        sdp: offer,
+      });
+    } catch (err) {
+      console.error('Failed to create offer:', err);
+      this.onStatusChange?.('Failed to initiate connection');
+    }
   }
 
   private async handleSignalingMessage(message: SignalingMessage) {
@@ -174,7 +221,12 @@ export class AirSendP2P {
 
     try {
       if (message.type === 'offer' && this.isReceiver) {
+        console.log('Received offer, setting remote description');
         await this.pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+        this.remoteDescriptionSet = true;
+        await this.processQueuedIceCandidates();
+        
+        console.log('Creating answer');
         const answer = await this.pc.createAnswer();
         await this.pc.setLocalDescription(answer);
         this.sendSignalingMessage({
@@ -182,16 +234,41 @@ export class AirSendP2P {
           sdp: answer,
         });
       } else if (message.type === 'answer' && !this.isReceiver) {
+        console.log('Received answer, setting remote description');
         await this.pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+        this.remoteDescriptionSet = true;
+        await this.processQueuedIceCandidates();
       } else if (message.type === 'ice-candidate') {
-        await this.pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+        if (this.remoteDescriptionSet) {
+          await this.pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+        } else {
+          this.iceCandidatesQueue.push(message.candidate);
+        }
       }
     } catch (err) {
-      console.error('Signaling error:', err);
+      console.error('Signaling processing error:', err);
+    }
+  }
+
+  private async processQueuedIceCandidates() {
+    while (this.iceCandidatesQueue.length > 0) {
+      const candidate = this.iceCandidatesQueue.shift();
+      if (candidate && this.pc) {
+        try {
+          await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.error('Error adding queued ICE candidate:', err);
+        }
+      }
     }
   }
 
   private sendSignalingMessage(message: SignalingMessage) {
+    if (!this.isSubscribed) {
+      this.signalingQueue.push(message);
+      return;
+    }
+
     this.channel?.send({
       type: 'broadcast',
       event: 'signaling',
@@ -217,7 +294,6 @@ export class AirSendP2P {
       const progress = Math.round((offset / buffer.byteLength) * 100);
       this.onProgress?.(progress);
 
-      // Throttle to avoid buffer overflow
       if (this.dataChannel.bufferedAmount > CHUNK_SIZE * 20) {
         await new Promise(r => {
           const check = () => {
