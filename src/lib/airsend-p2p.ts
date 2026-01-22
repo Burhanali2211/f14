@@ -67,13 +67,13 @@ export class AirSendP2P {
             this.sendSignalingMessage(msg);
           }
 
-          // Wait a bit before initiating to ensure receiver is also ready
-          if (!this.isReceiver) {
-            setTimeout(() => {
-              this.onStatusChange?.('Initiating connection...');
-              this.initiateConnection();
-            }, 1000);
-          }
+            // Wait a bit before initiating to ensure receiver is also ready
+            if (!this.isReceiver) {
+              setTimeout(() => {
+                this.onStatusChange?.('Initiating connection...');
+                this.initiateConnection();
+              }, 2000);
+            }
         }
       });
 
@@ -86,17 +86,7 @@ export class AirSendP2P {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
         { urls: 'stun:stun.services.mozilla.com' },
-        { urls: 'stun:stun.sipgate.net:3478' },
-        { urls: 'stun:stun.ekiga.net' },
-        { urls: 'stun:stun.ideasip.com' },
-        { urls: 'stun:stun.schlund.de' },
-        { urls: 'stun:stun.voiparound.com' },
-        { urls: 'stun:stun.voipbuster.com' },
-        { urls: 'stun:stun.voipstunt.com' },
-        { urls: 'stun:stun.voxgratia.org' },
       ],
       iceCandidatePoolSize: 10,
     };
@@ -105,6 +95,7 @@ export class AirSendP2P {
 
     this.pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log('New ICE candidate:', event.candidate.type);
         this.sendSignalingMessage({
           type: 'ice-candidate',
           candidate: event.candidate.toJSON(),
@@ -112,22 +103,32 @@ export class AirSendP2P {
       }
     };
 
+    this.pc.onicecandidateerror = (event) => {
+      console.warn('ICE candidate error:', event.errorText);
+    };
+
     this.pc.onconnectionstatechange = () => {
       const state = this.pc?.connectionState;
       console.log('Connection state changed:', state);
       if (state === 'connected') {
         this.onStatusChange?.('Direct connection established');
-      } else if (state === 'failed' || state === 'disconnected') {
+      } else if (state === 'failed') {
         this.onStatusChange?.('Connection failed. Retrying...');
+        this.restartIce();
+      } else if (state === 'disconnected') {
+        this.onStatusChange?.('Connection lost. Reconnecting...');
       } else {
         this.onStatusChange?.(`Connection: ${state}`);
       }
     };
 
     this.pc.oniceconnectionstatechange = () => {
-      console.log('ICE connection state:', this.pc?.iceConnectionState);
-      if (this.pc?.iceConnectionState === 'failed') {
-        this.onStatusChange?.('ICE gathering failed. Check network.');
+      const state = this.pc?.iceConnectionState;
+      console.log('ICE connection state:', state);
+      if (state === 'failed') {
+        this.onStatusChange?.('P2P connection failed. Network may be restrictive.');
+      } else if (state === 'closed') {
+        this.onStatusChange?.('Connection closed');
       }
     };
 
@@ -310,6 +311,22 @@ export class AirSendP2P {
 
     this.dataChannel.send('END');
     this.onProgress?.(100);
+  }
+
+  private async restartIce() {
+    if (!this.pc || this.isReceiver) return;
+    
+    try {
+      console.log('Restarting ICE...');
+      const offer = await this.pc.createOffer({ iceRestart: true });
+      await this.pc.setLocalDescription(offer);
+      this.sendSignalingMessage({
+        type: 'offer',
+        sdp: offer,
+      });
+    } catch (err) {
+      console.error('Failed to restart ICE:', err);
+    }
   }
 
   destroy() {
