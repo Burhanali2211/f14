@@ -115,64 +115,62 @@ export function useIndexData(): IndexData {
         return;
       }
 
-      const [catRes, recentRes, popularRes, imamRes, artistesRes, piecesCountRes, siteSettingsRes] = await Promise.all([
-        safeQuery(async () => await supabase.from('categories').select('id, name, slug, description, icon, custom_path, bg_image_url, bg_image_opacity, bg_image_blur, bg_image_position, bg_image_size, bg_image_scale').order('name')),
-        safeQuery(async () => await supabase.from('pieces').select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id').order('created_at', { ascending: false }).limit(6)),
-        safeQuery(async () => await supabase.from('pieces').select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id').order('view_count', { ascending: false }).limit(4)),
-        safeQuery(async () => await supabase.from('imams').select('id, name, slug, title, description, order_index').order('order_index, name')),
-        safeQuery(async () => await supabase.from('artistes').select('name, image_url').order('name')),
-        safeQuery(async () => await supabase.from('pieces').select('reciter').not('reciter', 'is', null)),
-        safeQuery(async () => await supabase.from('site_settings').select('id, site_name, site_tagline, logo_url, hero_image_url, hero_text_color_mode, hero_gradient_preset, hero_gradient_opacity, hero_image_opacity, hero_heading_line1, hero_heading_line2, hero_description, hero_badge_text, hero_arabic_font').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle()),
-      ]);
+        const [catRes, recentRes, popularRes, imamRes, artistesRes, artistCountsRes, siteSettingsRes] = await Promise.all([
+          safeQuery(async () => await supabase.from('categories').select('id, name, slug, description, icon, custom_path, bg_image_url, bg_image_opacity, bg_image_blur, bg_image_position, bg_image_size, bg_image_scale').order('name')),
+          safeQuery(async () => await supabase.from('pieces').select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id').order('created_at', { ascending: false }).limit(6)),
+          safeQuery(async () => await supabase.from('pieces').select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id').order('view_count', { ascending: false }).limit(4)),
+          safeQuery(async () => await supabase.from('imams').select('id, name, slug, title, description, order_index').order('order_index, name')),
+          safeQuery(async () => await supabase.from('artistes').select('name, image_url').order('name')),
+          safeQuery(async () => await supabase.from('artist_counts').select('name, count')),
+          safeQuery(async () => await supabase.from('site_settings').select('id, site_name, site_tagline, logo_url, hero_image_url, hero_text_color_mode, hero_gradient_preset, hero_gradient_opacity, hero_image_opacity, hero_heading_line1, hero_heading_line2, hero_description, hero_badge_text, hero_arabic_font').eq('id', '00000000-0000-0000-0000-000000000000').maybeSingle()),
+        ]);
 
-      if (catRes.error) {
-        logger.error('Error fetching categories:', catRes.error);
-      } else if (catRes.data) {
-        const categoriesData = catRes.data as Category[];
-        setCategories(categoriesData);
-        setStats(prev => ({ ...prev, categories: categoriesData.length }));
-      }
-
-      if (recentRes.error) {
-        logger.error('Error fetching recent pieces:', recentRes.error);
-      } else if (recentRes.data) {
-        setRecentPieces(recentRes.data as unknown as Piece[]);
-        setStats(prev => ({ ...prev, pieces: recentRes.data!.length }));
-      }
-
-      if (popularRes.error) {
-        logger.error('Error fetching popular pieces:', popularRes.error);
-      } else if (popularRes.data) {
-        setPopularPieces(popularRes.data as unknown as Piece[]);
-      }
-
-      if (imamRes.error) {
-        logger.error('Error fetching imams:', imamRes.error);
-      } else if (imamRes.data) {
-        setImams(imamRes.data as unknown as Imam[]);
-      }
-
-      let artistsArray: Array<{ name: string; count: number; image_url: string | null }> = [];
-      if (artistesRes.error) {
-        logger.error('Error fetching artistes:', artistesRes.error);
-      } else if (artistesRes.data) {
-        const allArtistes = artistesRes.data as Array<{ name: string; image_url: string | null }>;
-        
-        const reciterCounts = new Map<string, number>();
-        if (piecesCountRes.data) {
-          piecesCountRes.data.forEach((piece: { reciter: string | null }) => {
-            if (piece.reciter && piece.reciter.trim() !== '') {
-              reciterCounts.set(piece.reciter, (reciterCounts.get(piece.reciter) || 0) + 1);
-            }
-          });
+        if (catRes.error) {
+          logger.error('Error fetching categories:', catRes.error);
+        } else if (catRes.data) {
+          const categoriesData = catRes.data as Category[];
+          setCategories(categoriesData);
+          setStats(prev => ({ ...prev, categories: categoriesData.length }));
         }
-        
-        artistsArray = allArtistes
-          .map((artiste) => ({
-            name: artiste.name,
-            count: reciterCounts.get(artiste.name) || 0,
-            image_url: artiste.image_url,
-          }))
+
+        if (recentRes.error) {
+          logger.error('Error fetching recent pieces:', recentRes.error);
+        } else if (recentRes.data) {
+          setRecentPieces(recentRes.data as unknown as Piece[]);
+          setStats(prev => ({ ...prev, pieces: recentRes.data!.length }));
+        }
+
+        if (popularRes.error) {
+          logger.error('Error fetching popular pieces:', popularRes.error);
+        } else if (popularRes.data) {
+          setPopularPieces(popularRes.data as unknown as Piece[]);
+        }
+
+        if (imamRes.error) {
+          logger.error('Error fetching imams:', imamRes.error);
+        } else if (imamRes.data) {
+          setImams(imamRes.data as unknown as Imam[]);
+        }
+
+        let artistsArray: Array<{ name: string; count: number; image_url: string | null }> = [];
+        if (artistesRes.error) {
+          logger.error('Error fetching artistes:', artistesRes.error);
+        } else if (artistesRes.data) {
+          const allArtistes = artistesRes.data as Array<{ name: string; image_url: string | null }>;
+          
+          const reciterCounts = new Map<string, number>();
+          if (artistCountsRes.data) {
+            artistCountsRes.data.forEach((row: { name: string; count: number }) => {
+              reciterCounts.set(row.name, row.count);
+            });
+          }
+          
+          artistsArray = allArtistes
+            .map((artiste) => ({
+              name: artiste.name,
+              count: reciterCounts.get(artiste.name) || 0,
+              image_url: artiste.image_url,
+            }))
           .sort((a, b) => {
             if (b.count !== a.count) {
               return b.count - a.count;

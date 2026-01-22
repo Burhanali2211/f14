@@ -23,7 +23,6 @@ export interface UnifiedPlayerProps {
   scrollBehavior: 'smooth' | 'instant' | 'auto';
   highlightMode: 'background' | 'border' | 'scale' | 'glow';
   onSeekToSegment?: (index: number) => void;
-  onNavigateToEditor?: () => void;
   onNavigateToImageEditor?: () => void;
 }
 
@@ -43,15 +42,14 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   currentTime,
   duration,
   isPlaying,
-  fontSize,
-  imageZoom,
-  scrollBehavior,
-  highlightMode,
-  onSeekToSegment,
-  onNavigateToEditor,
-  onNavigateToImageEditor,
-}, ref) => {
-  const containerRef = useRef<HTMLDivElement>(null);
+    fontSize,
+    imageZoom,
+    scrollBehavior,
+    highlightMode,
+    onSeekToSegment,
+    onNavigateToImageEditor,
+  }, ref) => {
+    const containerRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<Map<number, HTMLImageElement>>(new Map());
   const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const textRef = useRef<HTMLDivElement>(null);
@@ -68,8 +66,8 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   const hasImageRegions = imageRegions.length > 0;
 
   const contentType = useMemo(() => {
-    if (hasSegments) return 'segments';
     if (hasImages && hasImageRegions) return 'images';
+    if (hasSegments) return 'segments';
     if (hasImages) return 'images';
     if (hasPdf) return 'pdf';
     if (hasText) return 'text';
@@ -217,11 +215,6 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
             This piece doesn't have any images, PDF, or text content to display.
           </p>
           <div className="flex gap-4">
-            {onNavigateToEditor && (
-              <Button onClick={onNavigateToEditor}>
-                Add Content
-              </Button>
-            )}
             <Button variant="outline" onClick={() => window.history.back()}>
               Go Back
             </Button>
@@ -232,7 +225,7 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
       {contentType === 'pdf' && pdfUrl && (
         <div className="w-full h-full min-h-[80vh]">
           <EnhancedPDFViewer 
-            url={pdfUrl} 
+            pdfUrl={pdfUrl} 
             title={title}
           />
         </div>

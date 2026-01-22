@@ -5,8 +5,8 @@ import {
     Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
     Repeat, Maximize2, Minimize2, Settings, Clock,
     RotateCcw, RotateCw, Gauge, Home, Edit2, ArrowLeft, Loader2,
-    PlayCircle, X, Timer, ChevronDown, Smartphone, Upload, CheckCircle2, Trash2
-  } from 'lucide-react';
+PlayCircle, X, Timer, ChevronDown, Smartphone, Upload, CheckCircle2, Trash2, Download
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import {
@@ -723,25 +723,24 @@ export default function TeleprompterPage() {
           </header>
 
           <main className="absolute inset-0 overflow-hidden">
-            <UnifiedTeleprompterPlayer
-                pieceId={id!}
-                title={piece.title}
-                imageUrls={imageUrls}
-                pdfUrl={pdfUrl}
-                textContent={textContent}
-                segments={segments}
-                  imageRegions={imageRegions}
-                  currentTime={currentTimeDisplay}
-                  duration={duration}
-                  isPlaying={isPlaying}
-                fontSize={fontSize}
-                imageZoom={imageZoom}
-                scrollBehavior={scrollBehavior}
-                highlightMode={highlightMode}
-                onSeekToSegment={seekToSegment}
-                onNavigateToEditor={() => navigate(`/piece/${id}/teleprompter/edit`)}
-                onNavigateToImageEditor={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
-              />
+                  <UnifiedTeleprompterPlayer
+                    pieceId={id!}
+                    title={piece.title}
+                    imageUrls={imageUrls}
+                    pdfUrl={pdfUrl}
+                    textContent={textContent}
+                    segments={segments}
+                    imageRegions={imageRegions}
+                    currentTime={currentTimeDisplay}
+                    duration={duration}
+                    isPlaying={isPlaying}
+                    fontSize={fontSize}
+                    imageZoom={imageZoom}
+                    scrollBehavior={scrollBehavior}
+                    highlightMode={highlightMode}
+                    onSeekToSegment={seekToSegment}
+                    onNavigateToImageEditor={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
+                  />
           </main>
 
           <footer className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
@@ -921,32 +920,63 @@ export default function TeleprompterPage() {
                       )}
                     </div>
                     {audioUrl && (
-                      <div className="flex items-center gap-2 group max-w-[180px]">
-                        <div className="flex items-center gap-2 px-2 py-0.5 bg-accent/30 rounded-md border border-border/50 transition-colors group-hover:bg-accent/50 overflow-hidden min-w-0">
-                          <Smartphone className="w-3 h-3 text-muted-foreground shrink-0" />
-                          <span className="text-[10px] font-semibold text-foreground/70 truncate">
-                            {airSendAudioName ? 
-                              (airSendAudioName.length > 15 ? `${airSendAudioName.substring(0, 10)}...${airSendAudioName.split('.').pop()}` : airSendAudioName) : 
-                              (typeof audioUrl === 'string' ? 
-                                (() => {
-                                  const name = decodeURIComponent(audioUrl.split('/').pop() || '').replace(/^\d+-\d+\./, '');
-                                  return name.length > 15 ? `${name.substring(0, 10)}...${name.split('.').pop()}` : name;
-                                })() : 'Active Audio'
-                              )
-                            }
-                          </span>
+                        <div className="flex items-center gap-2 group max-w-[220px]">
+                          <div className="flex items-center gap-2 px-2 py-0.5 bg-accent/30 rounded-md border border-border/50 transition-colors group-hover:bg-accent/50 overflow-hidden min-w-0">
+                            <Smartphone className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <span className="text-[10px] font-semibold text-foreground/70 truncate">
+                              {airSendAudioName ? 
+                                (airSendAudioName.length > 15 ? `${airSendAudioName.substring(0, 10)}...${airSendAudioName.split('.').pop()}` : airSendAudioName) : 
+                                (typeof audioUrl === 'string' ? 
+                                  (() => {
+                                    const name = decodeURIComponent(audioUrl.split('/').pop() || '').replace(/^\d+-\d+\./, '');
+                                    return name.length > 15 ? `${name.substring(0, 10)}...${name.split('.').pop()}` : name;
+                                  })() : 'Active Audio'
+                                )
+                              }
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-md hover:bg-accent"
+                              onClick={() => {
+                                if (audioUrl) {
+                                  const a = document.createElement('a');
+                                  a.href = audioUrl;
+                                  a.download = airSendAudioName || 'audio-file';
+                                  a.click();
+                                }
+                              }}
+                              title="Download audio"
+                            >
+                              <Download className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-md hover:bg-red-50 text-red-500"
+                              onClick={() => {
+                                setAirSendAudioUrl(null);
+                                setAirSendAudioName(null);
+                                localStorage.removeItem(`airsend-audio-${id}`);
+                                toast({ title: 'Audio cleared' });
+                              }}
+                              title="Clear received audio"
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 rounded-md hover:bg-accent"
+                              onClick={() => setShowAirSend(true)}
+                              title="Send another"
+                            >
+                              <Smartphone className="w-3 h-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 rounded-md hover:bg-accent"
-                            onClick={() => setShowAirSend(true)}
-                          >
-                            <Smartphone className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
                     )}
                   </div>
                 </div>
@@ -1085,7 +1115,7 @@ export default function TeleprompterPage() {
                     variant="ghost"
                     size="icon"
                     className="h-10 w-10 rounded-full hover:bg-accent"
-                    onClick={() => navigate(`/piece/${id}/teleprompter/edit`)}
+                    onClick={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
                   >
                     <Edit2 className="w-5 h-5 text-muted-foreground" />
                   </Button>

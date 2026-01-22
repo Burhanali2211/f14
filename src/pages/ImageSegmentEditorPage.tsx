@@ -281,14 +281,28 @@ export default function ImageSegmentEditorPage() {
         title: 'Audio synced',
         description: `"${fileName}" has been saved from AirSend`,
       });
-    } catch (err) {
-      console.error('AirSend sync error:', err);
-      toast({
-        title: 'Sync failed',
-        description: 'Could not save the audio file',
-        variant: 'destructive',
-      });
-    } finally {
+      } catch (err: any) {
+        console.error('AirSend sync error:', err);
+        
+        let errorMessage = 'Could not save the audio file';
+        if (err.message?.includes('exceeded the maximum allowed size')) {
+          errorMessage = 'The audio file is too large for the cloud storage (Max 50MB). Please use a smaller file or increase the limit in your Supabase dashboard.';
+        }
+
+        toast({
+          title: 'Sync failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+        
+        // Still allow using it locally if sync fails
+        if (localUrl) {
+          toast({
+            title: 'Using locally',
+            description: 'The file will work in this session, but wasn\'t saved to the cloud.',
+          });
+        }
+      } finally {
       setIsUploading(false);
     }
   }, [id, queryClient]);

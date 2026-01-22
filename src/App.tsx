@@ -53,7 +53,6 @@ const QuranPage = lazy(() => import("./pages/QuranPage"));
 const QuranSurahPage = lazy(() => import("./pages/QuranSurahPage"));
 const QuranParaPage = lazy(() => import("./pages/QuranParaPage"));
 const TeleprompterPage = lazy(() => import("./pages/TeleprompterPage"));
-const TeleprompterEditorPage = lazy(() => import("./pages/TeleprompterEditorPage"));
 const ImageSegmentEditorPage = lazy(() => import("./pages/ImageSegmentEditorPage"));
 const AirSendMobilePage = lazy(() => import("./pages/AirSendMobilePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -142,7 +141,6 @@ function AppRoutes() {
       <Route path="/category/:slug" element={<CategoryPage />} />
         <Route path="/piece/:id" element={<PiecePage />} />
         <Route path="/piece/:id/teleprompter" element={<TeleprompterPage />} />
-          <Route path="/piece/:id/teleprompter/edit" element={<TeleprompterEditorPage />} />
           <Route path="/piece/:id/teleprompter/image-edit" element={<ImageSegmentEditorPage />} />
           <Route path="/figure/:slug" element={<FigurePage />} />
       <Route path="/ahlul-bayt" element={<AhlulBaytPage />} />

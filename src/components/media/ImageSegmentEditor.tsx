@@ -34,6 +34,24 @@ interface ImageSegmentEditorProps {
   hasChanges?: boolean;
 }
 
+const formatTimeParts = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  const ms = Math.floor((seconds % 1) * 100);
+  return {
+    mm: mins.toString().padStart(2, '0'),
+    ss: secs.toString().padStart(2, '0'),
+    cc: ms.toString().padStart(2, '0')
+  };
+};
+
+const parseTimeParts = (mm: string, ss: string, cc: string) => {
+  const mins = parseInt(mm || '0');
+  const secs = parseInt(ss || '0');
+  const ms = parseInt(cc || '0');
+  return mins * 60 + secs + ms / 100;
+};
+
 export function ImageSegmentEditor({
   imageUrls,
   pdfUrl,
@@ -55,7 +73,19 @@ export function ImageSegmentEditor({
   const [drawStartY, setDrawStartY] = useState<number | null>(null);
   const [currentBand, setCurrentBand] = useState<{ top: number; bottom: number } | null>(null);
   const [editingSegment, setEditingSegment] = useState<ImageRegion | null>(null);
-  const [segmentForm, setSegmentForm] = useState({ label: '', startTime: '', endTime: '' });
+  const [segmentForm, setSegmentForm] = useState({ 
+    label: '', 
+    startMM: '', startSS: '', startCC: '',
+    endMM: '', endSS: '', endCC: ''
+  });
+  
+  const endMinRef = useRef<HTMLInputElement>(null);
+  const endSecRef = useRef<HTMLInputElement>(null);
+  const endMsRef = useRef<HTMLInputElement>(null);
+  const startMinRef = useRef<HTMLInputElement>(null);
+  const startSecRef = useRef<HTMLInputElement>(null);
+  const startMsRef = useRef<HTMLInputElement>(null);
+
   const [draggingHandle, setDraggingHandle] = useState<{ regionId: string; handle: 'top' | 'bottom' | 'move' } | null>(null);
   const [dragStartY, setDragStartY] = useState<number>(0);
   const [dragOriginalY, setDragOriginalY] = useState<number>(0);
@@ -232,6 +262,7 @@ export function ImageSegmentEditor({
         const lastRegion = sortedRegions[sortedRegions.length - 1];
         const newStartTime = lastRegion ? lastRegion.endTime : 0;
         const defaultDuration = 5;
+        const newEndTime = newStartTime + defaultDuration;
         
         const newRegion: ImageRegion = {
           id: `region-${Date.now()}`,
@@ -241,17 +272,29 @@ export function ImageSegmentEditor({
           width: imageRef.current.naturalWidth,
           height: height,
           startTime: newStartTime,
-          endTime: newStartTime + defaultDuration,
+          endTime: newEndTime,
           order: regions.length,
           label: `Segment ${regions.filter(r => r.imageIndex === currentPageIndex).length + 1}`,
         };
         
         setEditingSegment(newRegion);
+        
+        const start = formatTimeParts(newStartTime);
+        const end = formatTimeParts(newEndTime);
+
         setSegmentForm({
           label: newRegion.label || '',
-          startTime: formatTime(newRegion.startTime),
-          endTime: formatTime(newRegion.endTime),
+          startMM: start.mm, startSS: start.ss, startCC: start.cc,
+          endMM: end.mm, endSS: end.ss, endCC: end.cc,
         });
+
+        // Auto focus and select end minute
+        setTimeout(() => {
+          if (endMinRef.current) {
+            endMinRef.current.focus();
+            endMinRef.current.select();
+          }
+        }, 100);
       }
 
       setIsDrawing(false);
@@ -262,8 +305,8 @@ export function ImageSegmentEditor({
   const handleSaveSegment = useCallback(() => {
     if (!editingSegment) return;
 
-    const startTime = parseTime(segmentForm.startTime);
-    const endTime = parseTime(segmentForm.endTime);
+    const startTime = parseTimeParts(segmentForm.startMM, segmentForm.startSS, segmentForm.startCC);
+    const endTime = parseTimeParts(segmentForm.endMM, segmentForm.endSS, segmentForm.endCC);
 
     if (endTime <= startTime) return;
 
@@ -284,15 +327,21 @@ export function ImageSegmentEditor({
     }
 
     setEditingSegment(null);
-    setSegmentForm({ label: '', startTime: '', endTime: '' });
+    setSegmentForm({ 
+      label: '', 
+      startMM: '', startSS: '', startCC: '',
+      endMM: '', endSS: '', endCC: ''
+    });
   }, [editingSegment, segmentForm, regions, onRegionsChange]);
 
   const handleEditRegion = useCallback((region: ImageRegion) => {
     setEditingSegment(region);
+    const start = formatTimeParts(region.startTime);
+    const end = formatTimeParts(region.endTime);
     setSegmentForm({
       label: region.label || '',
-      startTime: formatTime(region.startTime),
-      endTime: formatTime(region.endTime),
+      startMM: start.mm, startSS: start.ss, startCC: start.cc,
+      endMM: end.mm, endSS: end.ss, endCC: end.cc,
     });
   }, []);
 
@@ -304,11 +353,19 @@ export function ImageSegmentEditor({
   }, [regions, onRegionsChange, editingSegment]);
 
   const setCurrentTimeAsStart = useCallback(() => {
-    setSegmentForm(prev => ({ ...prev, startTime: formatTime(currentTime) }));
+    const parts = formatTimeParts(currentTime);
+    setSegmentForm(prev => ({ 
+      ...prev, 
+      startMM: parts.mm, startSS: parts.ss, startCC: parts.cc 
+    }));
   }, [currentTime]);
 
   const setCurrentTimeAsEnd = useCallback(() => {
-    setSegmentForm(prev => ({ ...prev, endTime: formatTime(currentTime) }));
+    const parts = formatTimeParts(currentTime);
+    setSegmentForm(prev => ({ 
+      ...prev, 
+      endMM: parts.mm, endSS: parts.ss, endCC: parts.cc 
+    }));
   }, [currentTime]);
 
   const toggleRegionVisibility = useCallback((regionId: string, e?: React.MouseEvent) => {
@@ -653,53 +710,170 @@ export function ImageSegmentEditor({
                 />
               </div>
 
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs">Start Time</Label>
-                  <div className="flex gap-1 mt-1">
-                    <Input
-                      value={segmentForm.startTime}
-                      onChange={(e) => setSegmentForm(prev => ({ ...prev, startTime: e.target.value }))}
-                      placeholder="00:00.00"
-                      className="font-mono"
-                    />
-                    {audioUrl && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={setCurrentTimeAsStart}
-                        title="Set to current time"
-                        className="shrink-0"
-                      >
-                        <Clock className="w-4 h-4" />
-                      </Button>
-                    )}
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1.5 block">Start Time (MM:SS.CC)</Label>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center bg-muted/50 rounded-lg px-2 border border-border focus-within:border-primary transition-colors">
+                        <input
+                          ref={startMinRef}
+                          value={segmentForm.startMM}
+                          onChange={(e) => setSegmentForm(prev => ({ ...prev, startMM: e.target.value.slice(0, 2) }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab' && !e.shiftKey) {
+                              e.preventDefault();
+                              startSecRef.current?.focus();
+                              startSecRef.current?.select();
+                            } else if (e.key === 'Enter') {
+                              handleSaveSegment();
+                            }
+                          }}
+                          className="w-8 bg-transparent border-none text-center font-mono text-sm focus:outline-none py-2"
+                          placeholder="00"
+                        />
+                        <span className="text-muted-foreground">:</span>
+                        <input
+                          ref={startSecRef}
+                          value={segmentForm.startSS}
+                          onChange={(e) => setSegmentForm(prev => ({ ...prev, startSS: e.target.value.slice(0, 2) }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              if (e.shiftKey) {
+                                startMinRef.current?.focus();
+                                startMinRef.current?.select();
+                              } else {
+                                startMsRef.current?.focus();
+                                startMsRef.current?.select();
+                              }
+                            } else if (e.key === 'Enter') {
+                              handleSaveSegment();
+                            }
+                          }}
+                          className="w-8 bg-transparent border-none text-center font-mono text-sm focus:outline-none py-2"
+                          placeholder="00"
+                        />
+                        <span className="text-muted-foreground">.</span>
+                        <input
+                          ref={startMsRef}
+                          value={segmentForm.startCC}
+                          onChange={(e) => setSegmentForm(prev => ({ ...prev, startCC: e.target.value.slice(0, 2) }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              if (e.shiftKey) {
+                                startSecRef.current?.focus();
+                                startSecRef.current?.select();
+                              } else {
+                                endMinRef.current?.focus();
+                                endMinRef.current?.select();
+                              }
+                            } else if (e.key === 'Enter') {
+                              handleSaveSegment();
+                            }
+                          }}
+                          className="w-8 bg-transparent border-none text-center font-mono text-sm focus:outline-none py-2"
+                          placeholder="00"
+                        />
+                      </div>
+                      {audioUrl && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={setCurrentTimeAsStart}
+                          title="Set to current time"
+                          className="shrink-0 h-9 w-9 rounded-lg"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div>
-                  <Label className="text-xs">End Time</Label>
-                  <div className="flex gap-1 mt-1">
-                    <Input
-                      value={segmentForm.endTime}
-                      onChange={(e) => setSegmentForm(prev => ({ ...prev, endTime: e.target.value }))}
-                      placeholder="00:00.00"
-                      className="font-mono"
-                    />
-                    {audioUrl && (
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={setCurrentTimeAsEnd}
-                        title="Set to current time"
-                        className="shrink-0"
-                      >
-                        <Clock className="w-4 h-4" />
-                      </Button>
-                    )}
+                  <div>
+                    <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider mb-1.5 block">End Time (MM:SS.CC)</Label>
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center bg-muted/50 rounded-lg px-2 border border-border focus-within:border-primary transition-colors">
+                        <input
+                          ref={endMinRef}
+                          value={segmentForm.endMM}
+                          onChange={(e) => setSegmentForm(prev => ({ ...prev, endMM: e.target.value.slice(0, 2) }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              if (e.shiftKey) {
+                                startMsRef.current?.focus();
+                                startMsRef.current?.select();
+                              } else {
+                                endSecRef.current?.focus();
+                                endSecRef.current?.select();
+                              }
+                            } else if (e.key === 'Enter') {
+                              handleSaveSegment();
+                            }
+                          }}
+                          className="w-8 bg-transparent border-none text-center font-mono text-sm focus:outline-none py-2"
+                          placeholder="00"
+                        />
+                        <span className="text-muted-foreground">:</span>
+                        <input
+                          ref={endSecRef}
+                          value={segmentForm.endSS}
+                          onChange={(e) => setSegmentForm(prev => ({ ...prev, endSS: e.target.value.slice(0, 2) }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              if (e.shiftKey) {
+                                endMinRef.current?.focus();
+                                endMinRef.current?.select();
+                              } else {
+                                endMsRef.current?.focus();
+                                endMsRef.current?.select();
+                              }
+                            } else if (e.key === 'Enter') {
+                              handleSaveSegment();
+                            }
+                          }}
+                          className="w-8 bg-transparent border-none text-center font-mono text-sm focus:outline-none py-2"
+                          placeholder="00"
+                        />
+                        <span className="text-muted-foreground">.</span>
+                        <input
+                          ref={endMsRef}
+                          value={segmentForm.endCC}
+                          onChange={(e) => setSegmentForm(prev => ({ ...prev, endCC: e.target.value.slice(0, 2) }))}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Tab') {
+                              e.preventDefault();
+                              if (e.shiftKey) {
+                                endSecRef.current?.focus();
+                                endSecRef.current?.select();
+                              } else {
+                                startMinRef.current?.focus();
+                                startMinRef.current?.select();
+                              }
+                            } else if (e.key === 'Enter') {
+                              handleSaveSegment();
+                            }
+                          }}
+                          className="w-8 bg-transparent border-none text-center font-mono text-sm focus:outline-none py-2"
+                          placeholder="00"
+                        />
+                      </div>
+                      {audioUrl && (
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={setCurrentTimeAsEnd}
+                          title="Set to current time"
+                          className="shrink-0 h-9 w-9 rounded-lg"
+                        >
+                          <Clock className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
 
               {audioUrl && (
                 <p className="text-xs text-muted-foreground text-center py-2 bg-muted rounded">
