@@ -7,6 +7,8 @@ import { cn } from '@/lib/utils';
 import { AirSendP2P } from '@/lib/airsend-p2p';
 import { toast } from 'sonner';
 
+const MAX_FILE_SIZE = 500 * 1024 * 1024;
+
 export default function AirSendMobilePage() {
   const [searchParams] = useSearchParams();
   const sessionCode = searchParams.get('session');
@@ -17,50 +19,78 @@ export default function AirSendMobilePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [progress, setProgress] = useState(0);
   const [sessionValid, setSessionValid] = useState<boolean | null>(null);
+  const [isChannelReady, setIsChannelReady] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const p2pRef = useRef<AirSendP2P | null>(null);
+  const mounted = useRef(true);
 
   useEffect(() => {
+    mounted.current = true;
+    
     if (!sessionCode) {
       setSessionValid(false);
       return;
     }
 
     const checkSession = async () => {
-      const { data, error } = await airsendSupabase
-        .from('airsend_sessions')
-        .select('*')
-        .eq('session_code', sessionCode)
-        .single();
-      
-      if (error || !data) {
-        setSessionValid(false);
-        return;
-      }
+      try {
+        const { data, error } = await airsendSupabase
+          .from('airsend_sessions')
+          .select('*')
+          .eq('session_code', sessionCode)
+          .single();
+        
+        if (!mounted.current) return;
+        
+        if (error || !data) {
+          setSessionValid(false);
+          return;
+        }
 
-      const expiresAt = new Date(data.expires_at);
-      if (expiresAt < new Date()) {
-        setSessionValid(false);
-        return;
-      }
+        const expiresAt = new Date(data.expires_at);
+        if (expiresAt < new Date()) {
+          setSessionValid(false);
+          return;
+        }
 
-      setSessionValid(true);
-      
-      // Initialize P2P as sender
-      p2pRef.current = new AirSendP2P(sessionCode, false);
-      p2pRef.current.start({
-        onStatusChange: (s) => {
-          setP2PStatus(s);
-          if (s.includes('Direct connection')) setStatus('idle');
-        },
-        onProgress: (p) => setProgress(p)
-      });
+        setSessionValid(true);
+        
+        p2pRef.current = new AirSendP2P(sessionCode, false);
+        p2pRef.current.start({
+          onStatusChange: (s) => {
+            if (!mounted.current) return;
+            setP2PStatus(s);
+            if (s.includes('Channel open')) {
+              setIsChannelReady(true);
+              setStatus('idle');
+            }
+            if (s.includes('failed') || s.includes('timeout')) {
+              setStatus('error');
+              setError(s);
+              setIsChannelReady(false);
+              toast.error(s);
+            }
+            if (s.includes('Reconnecting')) {
+              setIsChannelReady(false);
+            }
+          },
+          onProgress: (p) => {
+            if (mounted.current) setProgress(p);
+          }
+        });
+      } catch (err) {
+        if (mounted.current) {
+          setSessionValid(false);
+        }
+      }
     };
 
     checkSession();
 
     return () => {
+      mounted.current = false;
       p2pRef.current?.destroy();
+      p2pRef.current = null;
     };
   }, [sessionCode]);
 
@@ -71,6 +101,10 @@ export default function AirSendMobilePage() {
         setError('Please select an audio file');
         return;
       }
+      if (file.size > MAX_FILE_SIZE) {
+        setError(`File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
+        return;
+      }
       setSelectedFile(file);
       setError(null);
     }
@@ -79,19 +113,29 @@ export default function AirSendMobilePage() {
   const handleUpload = async () => {
     if (!selectedFile || !p2pRef.current) return;
 
+    if (!p2pRef.current.isReady()) {
+      setError('Connection not ready. Please wait...');
+      toast.error('Connection not ready. Please wait for channel to open.');
+      return;
+    }
+
     setStatus('sending');
     setProgress(0);
     setError(null);
 
     try {
       await p2pRef.current.sendFile(selectedFile);
-      setStatus('success');
-      toast.success('Audio sent successfully!');
+      if (mounted.current) {
+        setStatus('success');
+        toast.success('Audio sent successfully!');
+      }
     } catch (err) {
       console.error('P2P send error:', err);
-      setStatus('error');
-      setError(err instanceof Error ? err.message : 'Failed to send file');
-      toast.error('Failed to send file directly');
+      if (mounted.current) {
+        setStatus('error');
+        setError(err instanceof Error ? err.message : 'Failed to send file');
+        toast.error('Failed to send file');
+      }
     }
   };
 
@@ -146,13 +190,18 @@ export default function AirSendMobilePage() {
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center gap-6 max-w-md mx-auto w-full">
-          <div className="w-full flex justify-center mb-4">
-            <div className="flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-xs">
-              <Wifi className={cn("w-4 h-4", (p2pStatus.includes('established') || p2pStatus.includes('transfer')) ? "text-green-500" : "text-amber-500 animate-pulse")} />
-              <span>{p2pStatus}</span>
-            </div>
+        <div className="w-full flex justify-center mb-4">
+          <div className={cn(
+            "flex items-center gap-2 px-4 py-2 bg-muted rounded-full text-xs",
+            isChannelReady && "bg-green-500/10"
+          )}>
+            <Wifi className={cn(
+              "w-4 h-4",
+              isChannelReady ? "text-green-500" : "text-amber-500 animate-pulse"
+            )} />
+            <span>{p2pStatus || 'Initializing...'}</span>
           </div>
-
+        </div>
 
         <input
           ref={fileInputRef}
@@ -178,7 +227,7 @@ export default function AirSendMobilePage() {
             <div className="text-center">
               <p className="font-semibold mb-1">Select Audio File</p>
               <p className="text-sm text-muted-foreground">
-                Tap to browse your files
+                Tap to browse (max 500MB)
               </p>
             </div>
           </button>
@@ -224,23 +273,25 @@ export default function AirSendMobilePage() {
                   setSelectedFile(null);
                   setError(null);
                   setStatus('idle');
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
                 }}
                 disabled={status === 'sending'}
               >
                 Change
               </Button>
-                  <Button
-                    className="flex-1 gap-2"
-                    onClick={handleUpload}
-                    disabled={status === 'sending' || (!p2pStatus.includes('established') && !p2pStatus.includes('transfer'))}
-                  >
-
+              <Button
+                className="flex-1 gap-2"
+                onClick={handleUpload}
+                disabled={status === 'sending' || !isChannelReady}
+              >
                 {status === 'sending' ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Upload className="w-4 h-4" />
                 )}
-                Send Direct
+                {!isChannelReady ? 'Connecting...' : 'Send Direct'}
               </Button>
             </div>
           </div>

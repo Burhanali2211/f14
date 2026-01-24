@@ -5,7 +5,7 @@ import {
     Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
     Repeat, Maximize2, Minimize2, Settings, Clock,
     RotateCcw, RotateCw, Gauge, Home, Edit2, ArrowLeft, Loader2,
-PlayCircle, X, Timer, ChevronDown, Smartphone, Upload, CheckCircle2, Trash2, Download
+PlayCircle, X, Timer, ChevronDown, Smartphone, Upload, CheckCircle2, Trash2, Download, Cloud
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -52,8 +52,10 @@ import {
   } from '@/lib/teleprompter-storage';
 import { UnifiedTeleprompterPlayer } from '@/components/media/UnifiedTeleprompterPlayer';
 import { AirSendDialog } from '@/components/media/AirSendDialog';
+import { R2AudioUploadDialog } from '@/components/media/R2AudioUploadDialog';
 import { toast } from '@/hooks/use-toast';
 import type { ImageRegion } from '@/components/media/ImageSegmentEditor';
+import { useR2Audio, AudioFile } from '@/hooks/useR2Audio';
 
 async function fetchPiece(id: string) {
   const { data, error } = await supabase
@@ -112,10 +114,15 @@ export default function TeleprompterPage() {
 
   const [imageRegions, setImageRegions] = useState<ImageRegion[]>([]);
   const [showAirSend, setShowAirSend] = useState(false);
+  const [showR2Upload, setShowR2Upload] = useState(false);
   const [airSendAudioUrl, setAirSendAudioUrl] = useState<string | null>(null);
   const [airSendAudioName, setAirSendAudioName] = useState<string | null>(null);
+  const [cloudAudio, setCloudAudio] = useState<AudioFile | null>(null);
+  const [cloudAudioStreamUrl, setCloudAudioStreamUrl] = useState<string | null>(null);
 
-  const audioUrl = airSendAudioUrl || piece?.audio_url;
+  const { getStreamUrl, getUserAudioFiles } = useR2Audio();
+
+  const audioUrl = cloudAudioStreamUrl || airSendAudioUrl || piece?.audio_url;
   
   const parseImageUrls = (url: unknown): string[] => {
     if (!url) return [];
@@ -544,21 +551,37 @@ export default function TeleprompterPage() {
   const handleAirSendAudioReceived = useCallback((url: string, name: string) => {
     setAirSendAudioUrl(url);
     setAirSendAudioName(name);
-    localStorage.setItem(`airsend-audio-${id}`, JSON.stringify({ url, name }));
-  }, [id]);
+  }, []);
 
   useEffect(() => {
-    if (id) {
+    if (!id) return;
+    
+    const loadCloudAudio = async () => {
       try {
-        const stored = localStorage.getItem(`airsend-audio-${id}`);
-        if (stored) {
-          const { url, name } = JSON.parse(stored);
-          setAirSendAudioUrl(url);
-          setAirSendAudioName(name);
+        const audioFiles = await getUserAudioFiles(id);
+        if (audioFiles.length > 0) {
+          const latestAudio = audioFiles[0];
+          setCloudAudio(latestAudio);
+          const streamUrl = await getStreamUrl(latestAudio.id);
+          setCloudAudioStreamUrl(streamUrl);
         }
-      } catch {}
+      } catch (err) {
+        console.error('Failed to load cloud audio:', err);
+      }
+    };
+    
+    loadCloudAudio();
+  }, [id, getUserAudioFiles, getStreamUrl]);
+
+  const handleCloudAudioUploaded = useCallback(async (audioFile: AudioFile) => {
+    setCloudAudio(audioFile);
+    try {
+      const streamUrl = await getStreamUrl(audioFile.id);
+      setCloudAudioStreamUrl(streamUrl);
+    } catch (err) {
+      console.error('Failed to get stream URL:', err);
     }
-  }, [id]);
+  }, [getStreamUrl]);
 
   const progress = useMemo(() => {
     if (!duration) return 0;
@@ -909,76 +932,120 @@ export default function TeleprompterPage() {
                     <ArrowLeft className="w-5 h-5" />
                   </Button>
                   
-                  <div className="flex flex-col min-w-0 hidden lg:flex">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Teleprompter</span>
+                    <div className="flex flex-col min-w-0 hidden lg:flex">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Teleprompter</span>
+                        {audioUrl && (
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-500/10 rounded-full border border-green-500/20">
+                            <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">Active</span>
+                          </div>
+                        )}
+                      </div>
                       {audioUrl && (
-                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-500/10 rounded-full border border-green-500/20">
-                          <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                          <span className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">Active</span>
+                          <div className="flex items-center gap-2 group max-w-[280px]">
+                            <div className="flex items-center gap-2 px-2 py-0.5 bg-accent/30 rounded-md border border-border/50 transition-colors group-hover:bg-accent/50 overflow-hidden min-w-0">
+                              {cloudAudioStreamUrl ? (
+                                <Cloud className="w-3 h-3 text-blue-500 shrink-0" />
+                              ) : (
+                                <Smartphone className="w-3 h-3 text-muted-foreground shrink-0" />
+                              )}
+                              <span className="text-[10px] font-semibold text-foreground/70 truncate">
+                                {cloudAudio?.filename ? 
+                                  (cloudAudio.filename.length > 15 ? `${cloudAudio.filename.substring(0, 10)}...${cloudAudio.filename.split('.').pop()}` : cloudAudio.filename) :
+                                  airSendAudioName ? 
+                                  (airSendAudioName.length > 15 ? `${airSendAudioName.substring(0, 10)}...${airSendAudioName.split('.').pop()}` : airSendAudioName) : 
+                                  (typeof audioUrl === 'string' ? 
+                                    (() => {
+                                      const name = decodeURIComponent(audioUrl.split('/').pop() || '').replace(/^\d+-\d+\./, '');
+                                      return name.length > 15 ? `${name.substring(0, 10)}...${name.split('.').pop()}` : name;
+                                    })() : 'Active Audio'
+                                  )
+                                }
+                              </span>
+                              {cloudAudioStreamUrl && (
+                                <span className="text-[8px] px-1 py-0.5 bg-blue-500/10 text-blue-600 rounded font-bold">CLOUD</span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-md hover:bg-accent"
+                                onClick={() => {
+                                  if (audioUrl) {
+                                    const a = document.createElement('a');
+                                    a.href = audioUrl;
+                                    a.download = cloudAudio?.filename || airSendAudioName || 'audio-file';
+                                    a.click();
+                                  }
+                                }}
+                                title="Download audio"
+                              >
+                                <Download className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-md hover:bg-red-50 text-red-500"
+                                onClick={() => {
+                                  if (cloudAudioStreamUrl) {
+                                    setCloudAudioStreamUrl(null);
+                                    setCloudAudio(null);
+                                  } else {
+                                    setAirSendAudioUrl(null);
+                                    setAirSendAudioName(null);
+                                  }
+                                  toast({ title: 'Audio cleared' });
+                                }}
+                                title="Clear audio"
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-md hover:bg-blue-50 text-blue-600"
+                                onClick={() => setShowR2Upload(true)}
+                                title="Upload to cloud"
+                              >
+                                <Cloud className="w-3 h-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 rounded-md hover:bg-accent"
+                                onClick={() => setShowAirSend(true)}
+                                title="AirSend from phone"
+                              >
+                                <Smartphone className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                      )}
+                      {!audioUrl && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 gap-1.5 text-xs"
+                            onClick={() => setShowR2Upload(true)}
+                          >
+                            <Cloud className="w-3 h-3" />
+                            Cloud
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 gap-1.5 text-xs"
+                            onClick={() => setShowAirSend(true)}
+                          >
+                            <Smartphone className="w-3 h-3" />
+                            AirSend
+                          </Button>
                         </div>
                       )}
                     </div>
-                    {audioUrl && (
-                        <div className="flex items-center gap-2 group max-w-[220px]">
-                          <div className="flex items-center gap-2 px-2 py-0.5 bg-accent/30 rounded-md border border-border/50 transition-colors group-hover:bg-accent/50 overflow-hidden min-w-0">
-                            <Smartphone className="w-3 h-3 text-muted-foreground shrink-0" />
-                            <span className="text-[10px] font-semibold text-foreground/70 truncate">
-                              {airSendAudioName ? 
-                                (airSendAudioName.length > 15 ? `${airSendAudioName.substring(0, 10)}...${airSendAudioName.split('.').pop()}` : airSendAudioName) : 
-                                (typeof audioUrl === 'string' ? 
-                                  (() => {
-                                    const name = decodeURIComponent(audioUrl.split('/').pop() || '').replace(/^\d+-\d+\./, '');
-                                    return name.length > 15 ? `${name.substring(0, 10)}...${name.split('.').pop()}` : name;
-                                  })() : 'Active Audio'
-                                )
-                              }
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 rounded-md hover:bg-accent"
-                              onClick={() => {
-                                if (audioUrl) {
-                                  const a = document.createElement('a');
-                                  a.href = audioUrl;
-                                  a.download = airSendAudioName || 'audio-file';
-                                  a.click();
-                                }
-                              }}
-                              title="Download audio"
-                            >
-                              <Download className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 rounded-md hover:bg-red-50 text-red-500"
-                              onClick={() => {
-                                setAirSendAudioUrl(null);
-                                setAirSendAudioName(null);
-                                localStorage.removeItem(`airsend-audio-${id}`);
-                                toast({ title: 'Audio cleared' });
-                              }}
-                              title="Clear received audio"
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-6 w-6 rounded-md hover:bg-accent"
-                              onClick={() => setShowAirSend(true)}
-                              title="Send another"
-                            >
-                              <Smartphone className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                    )}
-                  </div>
                 </div>
   
                 {/* Center: Title & Main Control */}
@@ -1327,6 +1394,15 @@ export default function TeleprompterPage() {
           onOpenChange={setShowAirSend}
           pieceId={id!}
           onAudioReceived={handleAirSendAudioReceived}
+          onCloudAudioUploaded={handleCloudAudioUploaded}
+        />
+
+        <R2AudioUploadDialog
+          open={showR2Upload}
+          onOpenChange={setShowR2Upload}
+          pieceId={id!}
+          onAudioUploaded={handleCloudAudioUploaded}
+          existingAudio={cloudAudio}
         />
 
         <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
