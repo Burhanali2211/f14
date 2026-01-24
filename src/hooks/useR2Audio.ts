@@ -229,7 +229,7 @@ export function useR2Audio(): UseR2AudioReturn {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error('Not authenticated');
+        return [];
       }
 
       let query = supabase

@@ -188,10 +188,13 @@ export default function TeleprompterPage() {
     }
   }, [id]);
 
-  useEffect(() => {
-    if (!audioUrl) return;
+    useEffect(() => {
+      if (!audioUrl) {
+        setIsLoaded(false);
+        return;
+      }
 
-    const audio = new Audio();
+      const audio = new Audio();
     audio.preload = 'metadata';
     
     const handleLoadedMetadata = () => {

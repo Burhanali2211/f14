@@ -1,0 +1,40 @@
+# Robots.txt for Followers of 14 - Islamic Poetry & Recitation Platform
+# Also known as: Khanda Azaadars, Lyrics Hub, F14
+
+User-agent: *
+Allow: /
+
+# Sitemap locations
+Sitemap: https://followersof14.com/sitemap.xml
+
+# Crawl-delay for respectful crawling
+Crawl-delay: 1
+
+# Allow search engines to index all content pages
+Allow: /piece/
+Allow: /category/
+Allow: /figure/
+Allow: /artist/
+Allow: /ahlulbayt
+Allow: /calendar
+Allow: /fiqh
+
+# Disallow admin and auth pages from indexing
+Disallow: /admin
+Disallow: /auth
+Disallow: /uploader
+Disallow: /settings
+Disallow: /profile
+
+# Allow Googlebot specifically for faster indexing
+User-agent: Googlebot
+Allow: /
+Crawl-delay: 0
+
+# Allow Bingbot
+User-agent: Bingbot
+Allow: /
+Crawl-delay: 1
+
+# Host declaration
+Host: https://followersof14.com
