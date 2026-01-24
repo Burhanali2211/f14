@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { X, Play, Pause, RotateCcw, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ImageRegion } from './ImageSegmentEditor';
+import { cn } from '@/lib/utils';
 import * as pdfjsLib from 'pdfjs-dist';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -124,36 +125,53 @@ export function ImageSegmentPreview({
     }
   }, [currentTime, sortedRegions, currentRegion]);
 
+  const zoomFactor = useMemo(() => {
+    if (!currentRegion) return 1;
+    // Aim to fill about 95% of the width
+    // If region width is 100 (%), we don't zoom horizontally.
+    // But we might want to zoom anyway to make it "BIGGER" for distance reading.
+    // Let's default to a 1.2x zoom if it's already full width, 
+    // or more if it's a narrow segment.
+    const widthScale = 100 / Math.max(currentRegion.width, 30);
+    return Math.max(1.2, widthScale * 0.95);
+  }, [currentRegion]);
+
   useEffect(() => {
     if (!currentRegion || !containerRef.current) return;
 
-    const container = containerRef.current;
-    const imageIndex = currentRegion.imageIndex;
-    const img = imageRefs.current.get(imageIndex);
-    
-    if (!img) return;
+    const scrollTimer = setTimeout(() => {
+      const container = containerRef.current;
+      if (!container) return;
+      
+      const imageIndex = currentRegion.imageIndex;
+      const img = imageRefs.current.get(imageIndex);
+      
+      if (!img) return;
 
-    const containerHeight = container.clientHeight;
-    const imgRect = img.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
-    
-    const imgTop = imgRect.top - containerRect.top + container.scrollTop;
-    const naturalHeight = img.naturalHeight;
-    const displayHeight = img.height;
-    const scale = displayHeight / naturalHeight;
+      const containerHeight = container.clientHeight;
+      const imgRect = img.getBoundingClientRect();
+      const containerRect = container.getBoundingClientRect();
+      
+      const imgTop = imgRect.top - containerRect.top + container.scrollTop;
+      const naturalHeight = img.naturalHeight;
+      const displayHeight = imgRect.height;
+      const scale = displayHeight / naturalHeight;
 
-    const regionTop = imgTop + (currentRegion.y * scale);
-    const regionHeight = currentRegion.height * scale;
+      const regionTop = imgTop + (currentRegion.y * scale);
+      const regionHeight = currentRegion.height * scale;
 
-    const targetScroll = regionTop - (containerHeight / 2) + (regionHeight / 2);
-    
-    container.scrollTo({
-      top: Math.max(0, targetScroll),
-      behavior: 'smooth',
-    });
+      const targetScroll = regionTop - (containerHeight / 2) + (regionHeight / 2);
+      
+      container.scrollTo({
+        top: Math.max(0, targetScroll),
+        behavior: 'smooth',
+      });
 
-    setScrollPosition(targetScroll);
-  }, [currentRegion]);
+      setScrollPosition(targetScroll);
+    }, 100);
+
+    return () => clearTimeout(scrollTimer);
+  }, [currentRegion, zoomFactor]);
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current;
@@ -261,49 +279,79 @@ export function ImageSegmentPreview({
 
       <div 
         ref={containerRef}
-        className="flex-1 overflow-auto"
+        className="flex-1 overflow-auto bg-neutral-900"
         style={{ scrollBehavior: 'smooth' }}
       >
-        <div className="max-w-4xl mx-auto p-4">
+        <div className="w-full flex flex-col items-center py-8 px-4">
           {allImages.map((imgSrc, index) => {
             const pageRegions = sortedRegions.filter((r) => r.imageIndex === index);
+            const isActivePage = currentRegion?.imageIndex === index;
             
             return (
-              <div key={index} className="relative mb-4">
+              <div 
+                key={index} 
+                className="relative mb-12 transition-all duration-700 ease-in-out"
+                style={{
+                  width: isActivePage ? `${zoomFactor * 100}%` : '95%',
+                  maxWidth: isActivePage ? 'none' : '1200px',
+                  transform: isActivePage ? 'scale(1)' : 'scale(0.98)',
+                  transformOrigin: 'top center',
+                }}
+              >
+                {/* Background Dimmed Image */}
                 <img
                   ref={(el) => {
                     if (el) imageRefs.current.set(index, el);
                   }}
                   src={imgSrc}
                   alt={`Page ${index + 1}`}
-                  className="w-full rounded-lg"
+                  className={cn(
+                    "w-full rounded-lg transition-all duration-700",
+                    currentRegion ? "brightness-[0.2] grayscale-[0.2] blur-[1px]" : "brightness-100"
+                  )}
                   crossOrigin="anonymous"
                 />
                 
+                {/* Active Highlighted Region */}
                 {pageRegions.map((region) => {
-                  const img = imageRefs.current.get(index);
-                  if (!img) return null;
-
-                  const scale = img.clientHeight / img.naturalHeight || 1;
                   const isActive = currentRegion?.id === region.id;
+                  if (!isActive) return null;
 
                   return (
                     <div
-                      key={region.id}
-                      className={`absolute left-0 right-0 pointer-events-none transition-all duration-300 ${
-                        isActive 
-                          ? 'ring-4 ring-primary bg-primary/10' 
-                          : 'bg-transparent'
-                      }`}
+                      key={`active-${region.id}`}
+                      className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg"
                       style={{
-                        top: `${region.y * scale}px`,
-                        height: `${region.height * scale}px`,
+                        clipPath: `inset(${region.y}% 0% ${100 - (region.y + region.height)}% 0%)`,
                       }}
                     >
-                      {isActive && (
-                        <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-full" />
-                      )}
+                      <img
+                        src={imgSrc}
+                        alt="Active segment"
+                        className="w-full h-full object-cover brightness-110 contrast-110"
+                        style={{
+                          objectPosition: `0% ${region.y}%`,
+                        }}
+                        crossOrigin="anonymous"
+                      />
                     </div>
+                  );
+                })}
+
+                {/* Progress Indicators (optional, kept minimal) */}
+                {pageRegions.map((region) => {
+                  const isActive = currentRegion?.id === region.id;
+                  if (!isActive) return null;
+
+                  return (
+                    <div
+                      key={`indicator-${region.id}`}
+                      className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary/80 z-20"
+                      style={{
+                        top: `${region.y}%`,
+                        height: `${region.height}%`,
+                      }}
+                    />
                   );
                 })}
               </div>
@@ -313,8 +361,8 @@ export function ImageSegmentPreview({
       </div>
 
       {audioUrl && (
-        <footer className="bg-black/80 border-t border-white/10 p-4">
-          <div className="max-w-4xl mx-auto">
+        <footer className="bg-black/90 border-t border-white/10 p-6 backdrop-blur-md">
+          <div className="max-w-5xl mx-auto">
             <div 
               className="h-2 bg-white/20 rounded-full mb-4 cursor-pointer relative"
               onClick={(e) => {

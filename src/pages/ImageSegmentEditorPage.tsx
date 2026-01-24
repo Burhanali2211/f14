@@ -5,7 +5,7 @@ import { ArrowLeft, Loader2, Home, Image as ImageIcon, Upload, Music, X, Eye, Sa
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
-import { ImageSegmentEditor, ImageRegion } from '@/components/media/ImageSegmentEditor';
+import { ImageSegmentEditor, type ImageRegion } from '@/components/media/ImageSegmentEditor/index';
 import { ImageSegmentPreview } from '@/components/media/ImageSegmentPreview';
 import { AirSendDialog } from '@/components/media/AirSendDialog';
 import { toast } from '@/hooks/use-toast';

@@ -20,9 +20,11 @@ export interface UnifiedPlayerProps {
   isPlaying: boolean;
   fontSize: number;
   imageZoom: number;
+  isPlaybackMode?: boolean;
   scrollBehavior: 'smooth' | 'instant' | 'auto';
   highlightMode: 'background' | 'border' | 'scale' | 'glow';
   onSeekToSegment?: (index: number) => void;
+  onNavigateToEditor?: () => void;
   onNavigateToImageEditor?: () => void;
 }
 
@@ -42,13 +44,15 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   currentTime,
   duration,
   isPlaying,
-    fontSize,
-    imageZoom,
-    scrollBehavior,
-    highlightMode,
-    onSeekToSegment,
-    onNavigateToImageEditor,
-  }, ref) => {
+  fontSize,
+  imageZoom,
+  isPlaybackMode,
+  scrollBehavior,
+  highlightMode,
+  onSeekToSegment,
+  onNavigateToEditor,
+  onNavigateToImageEditor,
+}, ref) => {
     const containerRef = useRef<HTMLDivElement>(null);
   const imageRefs = useRef<Map<number, HTMLImageElement>>(new Map());
   const segmentRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -58,6 +62,22 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   const [currentRegionIndex, setCurrentRegionIndex] = useState(-1);
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(-1);
   const [imageDimensions, setImageDimensions] = useState<Map<number, {width: number, height: number}>>(new Map());
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    
+    const updateSize = () => {
+      setContainerSize({ width: container.clientWidth, height: container.clientHeight });
+    };
+    
+    updateSize();
+    const resizeObserver = new ResizeObserver(updateSize);
+    resizeObserver.observe(container);
+    
+    return () => resizeObserver.disconnect();
+  }, []);
 
   const hasImages = imageUrls.length > 0;
   const hasPdf = !!pdfUrl;
@@ -147,11 +167,42 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
     }
   }, [scrollBehavior]);
 
+  const scrollToRegion = useCallback((index: number) => {
+    const region = imageRegions[index];
+    if (!region || !containerRef.current) return;
+
+    // For image regions, we want to scroll the main container if the image is tall
+    // Or if we are in playback mode, we might want to adjust the scroll to center the region
+    const container = containerRef.current;
+    if (isPlaybackMode) {
+      // In playback mode with scale/zoom, the transform-origin handles the visual centering
+      // but we still might want to ensure the scroll position is reset to top
+      container.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      // In normal mode, scroll to the region's vertical position
+      const imageEl = imageRefs.current.get(region.imageIndex);
+      if (imageEl) {
+        const rect = imageEl.getBoundingClientRect();
+        const scrollTarget = (region.y / 100) * rect.height + imageEl.offsetTop - (container.clientHeight / 2) + ((region.height / 100) * rect.height / 2);
+        container.scrollTo({
+          top: Math.max(0, scrollTarget),
+          behavior: scrollBehavior === 'auto' ? 'smooth' : scrollBehavior
+        });
+      }
+    }
+  }, [imageRegions, isPlaybackMode, scrollBehavior]);
+
   useEffect(() => {
     if (currentSegmentIndex >= 0 && isPlaying) {
       scrollToSegment(currentSegmentIndex);
     }
   }, [currentSegmentIndex, isPlaying, scrollToSegment]);
+
+  useEffect(() => {
+    if (currentRegionIndex >= 0 && isPlaying && contentType === 'images') {
+      scrollToRegion(currentRegionIndex);
+    }
+  }, [currentRegionIndex, isPlaying, scrollToRegion, contentType]);
 
   useImperativeHandle(ref, () => ({
     scrollToCurrentSegment: () => {
@@ -177,6 +228,15 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
     }
     return null;
   }, [currentRegionIndex, imageRegions]);
+
+  const calculatedScale = useMemo(() => {
+    if (!isPlaybackMode || !currentRegion) return imageZoom / 100;
+    // Calculate scale to make the region fill ~90% of the viewport width
+    const targetWidthPercent = 95;
+    const scaleToFillWidth = targetWidthPercent / currentRegion.width;
+    // Apply user's manual zoom on top of the auto-scale
+    return scaleToFillWidth * (imageZoom / 100);
+  }, [isPlaybackMode, currentRegion, imageZoom]);
 
   const segmentProgress = useMemo(() => {
     if (currentSegmentIndex < 0 || !segments[currentSegmentIndex]) return 0;
@@ -231,12 +291,26 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
         </div>
       )}
 
-      {contentType === 'images' && (
-        <div className="relative w-full min-h-full bg-black/5 flex flex-col items-center py-8">
-          <div className="w-full max-w-5xl px-4">
-            {hasImageRegions ? (
-              <div className="space-y-8">
-                <div className="relative aspect-[3/4] w-full bg-white shadow-2xl rounded-lg overflow-hidden border">
+        {contentType === 'images' && (
+          <div className={cn(
+            "relative w-full min-h-full flex flex-col",
+            isPlaybackMode ? "bg-black p-0" : "bg-black/5 py-8 items-center"
+          )}>
+            <div className={cn(
+              "transition-all duration-500",
+              isPlaybackMode ? "w-screen h-screen p-0" : "w-full max-w-5xl px-4 h-auto"
+            )}>
+              {hasImageRegions ? (
+                <div className={cn(
+                  "space-y-8",
+                  isPlaybackMode && "h-full space-y-0"
+                )}>
+                  <div 
+                    className={cn(
+                      "relative w-full overflow-hidden transition-all duration-500",
+                      isPlaybackMode ? "h-full bg-black rounded-none border-0 shadow-none" : "aspect-[3/4] bg-white shadow-2xl rounded-lg border"
+                    )}
+                  >
                   {imageUrls.map((url, idx) => (
                     <div
                       key={idx}
@@ -252,21 +326,76 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                         }}
                         src={url}
                         alt={`${title} - Page ${idx + 1}`}
-                        className="w-full h-full object-contain"
-                        onLoad={(e) => handleImageLoad(idx, e)}
-                      />
-                      
-                      {currentImageIndex === idx && currentRegion && (
-                        <div
-                          className="absolute border-2 border-primary bg-primary/5 transition-all duration-300 pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.3)]"
-                          style={{
-                            left: `${currentRegion.x}%`,
-                            top: `${currentRegion.y}%`,
-                            width: `${currentRegion.width}%`,
-                            height: `${currentRegion.height}%`,
-                          }}
+                            className={cn(
+                              "transition-all duration-700 ease-out",
+                              isPlaybackMode 
+                                ? "absolute left-0 top-0" 
+                                : "w-full h-full object-contain"
+                            )}
+                            style={isPlaybackMode && currentRegion ? (() => {
+                              const imgEl = imageRefs.current.get(currentImageIndex);
+                              
+                              if (!containerSize.width || !containerSize.height || !imgEl) {
+                                return { width: '100%' };
+                              }
+                              
+                              const imgNaturalWidth = imgEl.naturalWidth || 1;
+                              const imgNaturalHeight = imgEl.naturalHeight || 1;
+                              const imgAspect = imgNaturalWidth / imgNaturalHeight;
+                              
+                              const scale = 100 / currentRegion.width;
+                              
+                              const scaledImgWidth = containerSize.width * scale;
+                              const scaledImgHeight = scaledImgWidth / imgAspect;
+                              
+                              const regionCenterYPercent = currentRegion.y + currentRegion.height / 2;
+                              const regionCenterYPx = (regionCenterYPercent / 100) * scaledImgHeight;
+                              
+                              const translateX = -(currentRegion.x / 100) * scaledImgWidth;
+                              const translateY = (containerSize.height / 2) - regionCenterYPx;
+                              
+                              return {
+                                width: `${scaledImgWidth}px`,
+                                height: `${scaledImgHeight}px`,
+                                transform: `translate(${translateX}px, ${translateY}px)`,
+                              };
+                            })() : {
+                              transform: `scale(${calculatedScale})`,
+                              transformOrigin: currentRegion ? `${currentRegion.x + currentRegion.width / 2}% ${currentRegion.y + currentRegion.height / 2}%` : 'center',
+                            }}
+                          onLoad={(e) => handleImageLoad(idx, e)}
                         />
-                      )}
+                        
+                        {currentImageIndex === idx && currentRegion && !isPlaybackMode && (
+                          <div
+                            className={cn(
+                              "absolute transition-all duration-500 pointer-events-none",
+                                highlightMode === 'background' && cn(
+                                  "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.8)]",
+                                  !isPlaybackMode && "border-2 border-primary"
+                                ),
+                                highlightMode === 'border' && cn(
+                                  "shadow-[0_0_20px_rgba(var(--primary),0.5)]",
+                                  !isPlaybackMode && "border-4 border-primary"
+                                ),
+                                highlightMode === 'glow' && cn(
+                                  "shadow-[0_0_40px_rgba(var(--primary),0.3),0_0_0_9999px_rgba(0,0,0,0.7)]",
+                                  !isPlaybackMode && "border-2 border-primary"
+                                ),
+                                highlightMode === 'scale' && cn(
+                                  "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] scale-110",
+                                  !isPlaybackMode && "border-2 border-primary"
+                                )
+                              )}
+                            style={{
+                              left: `${currentRegion.x}%`,
+                              top: `${currentRegion.y}%`,
+                              width: `${currentRegion.width}%`,
+                              height: `${currentRegion.height}%`,
+                              opacity: isPlaybackMode ? 1 : 0.8,
+                            }}
+                          />
+                        )}
                     </div>
                   ))}
 
@@ -344,8 +473,11 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
         </div>
       )}
 
-      {contentType === 'segments' && (
-        <div className="max-w-4xl mx-auto p-4 md:p-8 min-h-full">
+        {contentType === 'segments' && (
+          <div className={cn(
+            "mx-auto p-4 md:p-8 min-h-full transition-all duration-500",
+            isPlaybackMode ? "max-w-none" : "max-w-4xl"
+          )}>
           {segments.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-center">
               <FileText className="w-12 h-12 text-muted-foreground mb-4 opacity-20" />
@@ -420,7 +552,10 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
       )}
 
       {contentType === 'text' && textContent && (
-        <div className="max-w-4xl mx-auto p-4 bg-background min-h-full">
+        <div className={cn(
+          "mx-auto p-4 bg-background min-h-full transition-all duration-500",
+          isPlaybackMode ? "max-w-none" : "max-w-4xl"
+        )}>
           <div ref={textRef} dir="rtl" className="py-4">
             <div
               className="leading-loose whitespace-pre-wrap"

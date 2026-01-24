@@ -749,24 +749,25 @@ export default function TeleprompterPage() {
           </header>
 
           <main className="absolute inset-0 overflow-hidden">
-                  <UnifiedTeleprompterPlayer
-                    pieceId={id!}
-                    title={piece.title}
-                    imageUrls={imageUrls}
-                    pdfUrl={pdfUrl}
-                    textContent={textContent}
-                    segments={segments}
-                    imageRegions={imageRegions}
-                    currentTime={currentTimeDisplay}
-                    duration={duration}
-                    isPlaying={isPlaying}
-                    fontSize={fontSize}
-                    imageZoom={imageZoom}
-                    scrollBehavior={scrollBehavior}
-                    highlightMode={highlightMode}
-                    onSeekToSegment={seekToSegment}
-                    onNavigateToImageEditor={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
-                  />
+                    <UnifiedTeleprompterPlayer
+                      pieceId={id!}
+                      title={piece.title}
+                      imageUrls={imageUrls}
+                      pdfUrl={pdfUrl}
+                      textContent={textContent}
+                      segments={segments}
+                      imageRegions={imageRegions}
+                      currentTime={currentTimeDisplay}
+                      duration={duration}
+                      isPlaying={isPlaying}
+                      fontSize={fontSize}
+                      imageZoom={imageZoom}
+                      isPlaybackMode={isPlaybackMode}
+                      scrollBehavior={scrollBehavior}
+                      highlightMode={highlightMode}
+                      onSeekToSegment={seekToSegment}
+                      onNavigateToImageEditor={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
+                    />
           </main>
 
           <footer className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
@@ -782,16 +783,18 @@ export default function TeleprompterPage() {
               </div>
             </div>
 
-            <div className="p-4">
-              <div className="flex items-center justify-between max-w-4xl mx-auto">
-                  <div className="flex items-center gap-2 text-sm text-white/70 min-w-[100px]">
-                    <Clock className="w-4 h-4" />
-                    <span>{formatTime(currentTimeDisplay)}</span>
-                    <span>/</span>
-                    <span>{formatTime(duration)}</span>
+              <div className="p-4">
+                <div className="flex items-center justify-center max-w-4xl mx-auto relative">
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2" style={{ contain: 'layout size style', isolation: 'isolate' }}>
+                    <div className="flex items-center gap-1.5 text-sm text-white/70" style={{ width: '140px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontVariantNumeric: 'tabular-nums' }}>
+                      <Clock className="w-4 h-4 flex-shrink-0" />
+                      <span style={{ minWidth: '45px', display: 'inline-block', textAlign: 'right' }}>{formatTime(currentTimeDisplay)}</span>
+                      <span>/</span>
+                      <span style={{ minWidth: '45px', display: 'inline-block' }}>{formatTime(duration)}</span>
+                    </div>
                   </div>
 
-                <div className="flex items-center gap-2 md:gap-4">
+                  <div className="flex items-center gap-2 md:gap-4">
                   <Button
                     variant="ghost"
                     size="icon"
@@ -841,10 +844,10 @@ export default function TeleprompterPage() {
                     className="text-white hover:bg-white/20"
                   >
                     <SkipForward className="w-5 h-5" />
-                  </Button>
-                </div>
+                    </Button>
+                  </div>
 
-                <div className="flex items-center gap-2 min-w-[100px] justify-end">
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   <Button
                     variant={isLooping ? "default" : "ghost"}
                     size="icon"

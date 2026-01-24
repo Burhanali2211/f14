@@ -197,8 +197,7 @@ export function ImageSegmentEditor({
   const getRelativeY = useCallback((e: React.MouseEvent) => {
     if (!imageRef.current) return 0;
     const rect = imageRef.current.getBoundingClientRect();
-    const scaleY = imageRef.current.naturalHeight / rect.height;
-    return (e.clientY - rect.top) * scaleY;
+    return ((e.clientY - rect.top) / rect.height) * 100;
   }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -218,14 +217,14 @@ export function ImageSegmentEditor({
         const updated = regions.map(r => {
           if (r.id === draggingHandle.regionId) {
             if (draggingHandle.handle === 'top') {
-              const newY = Math.min(y, r.y + r.height - 20);
+              const newY = Math.min(y, r.y + r.height - 2);
               return { ...r, y: Math.max(0, newY), height: r.y + r.height - Math.max(0, newY) };
             } else if (draggingHandle.handle === 'bottom') {
-              const newHeight = Math.max(20, y - r.y);
-              return { ...r, height: newHeight };
+              const newHeight = Math.max(2, y - r.y);
+              return { ...r, height: Math.min(100 - r.y, newHeight) };
             } else if (draggingHandle.handle === 'move') {
               const deltaY = y - dragStartY;
-              const newY = Math.max(0, dragOriginalY + deltaY);
+              const newY = Math.max(0, Math.min(100 - r.height, dragOriginalY + deltaY));
               return { ...r, y: newY };
             }
           }
@@ -257,7 +256,7 @@ export function ImageSegmentEditor({
       }
 
       const height = currentBand.bottom - currentBand.top;
-      if (height > 30) {
+      if (height > 2) {
         const sortedRegions = [...regions].sort((a, b) => a.endTime - b.endTime);
         const lastRegion = sortedRegions[sortedRegions.length - 1];
         const newStartTime = lastRegion ? lastRegion.endTime : 0;
@@ -269,7 +268,7 @@ export function ImageSegmentEditor({
           imageIndex: currentPageIndex,
           x: 0,
           y: currentBand.top,
-          width: imageRef.current.naturalWidth,
+          width: 100,
           height: height,
           startTime: newStartTime,
           endTime: newEndTime,
@@ -423,11 +422,8 @@ export function ImageSegmentEditor({
   const renderBand = useCallback((region: ImageRegion | null, isTemp = false) => {
     if (!region || !imageRef.current) return null;
 
-    const rect = imageRef.current.getBoundingClientRect();
-    const scaleY = rect.height / imageRef.current.naturalHeight;
-
-    const top = region.y * scaleY;
-    const height = region.height * scaleY;
+    const top = `${region.y}%`;
+    const height = `${region.height}%`;
     const isEditing = editingSegment?.id === region.id;
     const isDragging = draggingHandle?.regionId === region.id;
     const isHidden = hiddenRegions.has(region.id);
@@ -677,8 +673,8 @@ export function ImageSegmentEditor({
               <div
                 className="absolute left-0 right-0 border-y-2 border-primary bg-primary/20 border-dashed pointer-events-none"
                 style={{
-                  top: currentBand.top * (imageRef.current.getBoundingClientRect().height / imageRef.current.naturalHeight),
-                  height: (currentBand.bottom - currentBand.top) * (imageRef.current.getBoundingClientRect().height / imageRef.current.naturalHeight),
+                  top: `${currentBand.top}%`,
+                  height: `${currentBand.bottom - currentBand.top}%`,
                 }}
               />
             )}
