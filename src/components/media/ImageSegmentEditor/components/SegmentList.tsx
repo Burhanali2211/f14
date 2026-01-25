@@ -1,5 +1,5 @@
 import { memo, useRef, useEffect, useCallback } from 'react';
-import { Plus, Eye, EyeOff, Check, Play } from 'lucide-react';
+import { Plus, Eye, EyeOff, Check, Play, Trash2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { ImageRegion } from '../types';
@@ -16,6 +16,7 @@ interface SegmentListProps {
   onSelect: (id: string, options?: { addToSelection?: boolean; rangeSelect?: boolean }) => void;
   onFocus: (id: string | null) => void;
   onToggleVisibility: (id: string) => void;
+  onDelete: (id: string) => void;
   onChangePage: (index: number) => void;
   onPlayRegion?: (id: string) => void;
 }
@@ -30,6 +31,7 @@ const SegmentItem = memo(function SegmentItem({
   onSelect,
   onFocus,
   onToggleVisibility,
+  onDelete,
   onPlayRegion,
 }: {
   region: ImageRegion;
@@ -41,6 +43,7 @@ const SegmentItem = memo(function SegmentItem({
   onSelect: (e: React.MouseEvent) => void;
   onFocus: () => void;
   onToggleVisibility: () => void;
+  onDelete: () => void;
   onPlayRegion?: () => void;
 }) {
   return (
@@ -83,32 +86,41 @@ const SegmentItem = memo(function SegmentItem({
             <span className="shrink-0 w-2 h-2 bg-green-500 rounded-full" />
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {onPlayRegion && (
+          <div className="flex items-center gap-1 shrink-0">
+            {onPlayRegion && (
+              <button
+                className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPlayRegion();
+                }}
+              >
+                <Play className="w-4 h-4" />
+              </button>
+            )}
             <button
-              className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100"
+              className="p-1 rounded hover:bg-muted"
               onClick={(e) => {
                 e.stopPropagation();
-                onPlayRegion();
+                onToggleVisibility();
               }}
             >
-              <Play className="w-4 h-4" />
+              {isHidden ? (
+                <EyeOff className="w-4 h-4 text-muted-foreground" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
             </button>
-          )}
-          <button
-            className="p-1 rounded hover:bg-muted"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleVisibility();
-            }}
-          >
-            {isHidden ? (
-              <EyeOff className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <Eye className="w-4 h-4" />
-            )}
-          </button>
-        </div>
+            <button
+              className="p-1 rounded hover:bg-destructive/20 opacity-0 group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="w-4 h-4 text-destructive" />
+            </button>
+          </div>
       </div>
       <div className={cn(
         "text-xs font-mono",
@@ -134,6 +146,7 @@ function SegmentListComponent({
   onSelect,
   onFocus,
   onToggleVisibility,
+  onDelete,
   onChangePage,
   onPlayRegion,
 }: SegmentListProps) {
@@ -217,21 +230,22 @@ function SegmentListComponent({
                     )}
                     
                     {pageRegions.map((region) => (
-                      <div key={region.id} ref={activeId === region.id ? activeRef : null}>
-                        <SegmentItem
-                          region={region}
-                          isSelected={selectedIds.has(region.id)}
-                          isFocused={focusedId === region.id}
-                          isActive={activeId === region.id}
-                          isHidden={hiddenRegionIds.has(region.id)}
-                          isOtherPage={pageIdx !== currentPageIndex && allPages.length > 1}
-                          onSelect={(e) => handleItemClick(e, region)}
-                          onFocus={() => onFocus(region.id)}
-                          onToggleVisibility={() => onToggleVisibility(region.id)}
-                          onPlayRegion={onPlayRegion ? () => onPlayRegion(region.id) : undefined}
-                        />
-                      </div>
-                    ))}
+                        <div key={region.id} ref={activeId === region.id ? activeRef : null}>
+                          <SegmentItem
+                            region={region}
+                            isSelected={selectedIds.has(region.id)}
+                            isFocused={focusedId === region.id}
+                            isActive={activeId === region.id}
+                            isHidden={hiddenRegionIds.has(region.id)}
+                            isOtherPage={pageIdx !== currentPageIndex && allPages.length > 1}
+                            onSelect={(e) => handleItemClick(e, region)}
+                            onFocus={() => onFocus(region.id)}
+                            onToggleVisibility={() => onToggleVisibility(region.id)}
+                            onDelete={() => onDelete(region.id)}
+                            onPlayRegion={onPlayRegion ? () => onPlayRegion(region.id) : undefined}
+                          />
+                        </div>
+                      ))}
                   </div>
                 );
               })}

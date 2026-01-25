@@ -358,8 +358,8 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                             const regionLeftInScaledImg = (regionXPercent / 100) * scaledImgWidth;
                             const regionTopInScaledImg = (regionYPercent / 100) * scaledImgHeight;
                             
-                            const translateX = -regionLeftInScaledImg;
-                            const translateY = (containerSize.height / 2) - (regionTopInScaledImg + displayRegionHeight / 2);
+                            const translateX = (containerSize.width - scaledImgWidth) / 2 - regionLeftInScaledImg + (containerSize.width - displayRegionWidth) / 2;
+                            const translateY = (containerSize.height - displayRegionHeight) / 2 - regionTopInScaledImg;
                             
                             return {
                               width: `${scaledImgWidth}px`,
