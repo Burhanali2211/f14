@@ -187,11 +187,10 @@ function ToolbarComponent({
                 <p><kbd>Space</kbd> Play/Pause</p>
                 <p><kbd>S</kbd> Set start time</p>
                 <p><kbd>E</kbd> Set end time</p>
-                <p><kbd>←/→</kbd> Seek ±1s</p>
-                <p><kbd>Shift+←/→</kbd> Seek ±5s</p>
-                <p><kbd>Ctrl+Z</kbd> Undo</p>
-                <p><kbd>Ctrl+C/V</kbd> Copy/Paste</p>
-              </div>
+                  <p><kbd>←/→</kbd> Seek ±1s</p>
+                  <p><kbd>Shift+←/→</kbd> Seek ±5s</p>
+                  <p><kbd>Ctrl+Z</kbd> Undo</p>
+                </div>
             </TooltipContent>
           </Tooltip>
 

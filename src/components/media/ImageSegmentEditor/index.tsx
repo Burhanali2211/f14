@@ -301,15 +301,15 @@ export function ImageSegmentEditor({
     const selectedIds = Array.from(selection.selectedIds);
     setRegions(regions.map(r => {
       if (selectedIds.includes(r.id)) {
+        const newEndTime = Math.max(r.startTime + 0.1, r.endTime + delta);
         return {
           ...r,
-          startTime: Math.max(0, r.startTime + delta),
-          endTime: Math.max(0, r.endTime + delta),
+          endTime: newEndTime,
         };
       }
       return r;
     }));
-    toast.success(`Shifted ${selectedIds.length} segment${selectedIds.length > 1 ? 's' : ''} by ${delta}s`);
+    toast.success(`Adjusted ${selectedIds.length} segment${selectedIds.length > 1 ? 's' : ''} duration by ${delta}s`);
   }, [selection.selectedIds, regions, setRegions]);
 
   useKeyboardShortcuts({

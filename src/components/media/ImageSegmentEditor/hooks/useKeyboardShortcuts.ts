@@ -95,39 +95,14 @@ export function useKeyboardShortcuts({
         }
         break;
 
-      case 'd':
-        if (ctrl) {
-          e.preventDefault();
-          onDuplicateSegment();
-        } else if (selectedRegionId) {
-          e.preventDefault();
-          onDeleteSelected();
-        }
-        break;
+        case 'd':
+          if (ctrl) {
+            e.preventDefault();
+            onDuplicateSegment();
+          }
+          break;
 
-      case 'Delete':
-      case 'Backspace':
-        if (selectedRegionId && !editingRegionId) {
-          e.preventDefault();
-          onDeleteSelected();
-        }
-        break;
-
-      case 'c':
-        if (ctrl && selectedRegionId) {
-          e.preventDefault();
-          onCopySegment();
-        }
-        break;
-
-      case 'v':
-        if (ctrl) {
-          e.preventDefault();
-          onPasteSegment();
-        }
-        break;
-
-      case 'z':
+        case 'ArrowLeft':
         if (ctrl) {
           e.preventDefault();
           if (shift) {
