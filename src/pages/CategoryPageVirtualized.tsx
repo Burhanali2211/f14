@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { FixedSizeList as List } from 'react-window';
+import { List } from 'react-window';
+import type { ListProps } from 'react-window';
 import { Link } from 'react-router-dom';
 import { PieceCard } from '@/components/PieceCard';
 import type { Piece } from '@/lib/supabase-types';

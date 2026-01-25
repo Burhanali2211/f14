@@ -153,11 +153,18 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
     }));
   }, []);
 
+  const stop = useCallback(() => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    clearLoop();
+  }, [clearLoop]);
+
   return {
     ...state,
     audioRef,
     play,
     pause,
+    stop,
     togglePlayPause,
     seekTo,
     seekRelative,

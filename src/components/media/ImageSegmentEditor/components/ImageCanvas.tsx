@@ -37,6 +37,10 @@ function ImageCanvasComponent({
   focusedId,
   activeId,
   hiddenRegionIds,
+  audioUrl,
+  playingRegionId,
+  onPlayRegion,
+  onStopPlaying,
   onRegionCreate,
   onRegionUpdate,
   onRegionSelect,
@@ -345,41 +349,63 @@ function ImageCanvasComponent({
                   }}
                 />
                 
-                <div className="absolute top-1 left-2 right-2 flex items-center justify-between pointer-events-none">
-                  <div className="flex items-center gap-2">
-                    {isSelected && (
-                      <div className={cn(
-                        "w-5 h-5 rounded flex items-center justify-center",
-                        isFocused ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground"
+                  <div className="absolute top-1 left-2 right-2 flex items-center justify-between pointer-events-none">
+                    <div className="flex items-center gap-2">
+                      {audioUrl && (
+                        <button
+                          className={cn(
+                            "p-1.5 rounded-full bg-background/90 hover:bg-background border shadow-sm pointer-events-auto transition-colors",
+                            playingRegionId === region.id && "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (playingRegionId === region.id) {
+                              onStopPlaying();
+                            } else {
+                              onPlayRegion(region.id);
+                            }
+                          }}
+                        >
+                          {playingRegionId === region.id ? (
+                            <Pause className="w-3.5 h-3.5" />
+                          ) : (
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                          )}
+                        </button>
+                      )}
+                      {isSelected && (
+                        <div className={cn(
+                          "w-5 h-5 rounded flex items-center justify-center",
+                          isFocused ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground"
+                        )}>
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-xs font-medium truncate max-w-[40%]",
+                        isActive ? "bg-green-500 text-white" : "bg-background/90"
                       )}>
-                        <Check className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-xs font-medium truncate max-w-[40%]",
-                      isActive ? "bg-green-500 text-white" : "bg-background/90"
-                    )}>
-                      {region.label || `Segment ${region.order + 1}`}
-                    </span>
+                        {region.label || `Segment ${region.order + 1}`}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className={cn(
+                        "px-2 py-0.5 rounded text-xs font-mono",
+                        isActive ? "bg-green-500 text-white" : "bg-background/90"
+                      )}>
+                        {formatTimeDisplay(region.startTime)} - {formatTimeDisplay(region.endTime)}
+                      </span>
+                      <button
+                        className="p-1 rounded bg-background/90 hover:bg-background pointer-events-auto"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleVisibility(region.id);
+                        }}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className={cn(
-                      "px-2 py-0.5 rounded text-xs font-mono",
-                      isActive ? "bg-green-500 text-white" : "bg-background/90"
-                    )}>
-                      {formatTimeDisplay(region.startTime)} - {formatTimeDisplay(region.endTime)}
-                    </span>
-                    <button
-                      className="p-1 rounded bg-background/90 hover:bg-background pointer-events-auto"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleVisibility(region.id);
-                      }}
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
               </div>
             );
           })}

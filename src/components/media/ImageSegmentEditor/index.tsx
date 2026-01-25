@@ -418,27 +418,31 @@ export function ImageSegmentEditor({
         {viewMode === 'image' ? (
           <div className="flex-1 overflow-auto p-4">
             <div className="mx-auto max-w-3xl">
-              <ImageCanvas
-                    imageSrc={allPages[currentPageIndex]}
-                    regions={currentPageRegions}
-                    selectedIds={selection.selectedIds}
-                    focusedId={selection.focusedId}
-                    activeId={selection.activeId}
-                    hiddenRegionIds={hiddenRegionIds}
-                    onRegionCreate={handleRegionCreate}
-                    onRegionUpdate={handleRegionUpdate}
-                    onRegionSelect={selection.select}
-                    onRegionFocus={selection.focus}
-                    onToggleVisibility={handleToggleVisibility}
-                    onDeselectAll={selection.deselectAll}
-                    isZoomed={zoomPan.isZoomed}
-                    getTransformStyle={zoomPan.getTransformStyle}
-                    imageRef={imageRef}
-                    containerRef={containerRef}
-                    onStartPanning={zoomPan.startPanning}
-                    onUpdatePan={zoomPan.updatePan}
-                    onStopPanning={zoomPan.stopPanning}
-                  />
+                <ImageCanvas
+                      imageSrc={allPages[currentPageIndex]}
+                      regions={currentPageRegions}
+                      selectedIds={selection.selectedIds}
+                      focusedId={selection.focusedId}
+                      activeId={selection.activeId}
+                      hiddenRegionIds={hiddenRegionIds}
+                      audioUrl={audioUrl}
+                      playingRegionId={selection.activeId}
+                      onPlayRegion={handlePlayRegion}
+                      onStopPlaying={audioPlayer.stop}
+                      onRegionCreate={handleRegionCreate}
+                      onRegionUpdate={handleRegionUpdate}
+                      onRegionSelect={selection.select}
+                      onRegionFocus={selection.focus}
+                      onToggleVisibility={handleToggleVisibility}
+                      onDeselectAll={selection.deselectAll}
+                      isZoomed={zoomPan.isZoomed}
+                      getTransformStyle={zoomPan.getTransformStyle}
+                      imageRef={imageRef}
+                      containerRef={containerRef}
+                      onStartPanning={zoomPan.startPanning}
+                      onUpdatePan={zoomPan.updatePan}
+                      onStopPanning={zoomPan.stopPanning}
+                    />
             </div>
           </div>
         ) : (

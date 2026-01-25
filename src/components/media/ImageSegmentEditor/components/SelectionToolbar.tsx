@@ -138,23 +138,6 @@ function MiniPlayer({
         {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
       </Button>
       
-      <div className="flex flex-col gap-0.5 min-w-[120px]">
-        <div 
-          ref={progressRef}
-          className="h-1.5 bg-muted rounded-full cursor-pointer overflow-hidden"
-          onClick={handleProgressClick}
-        >
-          <div 
-            className="h-full bg-primary rounded-full transition-all duration-100"
-            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-          />
-        </div>
-        <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-          <span>{formatTimeDisplay(currentTime)}</span>
-          <span>{formatTimeDisplay(region.endTime)}</span>
-        </div>
-      </div>
-      
       <Volume2 className="w-3.5 h-3.5 text-muted-foreground" />
     </div>
   );

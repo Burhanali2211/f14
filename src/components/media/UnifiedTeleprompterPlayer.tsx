@@ -326,43 +326,53 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                         }}
                         src={url}
                         alt={`${title} - Page ${idx + 1}`}
-                            className={cn(
-                              "transition-all duration-700 ease-out",
-                              isPlaybackMode 
-                                ? "absolute left-0 top-0" 
-                                : "w-full h-full object-contain"
-                            )}
-                            style={isPlaybackMode && currentRegion ? (() => {
-                              const imgEl = imageRefs.current.get(currentImageIndex);
-                              
-                              if (!containerSize.width || !containerSize.height || !imgEl) {
-                                return { width: '100%' };
-                              }
-                              
-                              const imgNaturalWidth = imgEl.naturalWidth || 1;
-                              const imgNaturalHeight = imgEl.naturalHeight || 1;
-                              const imgAspect = imgNaturalWidth / imgNaturalHeight;
-                              
-                              const scale = 100 / currentRegion.width;
-                              
-                              const scaledImgWidth = containerSize.width * scale;
-                              const scaledImgHeight = scaledImgWidth / imgAspect;
-                              
-                              const regionCenterYPercent = currentRegion.y + currentRegion.height / 2;
-                              const regionCenterYPx = (regionCenterYPercent / 100) * scaledImgHeight;
-                              
-                              const translateX = -(currentRegion.x / 100) * scaledImgWidth;
-                              const translateY = (containerSize.height / 2) - regionCenterYPx;
-                              
-                              return {
-                                width: `${scaledImgWidth}px`,
-                                height: `${scaledImgHeight}px`,
-                                transform: `translate(${translateX}px, ${translateY}px)`,
-                              };
-                            })() : {
-                              transform: `scale(${calculatedScale})`,
-                              transformOrigin: currentRegion ? `${currentRegion.x + currentRegion.width / 2}% ${currentRegion.y + currentRegion.height / 2}%` : 'center',
-                            }}
+                          className={cn(
+                                "transition-all duration-700 ease-out",
+                                isPlaybackMode 
+                                  ? "absolute left-0 top-0" 
+                                  : "w-full h-full object-contain"
+                              )}
+                              style={isPlaybackMode && currentRegion ? (() => {
+                                const imgEl = imageRefs.current.get(currentImageIndex);
+                                
+                                if (!containerSize.width || !containerSize.height || !imgEl) {
+                                  return { width: '100%', height: 'auto' };
+                                }
+                                
+                                const imgNaturalWidth = imgEl.naturalWidth || 1;
+                                const imgNaturalHeight = imgEl.naturalHeight || 1;
+                                const imgAspect = imgNaturalWidth / imgNaturalHeight;
+                                
+                                const regionWidthFraction = (currentRegion.width || 100) / 100;
+                                const regionHeightFraction = (currentRegion.height || 10) / 100;
+                                const regionYFraction = (currentRegion.y || 0) / 100;
+                                const regionXFraction = (currentRegion.x || 0) / 100;
+                                
+                                const scaleToFitWidth = containerSize.width / regionWidthFraction;
+                                const imgHeightAtScaleWidth = scaleToFitWidth / imgAspect;
+                                const regionHeightPxAtScaleWidth = regionHeightFraction * imgHeightAtScaleWidth;
+                                const scaleToFitHeight = (containerSize.height * 0.9) / regionHeightPxAtScaleWidth;
+                                
+                                const scale = Math.min(1, scaleToFitHeight) * (imageZoom / 100);
+                                
+                                const scaledImgWidth = scaleToFitWidth * scale;
+                                const scaledImgHeight = scaledImgWidth / imgAspect;
+                                
+                                const regionCenterYPx = (regionYFraction + regionHeightFraction / 2) * scaledImgHeight;
+                                const regionCenterXPx = (regionXFraction + regionWidthFraction / 2) * scaledImgWidth;
+                                
+                                const translateX = (containerSize.width / 2) - regionCenterXPx;
+                                const translateY = (containerSize.height / 2) - regionCenterYPx;
+                                
+                                return {
+                                  width: `${scaledImgWidth}px`,
+                                  height: `${scaledImgHeight}px`,
+                                  transform: `translate(${translateX}px, ${translateY}px)`,
+                                };
+                              })() : {
+                                transform: `scale(${calculatedScale})`,
+                                transformOrigin: currentRegion ? `${currentRegion.x + currentRegion.width / 2}% ${currentRegion.y + currentRegion.height / 2}%` : 'center',
+                              }}
                           onLoad={(e) => handleImageLoad(idx, e)}
                         />
                         
