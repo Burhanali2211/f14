@@ -29,7 +29,7 @@ interface ImageCanvasProps {
   onUpdatePan: (x: number, y: number) => void;
   onStopPanning: () => void;
 }
-
+//this snaps here
 function ImageCanvasComponent({
   imageSrc,
   regions,
