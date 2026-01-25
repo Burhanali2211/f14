@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
     Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
@@ -71,6 +71,8 @@ async function fetchPiece(id: string) {
 export default function TeleprompterPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const autoplayRequested = searchParams.get('autoplay') === 'true';
 
   const { data: piece, isLoading: pieceLoading, error: pieceError } = useQuery({
     queryKey: ['piece', id],
@@ -177,15 +179,38 @@ export default function TeleprompterPage() {
 
   useEffect(() => {
     if (!id) return;
-    try {
-      const stored = localStorage.getItem(`image-regions-${id}`);
-      if (stored) {
-        const regions = JSON.parse(stored) as ImageRegion[];
-        setImageRegions(regions.sort((a, b) => a.startTime - b.startTime));
+    
+    const loadRegions = async () => {
+      try {
+        const { data } = await supabase
+          .from('piece_image_segments')
+          .select('regions')
+          .eq('piece_id', id)
+          .single();
+
+        if (data?.regions) {
+          const regions = data.regions as unknown as ImageRegion[];
+          setImageRegions(regions.sort((a, b) => a.startTime - b.startTime));
+          return;
+        }
+      } catch {
       }
-    } catch {
-      setImageRegions([]);
-    }
+
+      try {
+        const stored = localStorage.getItem(`image-regions-${id}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          const regions = parsed.regions || parsed;
+          if (Array.isArray(regions)) {
+            setImageRegions(regions.sort((a, b) => a.startTime - b.startTime));
+          }
+        }
+      } catch {
+        setImageRegions([]);
+      }
+    };
+
+    loadRegions();
   }, [id]);
 
     useEffect(() => {
@@ -251,6 +276,8 @@ export default function TeleprompterPage() {
     }
   }, [segments, currentSegmentIndex, session]);
 
+  const currentTimeDisplayRef = useRef(0);
+
   const updatePlaybackLoop = useCallback(() => {
     const audio = audioRef.current;
     if (!audio || !isPlaying) return;
@@ -263,8 +290,8 @@ export default function TeleprompterPage() {
       currentTimeRef.current = loopStart || 0;
     }
 
-    // Only update display state if it changed significantly (every 0.1s)
-    if (Math.abs(time - currentTimeDisplay) >= 0.1) {
+    if (Math.abs(time - currentTimeDisplayRef.current) >= 0.05) {
+      currentTimeDisplayRef.current = time;
       setCurrentTimeDisplay(time);
     }
     
@@ -585,6 +612,13 @@ export default function TeleprompterPage() {
       console.error('Failed to get stream URL:', err);
     }
   }, [getStreamUrl]);
+
+  useEffect(() => {
+    if (autoplayRequested && isLoaded && audioUrl && !isPlaybackMode) {
+      enterPlaybackMode();
+      navigate(`/piece/${id}/teleprompter`, { replace: true });
+    }
+  }, [autoplayRequested, isLoaded, audioUrl, isPlaybackMode, enterPlaybackMode, navigate, id]);
 
   const progress = useMemo(() => {
     if (!duration) return 0;

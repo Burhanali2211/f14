@@ -3,34 +3,27 @@ import type { ImageRegion } from '../types';
 
 interface UseSegmentSelectionOptions {
   regions: ImageRegion[];
-  currentTime: number;
   onRegionsDelete?: (ids: string[]) => void;
 }
 
 export function useSegmentSelection({ 
   regions, 
-  currentTime,
   onRegionsDelete 
 }: UseSegmentSelectionOptions) {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const lastSelectedIdRef = useRef<string | null>(null);
-
-  const activeId = useMemo(() => {
-    const active = regions.find(r => currentTime >= r.startTime && currentTime < r.endTime);
-    return active?.id ?? null;
-  }, [regions, currentTime]);
-
-  const selectedSet = useMemo(() => new Set(selectedIds), [selectedIds]);
 
   const select = useCallback((id: string, options?: { addToSelection?: boolean; rangeSelect?: boolean }) => {
     if (options?.addToSelection) {
       setSelectedIds(prev => {
-        const idx = prev.indexOf(id);
-        if (idx >= 0) {
-          return prev.filter(x => x !== id);
+        const next = new Set(prev);
+        if (next.has(id)) {
+          next.delete(id);
+        } else {
+          next.add(id);
         }
-        return [...prev, id];
+        return next;
       });
     } else if (options?.rangeSelect && lastSelectedIdRef.current) {
       const sortedRegions = [...regions].sort((a, b) => a.startTime - b.startTime);
@@ -43,10 +36,10 @@ export function useSegmentSelection({
           : [currentIdx, lastIdx];
         
         const rangeIds = sortedRegions.slice(startIdx, endIdx + 1).map(r => r.id);
-        setSelectedIds(rangeIds);
+        setSelectedIds(new Set(rangeIds));
       }
     } else {
-      setSelectedIds([id]);
+      setSelectedIds(new Set([id]));
     }
     
     lastSelectedIdRef.current = id;
@@ -58,21 +51,21 @@ export function useSegmentSelection({
   }, []);
 
   const selectAll = useCallback(() => {
-    setSelectedIds(regions.map(r => r.id));
+    setSelectedIds(new Set(regions.map(r => r.id)));
     if (regions.length > 0) {
       lastSelectedIdRef.current = regions[regions.length - 1].id;
     }
   }, [regions]);
 
   const deselectAll = useCallback(() => {
-    setSelectedIds([]);
+    setSelectedIds(new Set());
     setFocusedId(null);
     lastSelectedIdRef.current = null;
   }, []);
 
   const selectByPage = useCallback((pageIndex: number) => {
     const pageRegions = regions.filter(r => r.imageIndex === pageIndex);
-    setSelectedIds(pageRegions.map(r => r.id));
+    setSelectedIds(new Set(pageRegions.map(r => r.id)));
     if (pageRegions.length > 0) {
       lastSelectedIdRef.current = pageRegions[pageRegions.length - 1].id;
     }
@@ -84,7 +77,7 @@ export function useSegmentSelection({
       (r.endTime > startTime && r.endTime <= endTime) ||
       (r.startTime <= startTime && r.endTime >= endTime)
     );
-    setSelectedIds(inRange.map(r => r.id));
+    setSelectedIds(new Set(inRange.map(r => r.id)));
     if (inRange.length > 0) {
       lastSelectedIdRef.current = inRange[inRange.length - 1].id;
     }
@@ -92,42 +85,32 @@ export function useSegmentSelection({
 
   const invertSelection = useCallback(() => {
     setSelectedIds(prev => {
-      const prevSet = new Set(prev);
-      return regions.filter(r => !prevSet.has(r.id)).map(r => r.id);
+      return new Set(regions.filter(r => !prev.has(r.id)).map(r => r.id));
     });
   }, [regions]);
 
   const deleteSelected = useCallback(() => {
-    if (selectedIds.length > 0 && onRegionsDelete) {
-      onRegionsDelete(selectedIds);
+    if (selectedIds.size > 0 && onRegionsDelete) {
+      onRegionsDelete(Array.from(selectedIds));
       deselectAll();
     }
   }, [selectedIds, onRegionsDelete, deselectAll]);
 
-  const isSelected = useCallback((id: string) => selectedSet.has(id), [selectedSet]);
-  const isFocused = useCallback((id: string) => focusedId === id, [focusedId]);
-  const isActive = useCallback((id: string) => activeId === id, [activeId]);
-
-  const selectedCount = selectedIds.length;
+  const selectedCount = selectedIds.size;
   const hasSelection = selectedCount > 0;
   const hasMultiSelection = selectedCount > 1;
 
   const selectedRegions = useMemo(() => 
-    regions.filter(r => selectedSet.has(r.id)),
-  [regions, selectedSet]);
+    regions.filter(r => selectedIds.has(r.id)),
+  [regions, selectedIds]);
 
   const focusedRegion = useMemo(() =>
     focusedId ? regions.find(r => r.id === focusedId) : null,
   [regions, focusedId]);
 
-  const activeRegion = useMemo(() =>
-    activeId ? regions.find(r => r.id === activeId) : null,
-  [regions, activeId]);
-
   return {
-    selectedIds: selectedSet,
+    selectedIds,
     focusedId,
-    activeId,
     
     select,
     focus,
@@ -138,15 +121,10 @@ export function useSegmentSelection({
     invertSelection,
     deleteSelected,
     
-    isSelected,
-    isFocused,
-    isActive,
-    
     selectedCount,
     hasSelection,
     hasMultiSelection,
     selectedRegions,
     focusedRegion,
-    activeRegion,
   };
 }

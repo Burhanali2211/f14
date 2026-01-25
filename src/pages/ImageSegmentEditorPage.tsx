@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Loader2, Home, Image as ImageIcon, Upload, Music, X, Eye, Save, Smartphone, CheckCircle } from 'lucide-react';
+import { Loader2, Home, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { ImageSegmentEditor, type ImageRegion } from '@/components/media/ImageSegmentEditor/index';
-import { ImageSegmentPreview } from '@/components/media/ImageSegmentPreview';
 import { AirSendDialog } from '@/components/media/AirSendDialog';
+import { EditorHeader, RecoveryDialog } from '@/components/media/ImageSegmentEditor/components';
+import { useAutoSave } from '@/components/media/ImageSegmentEditor/hooks';
 import { toast } from '@/hooks/use-toast';
 
 async function fetchPiece(id: string) {
@@ -19,21 +19,6 @@ async function fetchPiece(id: string) {
   
   if (error) throw error;
   return data;
-}
-
-const STORAGE_KEY = 'image-regions';
-
-function getStoredRegions(pieceId: string): ImageRegion[] {
-  try {
-    const stored = localStorage.getItem(`${STORAGE_KEY}-${pieceId}`);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveRegions(pieceId: string, regions: ImageRegion[]) {
-  localStorage.setItem(`${STORAGE_KEY}-${pieceId}`, JSON.stringify(regions));
 }
 
 const parseImageUrls = (url: unknown): string[] => {
@@ -76,48 +61,56 @@ export default function ImageSegmentEditorPage() {
     enabled: !!id,
   });
 
-    const [regions, setRegions] = useState<ImageRegion[]>([]);
-    const [hasChanges, setHasChanges] = useState(false);
-    const [isAutoSaving, setIsAutoSaving] = useState(false);
-    const [lastSaved, setLastSaved] = useState<Date | null>(null);
-    const [initialLoaded, setInitialLoaded] = useState(false);
-    const [showPreview, setShowPreview] = useState(false);
-    const [isUploading, setIsUploading] = useState(false);
-    const [showAirSend, setShowAirSend] = useState(false);
-    const audioFileRef = useRef<File | null>(null);
-    const audioInputRef = useRef<HTMLInputElement>(null);
+  const [regions, setRegions] = useState<ImageRegion[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showAirSend, setShowAirSend] = useState(false);
+  const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
+  const [recoveryData, setRecoveryData] = useState<{
+    localRegions: ImageRegion[];
+    cloudRegions: ImageRegion[];
+    localSavedAt: string | null;
+  } | null>(null);
+  
+  const [viewMode, setViewMode] = useState<'image' | 'timeline'>('image');
+  const [zoom, setZoom] = useState(1);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+  const audioInputRef = useRef<HTMLInputElement>(null);
+
+  const { saveStatus, manualSave, loadFromStorage, discardLocalChanges, syncToCloud } = useAutoSave({
+    pieceId: id || '',
+    regions,
+    enabled: !!id && initialLoaded,
+  });
 
   useEffect(() => {
-    if (id && !initialLoaded) {
-      const stored = getStoredRegions(id);
-      if (stored.length > 0) {
-        setRegions(stored);
-        setLastSaved(new Date());
+    if (!id || initialLoaded) return;
+
+    const initData = async () => {
+      const result = await loadFromStorage();
+      
+      if (result.hasRecoveryData && result.localData && result.cloudData) {
+        setRecoveryData({
+          localRegions: result.localData.regions,
+          cloudRegions: result.cloudData.regions,
+          localSavedAt: result.localData.savedAt,
+        });
+        setShowRecoveryDialog(true);
+      } else if (result.regions.length > 0) {
+        setRegions(result.regions);
       }
+      
       setInitialLoaded(true);
-    }
-  }, [id, initialLoaded]);
+    };
 
-  // Auto-save to localStorage
-  useEffect(() => {
-    if (!id || !initialLoaded || !hasChanges) return;
+    initData();
+  }, [id, initialLoaded, loadFromStorage]);
 
-    const timer = setTimeout(() => {
-      setIsAutoSaving(true);
-      saveRegions(id, regions);
-      setLastSaved(new Date());
-      setIsAutoSaving(false);
-      // We keep hasChanges true until they click "Save" for DB sync, 
-      // but localStorage is updated immediately
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [id, regions, initialLoaded, hasChanges]);
-
-  // Prevent accidental navigation
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasChanges) {
+      if (hasChanges || saveStatus.hasUnsavedChanges) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -125,8 +118,7 @@ export default function ImageSegmentEditorPage() {
 
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [hasChanges]);
-
+  }, [hasChanges, saveStatus.hasUnsavedChanges]);
 
   const pdfUrl = useMemo(() => {
     const urls = parseImageUrls(piece?.image_url);
@@ -138,11 +130,18 @@ export default function ImageSegmentEditorPage() {
     return urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
   }, [piece?.image_url]);
 
+  const regionsPerPage = useMemo(() => {
+    const map = new Map<number, number>();
+    regions.forEach(r => {
+      map.set(r.imageIndex, (map.get(r.imageIndex) || 0) + 1);
+    });
+    return map;
+  }, [regions]);
+
   const audioUrl = piece?.audio_url || undefined;
 
-  const handleAudioUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !id) return;
+  const handleAudioUpload = useCallback(async (file: File) => {
+    if (!id) return;
     
     if (!file.type.startsWith('audio/')) {
       toast({
@@ -154,7 +153,6 @@ export default function ImageSegmentEditorPage() {
     }
 
     setIsUploading(true);
-    audioFileRef.current = file;
 
     try {
       const fileExt = file.name.split('.').pop();
@@ -195,9 +193,6 @@ export default function ImageSegmentEditorPage() {
       });
     } finally {
       setIsUploading(false);
-      if (audioInputRef.current) {
-        audioInputRef.current.value = '';
-      }
     }
   }, [id, queryClient]);
 
@@ -281,41 +276,71 @@ export default function ImageSegmentEditorPage() {
         title: 'Audio synced',
         description: `"${fileName}" has been saved from AirSend`,
       });
-      } catch (err: any) {
-        console.error('AirSend sync error:', err);
-        
-        let errorMessage = 'Could not save the audio file';
-        if (err.message?.includes('exceeded the maximum allowed size')) {
-          errorMessage = 'The audio file is too large for the cloud storage (Max 50MB). Please use a smaller file or increase the limit in your Supabase dashboard.';
-        }
+    } catch (err: any) {
+      console.error('AirSend sync error:', err);
+      
+      let errorMessage = 'Could not save the audio file';
+      if (err.message?.includes('exceeded the maximum allowed size')) {
+        errorMessage = 'The audio file is too large for the cloud storage (Max 50MB).';
+      }
 
+      toast({
+        title: 'Sync failed',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+      
+      if (localUrl) {
         toast({
-          title: 'Sync failed',
-          description: errorMessage,
-          variant: 'destructive',
+          title: 'Using locally',
+          description: 'The file will work in this session, but wasn\'t saved to the cloud.',
         });
-        
-        // Still allow using it locally if sync fails
-        if (localUrl) {
-          toast({
-            title: 'Using locally',
-            description: 'The file will work in this session, but wasn\'t saved to the cloud.',
-          });
-        }
-      } finally {
+      }
+    } finally {
       setIsUploading(false);
     }
   }, [id, queryClient]);
 
-  const handleSave = useCallback(() => {
-    if (!id) return;
-    saveRegions(id, regions);
+  const handleSave = useCallback(async () => {
+    await manualSave();
     setHasChanges(false);
     toast({
       title: 'Saved',
-      description: `${regions.length} segments saved successfully.`,
+      description: `${regions.length} segments saved and synced.`,
     });
-  }, [id, regions]);
+  }, [manualSave, regions.length]);
+
+  const handleRestoreLocal = useCallback(() => {
+    if (recoveryData) {
+      setRegions(recoveryData.localRegions);
+      setHasChanges(true);
+    }
+    setShowRecoveryDialog(false);
+  }, [recoveryData]);
+
+  const handleUseCloud = useCallback(() => {
+    if (recoveryData) {
+      setRegions(recoveryData.cloudRegions);
+      discardLocalChanges();
+    }
+    setShowRecoveryDialog(false);
+  }, [recoveryData, discardLocalChanges]);
+
+  const handleDiscardLocal = useCallback(() => {
+    discardLocalChanges();
+    if (recoveryData?.cloudRegions) {
+      setRegions(recoveryData.cloudRegions);
+    }
+    setShowRecoveryDialog(false);
+  }, [discardLocalChanges, recoveryData]);
+
+  const handlePreview = useCallback(async () => {
+    if (hasChanges) {
+      await manualSave();
+      setHasChanges(false);
+    }
+    navigate(`/piece/${id}/teleprompter?autoplay=true`);
+  }, [hasChanges, manualSave, navigate, id]);
 
   if (isLoading) {
     return (
@@ -346,164 +371,79 @@ export default function ImageSegmentEditorPage() {
         <h1 className="text-2xl font-bold mb-2">No Images Available</h1>
         <p className="text-muted-foreground mb-4">This piece doesn't have any images to annotate.</p>
         <Button onClick={() => navigate(`/piece/${id}/teleprompter`)}>
-          <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Teleprompter
         </Button>
-      </div>
-    );
-  }
+        </div>
+      );
+    }
 
-  if (showPreview) {
-    return (
-      <ImageSegmentPreview
-        imageUrls={imageUrls}
-        pdfUrl={pdfUrl || undefined}
-        audioUrl={audioUrl}
-        regions={regions}
-        onClose={() => setShowPreview(false)}
-        pieceTitle={piece.title}
-      />
-    );
-  }
-
-  const audioFileName = audioUrl ? decodeURIComponent(audioUrl.split('/').pop() || '').replace(/^\d+-\d+\./, '') : null;
+  const audioFileName = audioUrl ? decodeURIComponent(audioUrl.split('/').pop() || '').replace(/^\d+-\d+\./, '') : undefined;
+  const allPages = pdfUrl ? [] : imageUrls;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="sticky top-0 z-10 bg-background border-b border-border p-4">
-        <div className="flex items-center gap-4 max-w-7xl mx-auto">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(`/piece/${id}/teleprompter`)}
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-semibold truncate">{piece.title}</h1>
-              <p className="text-sm text-muted-foreground truncate">Image Segment Editor</p>
-            </div>
+      <EditorHeader
+        pieceId={id || ''}
+        pieceTitle={piece.title}
+        hasChanges={hasChanges}
+        canUndo={false}
+        canRedo={false}
+        historyLength={0}
+        zoom={zoom}
+        viewMode={viewMode}
+        audioUrl={audioUrl}
+        audioFileName={audioFileName}
+        isUploading={isUploading}
+        saveStatus={saveStatus}
+        regionsCount={regions.length}
+        pages={allPages}
+        currentPageIndex={currentPageIndex}
+        regionsPerPage={regionsPerPage}
+        onSave={handleSave}
+        onUndo={() => {}}
+        onRedo={() => {}}
+        onZoomIn={() => setZoom(z => Math.min(4, z * 1.2))}
+        onZoomOut={() => setZoom(z => Math.max(0.25, z / 1.2))}
+        onZoomChange={setZoom}
+        onResetZoom={() => setZoom(1)}
+        onToggleViewMode={() => setViewMode(v => v === 'image' ? 'timeline' : 'image')}
+        onPreview={handlePreview}
+        onAudioUpload={handleAudioUpload}
+        onRemoveAudio={handleRemoveAudio}
+        onAirSend={() => setShowAirSend(true)}
+        onPageChange={setCurrentPageIndex}
+        onSyncToCloud={() => syncToCloud(true)}
+      />
 
-          <input
-            ref={audioInputRef}
-            type="file"
-            accept="audio/*"
-            onChange={handleAudioUpload}
-            className="hidden"
-            id="audio-upload"
-            disabled={isUploading}
-          />
-
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {isAutoSaving ? (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded text-[10px] font-medium text-muted-foreground">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Auto-saving...
-                </div>
-              ) : lastSaved && (
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-muted rounded text-[10px] font-medium text-muted-foreground">
-                  <CheckCircle className="w-3 h-3 text-green-500" />
-                  Saved {lastSaved.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              )}
-
-              {audioUrl && (
-
-                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 rounded-lg border border-green-500/30 max-w-[200px] sm:max-w-[350px]">
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
-                      <Music className="w-4 h-4 text-green-500" />
-                      <span className="text-[10px] font-bold text-green-600 uppercase tracking-tighter bg-green-500/20 px-1 rounded">Active</span>
-                    </div>
-                    <span className="text-sm font-medium text-green-600 truncate">
-                      {audioFileName || 'Audio synced'}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 hover:bg-destructive/20 flex-shrink-0 ml-1"
-                      onClick={handleRemoveAudio}
-                      disabled={isUploading}
-                    >
-                      {isUploading ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <X className="w-3.5 h-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-1.5 ml-2 border-l pl-3 border-border">
-                  <Button
-                    variant={audioUrl ? "ghost" : "outline"}
-                    size="sm"
-                    className={cn("gap-2", audioUrl && "text-muted-foreground hover:text-foreground")}
-                    onClick={() => audioInputRef.current?.click()}
-                    disabled={isUploading}
-                  >
-                    {isUploading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Upload className="w-4 h-4" />
-                    )}
-                    {audioUrl ? 'Replace' : 'Upload'}
-                  </Button>
-                  <Button
-                    variant={audioUrl ? "ghost" : "outline"}
-                    size="sm"
-                    className={cn("gap-2", audioUrl && "text-muted-foreground hover:text-foreground")}
-                    onClick={() => setShowAirSend(true)}
-                    disabled={isUploading}
-                  >
-                    <Smartphone className="w-4 h-4" />
-                    AirSend
-                  </Button>
-                </div>
-              </div>
-
-          {regions.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowPreview(true)}
-            >
-              <Eye className="w-4 h-4 mr-2" />
-              Preview
-            </Button>
-          )}
-
-          {hasChanges && (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={handleSave}
-            >
-              <Save className="w-4 h-4 mr-2" />
-              Save
-            </Button>
-          )}
-        </div>
-      </header>
-
-        <main className="flex-1">
-          <ImageSegmentEditor
-            imageUrls={imageUrls}
-            pdfUrl={pdfUrl || undefined}
-            audioUrl={audioUrl}
-            regions={regions}
-            onRegionsChange={handleRegionsChange}
-            onSave={handleSave}
-            hasChanges={hasChanges}
-          />
-        </main>
-
-        <AirSendDialog
-          open={showAirSend}
-          onOpenChange={setShowAirSend}
-          pieceId={id || ''}
-          onAudioReceived={handleAirSendReceived}
+      <main className="flex-1">
+        <ImageSegmentEditor
+          imageUrls={imageUrls}
+          pdfUrl={pdfUrl || undefined}
+          audioUrl={audioUrl}
+          regions={regions}
+          onRegionsChange={handleRegionsChange}
+          onSave={handleSave}
+          hasChanges={hasChanges}
         />
-      </div>
-    );
-  }
+      </main>
+
+      <AirSendDialog
+        open={showAirSend}
+        onOpenChange={setShowAirSend}
+        pieceId={id || ''}
+        onAudioReceived={handleAirSendReceived}
+      />
+
+      <RecoveryDialog
+        open={showRecoveryDialog}
+        onOpenChange={setShowRecoveryDialog}
+        localSegments={recoveryData?.localRegions.length || 0}
+        cloudSegments={recoveryData?.cloudRegions.length || 0}
+        localSavedAt={recoveryData?.localSavedAt || null}
+        onRestoreLocal={handleRestoreLocal}
+        onUseCloud={handleUseCloud}
+        onDiscard={handleDiscardLocal}
+      />
+    </div>
+  );
+}

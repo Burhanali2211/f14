@@ -7,3 +7,5 @@ export { Toolbar } from './Toolbar';
 export { PageNavigation } from './PageNavigation';
 export { TimelineView } from './TimelineView';
 export { SelectionToolbar } from './SelectionToolbar';
+export { EditorHeader } from './EditorHeader';
+export { RecoveryDialog } from './RecoveryDialog';

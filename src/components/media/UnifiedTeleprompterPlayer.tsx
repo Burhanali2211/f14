@@ -107,31 +107,35 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
     return -1;
   }, [segments]);
 
+  const sortedRegions = useMemo(() => 
+    [...imageRegions].sort((a, b) => a.startTime - b.startTime),
+  [imageRegions]);
+
   const findCurrentRegionIndex = useCallback((time: number): number => {
-    if (!imageRegions.length) return -1;
+    if (!sortedRegions.length) return -1;
     
-    for (let i = 0; i < imageRegions.length; i++) {
-      if (time >= imageRegions[i].startTime && time < imageRegions[i].endTime) {
+    for (let i = 0; i < sortedRegions.length; i++) {
+      if (time >= sortedRegions[i].startTime && time < sortedRegions[i].endTime) {
         return i;
       }
     }
     
-    if (time < imageRegions[0].startTime) {
+    if (time < sortedRegions[0].startTime) {
       return 0;
     }
     
-    if (time >= imageRegions[imageRegions.length - 1].endTime) {
-      return imageRegions.length - 1;
+    if (time >= sortedRegions[sortedRegions.length - 1].endTime) {
+      return sortedRegions.length - 1;
     }
     
-    for (let i = 0; i < imageRegions.length - 1; i++) {
-      if (time >= imageRegions[i].endTime && time < imageRegions[i + 1].startTime) {
+    for (let i = 0; i < sortedRegions.length - 1; i++) {
+      if (time >= sortedRegions[i].endTime && time < sortedRegions[i + 1].startTime) {
         return i;
       }
     }
     
     return 0;
-  }, [imageRegions]);
+  }, [sortedRegions]);
 
   useEffect(() => {
     if (contentType === 'segments' && hasSegments) {
@@ -143,17 +147,17 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   }, [currentTime, contentType, hasSegments, findCurrentSegmentIndex, currentSegmentIndex]);
 
   useEffect(() => {
-    if (contentType === 'images' && hasImageRegions && imageRegions.length > 0) {
+    if (contentType === 'images' && hasImageRegions && sortedRegions.length > 0) {
       const newIndex = findCurrentRegionIndex(currentTime);
       if (newIndex >= 0 && newIndex !== currentRegionIndex) {
         setCurrentRegionIndex(newIndex);
-        const region = imageRegions[newIndex];
+        const region = sortedRegions[newIndex];
         if (region && region.imageIndex !== currentImageIndex) {
           setCurrentImageIndex(region.imageIndex);
         }
       }
     }
-  }, [currentTime, contentType, hasImageRegions, imageRegions, findCurrentRegionIndex, currentRegionIndex, currentImageIndex]);
+  }, [currentTime, contentType, hasImageRegions, sortedRegions, findCurrentRegionIndex, currentRegionIndex, currentImageIndex]);
 
   const scrollToSegment = useCallback((index: number) => {
     const el = segmentRefs.current.get(index);
@@ -168,18 +172,13 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   }, [scrollBehavior]);
 
   const scrollToRegion = useCallback((index: number) => {
-    const region = imageRegions[index];
+    const region = sortedRegions[index];
     if (!region || !containerRef.current) return;
 
-    // For image regions, we want to scroll the main container if the image is tall
-    // Or if we are in playback mode, we might want to adjust the scroll to center the region
     const container = containerRef.current;
     if (isPlaybackMode) {
-      // In playback mode with scale/zoom, the transform-origin handles the visual centering
-      // but we still might want to ensure the scroll position is reset to top
       container.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
-      // In normal mode, scroll to the region's vertical position
       const imageEl = imageRefs.current.get(region.imageIndex);
       if (imageEl) {
         const rect = imageEl.getBoundingClientRect();
@@ -190,7 +189,7 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
         });
       }
     }
-  }, [imageRegions, isPlaybackMode, scrollBehavior]);
+  }, [sortedRegions, isPlaybackMode, scrollBehavior]);
 
   useEffect(() => {
     if (currentSegmentIndex >= 0 && isPlaying) {
@@ -223,11 +222,11 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   };
 
   const currentRegion = useMemo(() => {
-    if (currentRegionIndex >= 0 && imageRegions[currentRegionIndex]) {
-      return imageRegions[currentRegionIndex];
+    if (currentRegionIndex >= 0 && sortedRegions[currentRegionIndex]) {
+      return sortedRegions[currentRegionIndex];
     }
     return null;
-  }, [currentRegionIndex, imageRegions]);
+  }, [currentRegionIndex, sortedRegions]);
 
   const calculatedScale = useMemo(() => {
     if (!isPlaybackMode || !currentRegion) return imageZoom / 100;

@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { X, Play, Pause, RotateCcw, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { X, Play, Pause, RotateCcw, Volume2, VolumeX, ChevronLeft, ChevronRight, Maximize, Minimize, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ImageRegion } from './ImageSegmentEditor';
 import { cn } from '@/lib/utils';
@@ -22,6 +22,130 @@ const formatTime = (seconds: number): string => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+interface SegmentDisplayProps {
+  region: ImageRegion;
+  imageSrc: string;
+  isTransitioning: boolean;
+}
+
+const SegmentDisplay = memo(function SegmentDisplay({ region, imageSrc, isTransitioning }: SegmentDisplayProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement | null>(null);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      imageRef.current = img;
+      setIsReady(true);
+    };
+    img.src = imageSrc;
+
+    return () => {
+      img.onload = null;
+    };
+  }, [imageSrc]);
+
+  useEffect(() => {
+    if (!isReady || !imageRef.current || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const img = imageRef.current;
+    const imgWidth = img.naturalWidth;
+    const imgHeight = img.naturalHeight;
+
+    const cropX = (region.x / 100) * imgWidth;
+    const cropY = (region.y / 100) * imgHeight;
+    const cropWidth = (region.width / 100) * imgWidth;
+    const cropHeight = (region.height / 100) * imgHeight;
+
+    const maxWidth = window.innerWidth * 0.95;
+    const maxHeight = window.innerHeight * 0.7;
+
+    let displayWidth = cropWidth;
+    let displayHeight = cropHeight;
+
+    const scaleX = maxWidth / cropWidth;
+    const scaleY = maxHeight / cropHeight;
+    const scale = Math.min(scaleX, scaleY, 2.5);
+
+    displayWidth = cropWidth * scale;
+    displayHeight = cropHeight * scale;
+
+    canvas.width = displayWidth;
+    canvas.height = displayHeight;
+
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    ctx.drawImage(
+      img,
+      cropX, cropY, cropWidth, cropHeight,
+      0, 0, displayWidth, displayHeight
+    );
+  }, [isReady, region]);
+
+  return (
+    <div 
+      className={cn(
+        "flex items-center justify-center w-full h-full transition-opacity duration-300",
+        isTransitioning ? "opacity-0" : "opacity-100"
+      )}
+    >
+      <canvas
+        ref={canvasRef}
+        className="max-w-full max-h-full rounded-lg shadow-2xl"
+        style={{
+          boxShadow: '0 0 60px rgba(0,0,0,0.8), 0 0 20px rgba(255,255,255,0.05)',
+        }}
+      />
+    </div>
+  );
+});
+
+interface SegmentIndicatorProps {
+  region: ImageRegion;
+  index: number;
+  isActive: boolean;
+  progress: number;
+  onClick: () => void;
+}
+
+const SegmentIndicator = memo(function SegmentIndicator({ 
+  region, 
+  index, 
+  isActive, 
+  progress,
+  onClick 
+}: SegmentIndicatorProps) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "relative h-2 rounded-full overflow-hidden transition-all duration-200 min-w-[20px]",
+        isActive 
+          ? "bg-primary/30 flex-grow" 
+          : "bg-white/20 hover:bg-white/30 flex-shrink-0"
+      )}
+      style={{ 
+        flex: isActive ? '1 1 auto' : '0 0 20px',
+      }}
+      title={`${region.label || `Segment ${index + 1}`}: ${formatTime(region.startTime)} - ${formatTime(region.endTime)}`}
+    >
+      {isActive && (
+        <div 
+          className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-100"
+          style={{ width: `${progress}%` }}
+        />
+      )}
+    </button>
+  );
+});
+
 export function ImageSegmentPreview({
   imageUrls,
   pdfUrl,
@@ -35,12 +159,16 @@ export function ImageSegmentPreview({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
-  const [currentRegion, setCurrentRegion] = useState<ImageRegion | null>(null);
-  const [scrollPosition, setScrollPosition] = useState(0);
+  const [currentRegionIndex, setCurrentRegionIndex] = useState<number>(-1);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
   
   const audioRef = useRef<HTMLAudioElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imageRefs = useRef<Map<number, HTMLImageElement>>(new Map());
+  const animationFrameRef = useRef<number | null>(null);
+  const lastUpdateTimeRef = useRef<number>(0);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const allImages = useMemo(() => {
     if (pdfPages.length > 0) return pdfPages;
@@ -50,6 +178,18 @@ export function ImageSegmentPreview({
   const sortedRegions = useMemo(() => {
     return [...regions].sort((a, b) => a.startTime - b.startTime);
   }, [regions]);
+
+  const currentRegion = useMemo(() => {
+    if (currentRegionIndex >= 0 && currentRegionIndex < sortedRegions.length) {
+      return sortedRegions[currentRegionIndex];
+    }
+    return null;
+  }, [currentRegionIndex, sortedRegions]);
+
+  const currentImageSrc = useMemo(() => {
+    if (!currentRegion) return null;
+    return allImages[currentRegion.imageIndex] || null;
+  }, [currentRegion, allImages]);
 
   useEffect(() => {
     if (!pdfUrl) return;
@@ -82,13 +222,63 @@ export function ImageSegmentPreview({
     loadPdf();
   }, [pdfUrl]);
 
+  const updateCurrentRegion = useCallback((time: number) => {
+    if (sortedRegions.length === 0) {
+      setCurrentRegionIndex(-1);
+      return -1;
+    }
+
+    const newIndex = sortedRegions.findIndex(
+      (r) => time >= r.startTime && time < r.endTime
+    );
+
+    if (newIndex !== currentRegionIndex) {
+      if (newIndex >= 0) {
+        setIsTransitioning(true);
+        setTimeout(() => {
+          setCurrentRegionIndex(newIndex);
+          setIsTransitioning(false);
+        }, 150);
+      } else {
+        setCurrentRegionIndex(-1);
+      }
+    }
+
+    return newIndex;
+  }, [sortedRegions, currentRegionIndex]);
+
+  const handleTimeUpdate = useCallback(() => {
+    if (!audioRef.current) return;
+
+    const now = performance.now();
+    if (now - lastUpdateTimeRef.current < 50) return;
+    lastUpdateTimeRef.current = now;
+
+    const time = audioRef.current.currentTime;
+    setCurrentTime(time);
+
+    const activeIndex = updateCurrentRegion(time);
+
+    if (activeIndex === -1 && sortedRegions.length > 0) {
+      const nextRegion = sortedRegions.find(r => r.startTime > time);
+      const prevRegion = [...sortedRegions].reverse().find(r => r.endTime <= time);
+      
+      if (prevRegion && nextRegion) {
+        const gapDuration = nextRegion.startTime - prevRegion.endTime;
+        if (gapDuration > 2) {
+          audioRef.current.currentTime = nextRegion.startTime;
+          setCurrentTime(nextRegion.startTime);
+        }
+      } else if (prevRegion && !nextRegion) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  }, [sortedRegions, updateCurrentRegion]);
+
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
-
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
@@ -97,81 +287,47 @@ export function ImageSegmentPreview({
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
-      audio.currentTime = 0;
+      setCurrentRegionIndex(-1);
     };
 
-    audio.addEventListener('timeupdate', handleTimeUpdate);
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('play', handlePlay);
+    audio.addEventListener('pause', handlePause);
 
     return () => {
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('play', handlePlay);
+      audio.removeEventListener('pause', handlePause);
     };
   }, []);
 
   useEffect(() => {
-    if (sortedRegions.length === 0) return;
-
-    const activeRegion = sortedRegions.find(
-      (r) => currentTime >= r.startTime && currentTime < r.endTime
-    );
-
-    if (activeRegion && activeRegion.id !== currentRegion?.id) {
-      setCurrentRegion(activeRegion);
-    } else if (!activeRegion && currentRegion) {
-      setCurrentRegion(null);
+    if (!isPlaying || !audioRef.current) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      return;
     }
-  }, [currentTime, sortedRegions, currentRegion]);
 
-  const zoomFactor = useMemo(() => {
-    if (!currentRegion) return 1;
-    // Aim to fill about 95% of the width
-    // If region width is 100 (%), we don't zoom horizontally.
-    // But we might want to zoom anyway to make it "BIGGER" for distance reading.
-    // Let's default to a 1.2x zoom if it's already full width, 
-    // or more if it's a narrow segment.
-    const widthScale = 100 / Math.max(currentRegion.width, 30);
-    return Math.max(1.2, widthScale * 0.95);
-  }, [currentRegion]);
+    const tick = () => {
+      handleTimeUpdate();
+      animationFrameRef.current = requestAnimationFrame(tick);
+    };
 
-  useEffect(() => {
-    if (!currentRegion || !containerRef.current) return;
+    animationFrameRef.current = requestAnimationFrame(tick);
 
-    const scrollTimer = setTimeout(() => {
-      const container = containerRef.current;
-      if (!container) return;
-      
-      const imageIndex = currentRegion.imageIndex;
-      const img = imageRefs.current.get(imageIndex);
-      
-      if (!img) return;
-
-      const containerHeight = container.clientHeight;
-      const imgRect = img.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      
-      const imgTop = imgRect.top - containerRect.top + container.scrollTop;
-      const naturalHeight = img.naturalHeight;
-      const displayHeight = imgRect.height;
-      const scale = displayHeight / naturalHeight;
-
-      const regionTop = imgTop + (currentRegion.y * scale);
-      const regionHeight = currentRegion.height * scale;
-
-      const targetScroll = regionTop - (containerHeight / 2) + (regionHeight / 2);
-      
-      container.scrollTo({
-        top: Math.max(0, targetScroll),
-        behavior: 'smooth',
-      });
-
-      setScrollPosition(targetScroll);
-    }, 100);
-
-    return () => clearTimeout(scrollTimer);
-  }, [currentRegion, zoomFactor]);
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isPlaying, handleTimeUpdate]);
 
   const togglePlayPause = useCallback(() => {
     const audio = audioRef.current;
@@ -180,20 +336,27 @@ export function ImageSegmentPreview({
     if (isPlaying) {
       audio.pause();
     } else {
+      if (sortedRegions.length > 0 && currentRegionIndex === -1) {
+        const nextRegion = sortedRegions.find(r => r.startTime > currentTime);
+        if (nextRegion) {
+          audio.currentTime = nextRegion.startTime;
+        } else if (currentTime >= duration - 0.1) {
+          audio.currentTime = sortedRegions[0].startTime;
+        }
+      }
       audio.play();
     }
-    setIsPlaying(!isPlaying);
-  }, [isPlaying]);
+  }, [isPlaying, sortedRegions, currentRegionIndex, currentTime, duration]);
 
   const handleRestart = useCallback(() => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || sortedRegions.length === 0) return;
 
-    audio.currentTime = 0;
-    setCurrentTime(0);
+    audio.currentTime = sortedRegions[0].startTime;
+    setCurrentTime(sortedRegions[0].startTime);
+    setCurrentRegionIndex(0);
     audio.play();
-    setIsPlaying(true);
-  }, []);
+  }, [sortedRegions]);
 
   const toggleMute = useCallback(() => {
     const audio = audioRef.current;
@@ -203,29 +366,68 @@ export function ImageSegmentPreview({
     setIsMuted(!isMuted);
   }, [isMuted]);
 
-  const seekTo = useCallback((time: number) => {
+  const seekToRegion = useCallback((index: number) => {
     const audio = audioRef.current;
-    if (!audio) return;
+    if (!audio || index < 0 || index >= sortedRegions.length) return;
 
-    audio.currentTime = time;
-    setCurrentTime(time);
-  }, []);
+    const region = sortedRegions[index];
+    audio.currentTime = region.startTime;
+    setCurrentTime(region.startTime);
+    setCurrentRegionIndex(index);
+    
+    if (!isPlaying) {
+      audio.play();
+    }
+  }, [sortedRegions, isPlaying]);
 
   const goToNextRegion = useCallback(() => {
-    const nextRegion = sortedRegions.find((r) => r.startTime > currentTime);
-    if (nextRegion) {
-      seekTo(nextRegion.startTime);
+    const nextIndex = currentRegionIndex + 1;
+    if (nextIndex < sortedRegions.length) {
+      seekToRegion(nextIndex);
     }
-  }, [currentTime, sortedRegions, seekTo]);
+  }, [currentRegionIndex, sortedRegions.length, seekToRegion]);
 
   const goToPrevRegion = useCallback(() => {
-    const prevRegions = sortedRegions.filter((r) => r.startTime < currentTime - 0.5);
-    if (prevRegions.length > 0) {
-      seekTo(prevRegions[prevRegions.length - 1].startTime);
+    const prevIndex = currentRegionIndex <= 0 ? 0 : currentRegionIndex - 1;
+    seekToRegion(prevIndex);
+  }, [currentRegionIndex, seekToRegion]);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen().then(() => {
+        setIsFullscreen(true);
+      }).catch(() => {});
     } else {
-      seekTo(0);
+      document.exitFullscreen().then(() => {
+        setIsFullscreen(false);
+      }).catch(() => {});
     }
-  }, [currentTime, sortedRegions, seekTo]);
+  }, []);
+
+  const handleMouseMove = useCallback(() => {
+    setShowControls(true);
+    
+    if (controlsTimeoutRef.current) {
+      clearTimeout(controlsTimeoutRef.current);
+    }
+
+    if (isPlaying) {
+      controlsTimeoutRef.current = setTimeout(() => {
+        setShowControls(false);
+      }, 3000);
+    }
+  }, [isPlaying]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -240,165 +442,135 @@ export function ImageSegmentPreview({
         goToNextRegion();
       } else if (e.code === 'Escape') {
         e.preventDefault();
-        onClose();
+        if (isFullscreen) {
+          document.exitFullscreen();
+        } else {
+          onClose();
+        }
       } else if (e.code === 'KeyM') {
         e.preventDefault();
         toggleMute();
+      } else if (e.code === 'KeyF') {
+        e.preventDefault();
+        toggleFullscreen();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [togglePlayPause, goToPrevRegion, goToNextRegion, toggleMute, onClose]);
+  }, [togglePlayPause, goToPrevRegion, goToNextRegion, toggleMute, toggleFullscreen, onClose, isFullscreen]);
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  useEffect(() => {
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      if (controlsTimeoutRef.current) {
+        clearTimeout(controlsTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const segmentProgress = useMemo(() => {
+    if (!currentRegion) return 0;
+    const elapsed = currentTime - currentRegion.startTime;
+    const total = currentRegion.endTime - currentRegion.startTime;
+    return Math.min(100, Math.max(0, (elapsed / total) * 100));
+  }, [currentTime, currentRegion]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div 
+      ref={containerRef}
+      className="fixed inset-0 z-50 bg-black flex flex-col select-none"
+      onMouseMove={handleMouseMove}
+      onTouchStart={handleMouseMove}
+    >
       {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
 
-      <header className="flex items-center justify-between p-4 bg-black/80 border-b border-white/10">
+      <header 
+        className={cn(
+          "absolute top-0 left-0 right-0 z-20 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent transition-opacity duration-300",
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        )}
+      >
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={onClose} className="text-white hover:bg-white/10">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={onClose} 
+            className="text-white hover:bg-white/10 backdrop-blur-sm"
+          >
             <X className="w-5 h-5" />
           </Button>
           <div>
-            <h1 className="text-white font-semibold">{pieceTitle}</h1>
-            <p className="text-white/60 text-sm">Preview Mode</p>
+            <h1 className="text-white font-semibold text-lg">{pieceTitle}</h1>
+            <p className="text-white/60 text-sm">
+              {currentRegion 
+                ? `${currentRegion.label || `Segment ${currentRegionIndex + 1}`} of ${sortedRegions.length}`
+                : 'Preview Mode'
+              }
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {currentRegion && (
-            <div className="px-3 py-1 bg-primary/20 rounded text-primary text-sm font-medium">
-              {currentRegion.label || `Segment ${sortedRegions.indexOf(currentRegion) + 1}`}
-            </div>
-          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleFullscreen}
+            className="text-white hover:bg-white/10 backdrop-blur-sm"
+            title="Toggle Fullscreen (F)"
+          >
+            {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+          </Button>
         </div>
       </header>
 
-      <div 
-        ref={containerRef}
-        className="flex-1 overflow-auto bg-neutral-900"
-        style={{ scrollBehavior: 'smooth' }}
-      >
-        <div className="w-full flex flex-col items-center py-8 px-4">
-          {allImages.map((imgSrc, index) => {
-            const pageRegions = sortedRegions.filter((r) => r.imageIndex === index);
-            const isActivePage = currentRegion?.imageIndex === index;
-            
-            return (
-              <div 
-                key={index} 
-                className="relative mb-12 transition-all duration-700 ease-in-out"
-                style={{
-                  width: isActivePage ? `${zoomFactor * 100}%` : '95%',
-                  maxWidth: isActivePage ? 'none' : '1200px',
-                  transform: isActivePage ? 'scale(1)' : 'scale(0.98)',
-                  transformOrigin: 'top center',
-                }}
-              >
-                {/* Background Dimmed Image */}
-                <img
-                  ref={(el) => {
-                    if (el) imageRefs.current.set(index, el);
-                  }}
-                  src={imgSrc}
-                  alt={`Page ${index + 1}`}
-                  className={cn(
-                    "w-full rounded-lg transition-all duration-700",
-                    currentRegion ? "brightness-[0.2] grayscale-[0.2] blur-[1px]" : "brightness-100"
-                  )}
-                  crossOrigin="anonymous"
-                />
-                
-                {/* Active Highlighted Region */}
-                {pageRegions.map((region) => {
-                  const isActive = currentRegion?.id === region.id;
-                  if (!isActive) return null;
-
-                  return (
-                    <div
-                      key={`active-${region.id}`}
-                      className="absolute inset-0 pointer-events-none overflow-hidden rounded-lg"
-                      style={{
-                        clipPath: `inset(${region.y}% 0% ${100 - (region.y + region.height)}% 0%)`,
-                      }}
-                    >
-                      <img
-                        src={imgSrc}
-                        alt="Active segment"
-                        className="w-full h-full object-cover brightness-110 contrast-110"
-                        style={{
-                          objectPosition: `0% ${region.y}%`,
-                        }}
-                        crossOrigin="anonymous"
-                      />
-                    </div>
-                  );
-                })}
-
-                {/* Progress Indicators (optional, kept minimal) */}
-                {pageRegions.map((region) => {
-                  const isActive = currentRegion?.id === region.id;
-                  if (!isActive) return null;
-
-                  return (
-                    <div
-                      key={`indicator-${region.id}`}
-                      className="absolute left-0 top-0 bottom-0 w-1.5 bg-primary/80 z-20"
-                      style={{
-                        top: `${region.y}%`,
-                        height: `${region.height}%`,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
-        </div>
+      <div className="flex-1 flex items-center justify-center p-8 pt-20 pb-32">
+        {currentImageSrc && currentRegion ? (
+          <SegmentDisplay
+            region={currentRegion}
+            imageSrc={currentImageSrc}
+            isTransitioning={isTransitioning}
+          />
+        ) : (
+          <div className="text-center text-white/60">
+            <p className="text-xl mb-2">No active segment</p>
+            <p className="text-sm">Press play to start, or click a segment below</p>
+          </div>
+        )}
       </div>
 
       {audioUrl && (
-        <footer className="bg-black/90 border-t border-white/10 p-6 backdrop-blur-md">
-          <div className="max-w-5xl mx-auto">
-            <div 
-              className="h-2 bg-white/20 rounded-full mb-4 cursor-pointer relative"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const percentage = x / rect.width;
-                seekTo(percentage * duration);
-              }}
-            >
-              <div 
-                className="h-full bg-primary rounded-full relative"
-                style={{ width: `${progress}%` }}
-              >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg transform -translate-x-1/2" />
-              </div>
-              
-              {sortedRegions.map((region) => (
-                <div
+        <footer 
+          className={cn(
+            "absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-t from-black/90 to-transparent p-6 pt-12 transition-opacity duration-300",
+            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+          )}
+        >
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-center gap-1 mb-4">
+              {sortedRegions.map((region, index) => (
+                <SegmentIndicator
                   key={region.id}
-                  className={`absolute top-0 h-full w-0.5 ${
-                    currentRegion?.id === region.id ? 'bg-white' : 'bg-white/40'
-                  }`}
-                  style={{ left: `${(region.startTime / duration) * 100}%` }}
-                  title={`${region.label || 'Segment'}: ${formatTime(region.startTime)}`}
+                  region={region}
+                  index={index}
+                  isActive={index === currentRegionIndex}
+                  progress={index === currentRegionIndex ? segmentProgress : (index < currentRegionIndex ? 100 : 0)}
+                  onClick={() => seekToRegion(index)}
                 />
               ))}
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={goToPrevRegion}
-                  className="text-white hover:bg-white/10"
+                  className="text-white hover:bg-white/10 h-10 w-10"
                   title="Previous segment (←)"
+                  disabled={sortedRegions.length === 0}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </Button>
@@ -407,8 +579,9 @@ export function ImageSegmentPreview({
                   variant="ghost"
                   size="icon"
                   onClick={handleRestart}
-                  className="text-white hover:bg-white/10"
+                  className="text-white hover:bg-white/10 h-10 w-10"
                   title="Restart"
+                  disabled={sortedRegions.length === 0}
                 >
                   <RotateCcw className="w-5 h-5" />
                 </Button>
@@ -417,18 +590,19 @@ export function ImageSegmentPreview({
                   variant="default"
                   size="icon"
                   onClick={togglePlayPause}
-                  className="h-12 w-12"
+                  className="h-14 w-14 rounded-full"
                   title="Play/Pause (Space)"
                 >
-                  {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
+                  {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
                 </Button>
 
                 <Button
                   variant="ghost"
                   size="icon"
                   onClick={goToNextRegion}
-                  className="text-white hover:bg-white/10"
+                  className="text-white hover:bg-white/10 h-10 w-10"
                   title="Next segment (→)"
+                  disabled={currentRegionIndex >= sortedRegions.length - 1}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </Button>
@@ -437,26 +611,26 @@ export function ImageSegmentPreview({
                   variant="ghost"
                   size="icon"
                   onClick={toggleMute}
-                  className="text-white hover:bg-white/10"
+                  className="text-white hover:bg-white/10 h-10 w-10"
                   title="Mute (M)"
                 >
                   {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                 </Button>
               </div>
 
-              <div className="text-white font-mono text-sm">
+              <div className="text-white font-mono text-sm tabular-nums">
                 {formatTime(currentTime)} / {formatTime(duration)}
               </div>
 
-              <div className="text-white/60 text-sm">
-                Segment {currentRegion ? sortedRegions.indexOf(currentRegion) + 1 : '-'} of {sortedRegions.length}
+              <div className="text-white/60 text-sm hidden sm:block">
+                <span className="text-white/40 text-xs">
+                  Space: Play • ←→: Navigate • F: Fullscreen
+                </span>
               </div>
             </div>
           </div>
         </footer>
       )}
-
-      
     </div>
   );
 }

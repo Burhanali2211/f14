@@ -51,7 +51,6 @@ export function ImageSegmentEditor({
   const {
     regions,
     setRegions,
-    setRegionsWithoutHistory,
     undo,
     redo,
     canUndo,
@@ -74,9 +73,15 @@ export function ImageSegmentEditor({
 
   const selection = useSegmentSelection({
     regions,
-    currentTime: audioPlayer.currentTime,
     onRegionsDelete: handleRegionsDelete,
   });
+
+  const activeId = useMemo(() => {
+    const active = regions.find(r => 
+      audioPlayer.currentTime >= r.startTime && audioPlayer.currentTime < r.endTime
+    );
+    return active?.id ?? null;
+  }, [regions, audioPlayer.currentTime]);
 
   useEffect(() => {
     onRegionsChange(regions);
@@ -403,7 +408,7 @@ export function ImageSegmentEditor({
           }}
           onPlayRegion={handlePlayRegion}
           selectedRegionId={selection.focusedId}
-          activeRegionId={selection.activeId}
+          activeRegionId={activeId}
         />
       )}
 
@@ -418,31 +423,31 @@ export function ImageSegmentEditor({
         {viewMode === 'image' ? (
           <div className="flex-1 overflow-auto p-4">
             <div className="mx-auto max-w-3xl">
-                <ImageCanvas
-                      imageSrc={allPages[currentPageIndex]}
-                      regions={currentPageRegions}
-                      selectedIds={selection.selectedIds}
-                      focusedId={selection.focusedId}
-                      activeId={selection.activeId}
-                      hiddenRegionIds={hiddenRegionIds}
-                      audioUrl={audioUrl}
-                      playingRegionId={selection.activeId}
-                      onPlayRegion={handlePlayRegion}
-                      onStopPlaying={audioPlayer.stop}
-                      onRegionCreate={handleRegionCreate}
-                      onRegionUpdate={handleRegionUpdate}
-                      onRegionSelect={selection.select}
-                      onRegionFocus={selection.focus}
-                      onToggleVisibility={handleToggleVisibility}
-                      onDeselectAll={selection.deselectAll}
-                      isZoomed={zoomPan.isZoomed}
-                      getTransformStyle={zoomPan.getTransformStyle}
-                      imageRef={imageRef}
-                      containerRef={containerRef}
-                      onStartPanning={zoomPan.startPanning}
-                      onUpdatePan={zoomPan.updatePan}
-                      onStopPanning={zoomPan.stopPanning}
-                    />
+              <ImageCanvas
+                imageSrc={allPages[currentPageIndex]}
+                regions={currentPageRegions}
+                selectedIds={selection.selectedIds}
+                focusedId={selection.focusedId}
+                activeId={activeId}
+                hiddenRegionIds={hiddenRegionIds}
+                audioUrl={audioUrl}
+                playingRegionId={activeId}
+                onPlayRegion={handlePlayRegion}
+                onStopPlaying={audioPlayer.stop}
+                onRegionCreate={handleRegionCreate}
+                onRegionUpdate={handleRegionUpdate}
+                onRegionSelect={selection.select}
+                onRegionFocus={selection.focus}
+                onToggleVisibility={handleToggleVisibility}
+                onDeselectAll={selection.deselectAll}
+                isZoomed={zoomPan.isZoomed}
+                getTransformStyle={zoomPan.getTransformStyle}
+                imageRef={imageRef}
+                containerRef={containerRef}
+                onStartPanning={zoomPan.startPanning}
+                onUpdatePan={zoomPan.updatePan}
+                onStopPanning={zoomPan.stopPanning}
+              />
             </div>
           </div>
         ) : (
@@ -482,7 +487,7 @@ export function ImageSegmentEditor({
               currentPageIndex={currentPageIndex}
               selectedIds={selection.selectedIds}
               focusedId={selection.focusedId}
-              activeId={selection.activeId}
+              activeId={activeId}
               hiddenRegionIds={hiddenRegionIds}
               onSelect={selection.select}
               onFocus={selection.focus}
@@ -494,17 +499,17 @@ export function ImageSegmentEditor({
         </div>
       </div>
 
-        <SelectionToolbar
-          selectedCount={selection.selectedCount}
-          selectedRegion={selection.selectedCount === 1 ? selection.selectedRegions[0] : null}
-          audioUrl={audioUrl}
-          totalCount={regions.length}
-          onDelete={selection.deleteSelected}
-          onCopy={handleCopySegment}
-          onDeselectAll={selection.deselectAll}
-          onSelectAll={selection.selectAll}
-          onShiftTime={handleShiftSelectedTime}
-        />
+      <SelectionToolbar
+        selectedCount={selection.selectedCount}
+        selectedRegion={selection.selectedCount === 1 ? selection.selectedRegions[0] : null}
+        audioUrl={audioUrl}
+        totalCount={regions.length}
+        onDelete={selection.deleteSelected}
+        onCopy={handleCopySegment}
+        onDeselectAll={selection.deselectAll}
+        onSelectAll={selection.selectAll}
+        onShiftTime={handleShiftSelectedTime}
+      />
     </div>
   );
 }

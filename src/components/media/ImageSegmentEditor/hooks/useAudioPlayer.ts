@@ -18,7 +18,16 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const intervalRef = useRef<number | null>(null);
+  const loopStateRef = useRef({ isLooping: false, loopStart: 0, loopEnd: 0 });
+
+  useEffect(() => {
+    loopStateRef.current = {
+      isLooping: state.isLooping,
+      loopStart: state.loopStart ?? 0,
+      loopEnd: state.loopEnd ?? 0
+    };
+  }, [state.isLooping, state.loopStart, state.loopEnd]);
 
   useEffect(() => {
     if (!audioUrl) {
@@ -46,49 +55,60 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
       setState(prev => ({ ...prev, isPlaying: false }));
     };
 
+    const handleTimeUpdate = () => {
+      const currentTime = audio.currentTime;
+      const ls = loopStateRef.current;
+      if (ls.isLooping && ls.loopEnd > 0 && currentTime >= ls.loopEnd) {
+        audio.currentTime = ls.loopStart;
+      }
+    };
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.pause();
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
     };
   }, [audioUrl]);
 
   useEffect(() => {
-    const updateTime = () => {
-      if (audioRef.current) {
-        const currentTime = audioRef.current.currentTime;
-        setState(prev => ({ ...prev, currentTime }));
-        onTimeUpdate?.(currentTime);
-
-        if (state.isLooping && state.loopEnd !== null && currentTime >= state.loopEnd) {
-          audioRef.current.currentTime = state.loopStart ?? 0;
-        }
-      }
-      if (state.isPlaying) {
-        animationFrameRef.current = requestAnimationFrame(updateTime);
-      }
-    };
-
     if (state.isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(updateTime);
+      intervalRef.current = window.setInterval(() => {
+        if (audioRef.current) {
+          const currentTime = audioRef.current.currentTime;
+          setState(prev => {
+            if (Math.abs(prev.currentTime - currentTime) > 0.05) {
+              return { ...prev, currentTime };
+            }
+            return prev;
+          });
+          onTimeUpdate?.(currentTime);
+        }
+      }, 100);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
     }
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
       }
     };
-  }, [state.isPlaying, state.isLooping, state.loopStart, state.loopEnd, onTimeUpdate]);
+  }, [state.isPlaying, onTimeUpdate]);
 
   const play = useCallback(() => {
     audioRef.current?.play();

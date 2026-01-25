@@ -70,6 +70,17 @@ function ImageCanvasComponent({
     panStartY: 0,
   });
 
+  const SNAP_THRESHOLD = 3;
+
+  const snapToEdge = useCallback((value: number, edges: number[]): number => {
+    for (const edge of edges) {
+      if (Math.abs(value - edge) <= SNAP_THRESHOLD) {
+        return edge;
+      }
+    }
+    return value;
+  }, []);
+
   const getYPercent = useCallback((clientY: number): number => {
     const img = imageRef.current;
     if (!img) return 0;
@@ -187,16 +198,18 @@ function ImageCanvasComponent({
       return;
     }
     
-    if (d.type === 'move') {
-      const delta = y - d.startY;
-      const newY = Math.max(0, Math.min(100 - d.origH, d.origY + delta));
-      updateRegionDOM(d.regionId, newY, d.origH);
-      return;
-    }
+      if (d.type === 'move') {
+        const delta = y - d.startY;
+        let newY = Math.max(0, Math.min(100 - d.origH, d.origY + delta));
+        newY = snapToEdge(newY, [0]);
+        updateRegionDOM(d.regionId, newY, d.origH);
+        return;
+      }
     
     if (d.type === 'resize-top') {
       const bottom = d.origY + d.origH;
-      const newY = Math.max(0, Math.min(bottom - 2, y));
+      let newY = Math.max(0, Math.min(bottom - 2, y));
+      newY = snapToEdge(newY, [0]);
       const newH = bottom - newY;
       updateRegionDOM(d.regionId, newY, newH);
       return;
@@ -225,8 +238,9 @@ function ImageCanvasComponent({
       if (drawBandRef.current) {
         drawBandRef.current.style.display = 'none';
       }
-      const top = Math.min(d.startY, y);
+      let top = Math.min(d.startY, y);
       const height = Math.abs(y - d.startY);
+      top = snapToEdge(top, [0]);
       if (height > 2) {
         onRegionCreate(top, height);
       } else if (!e.ctrlKey && !e.metaKey && !e.shiftKey) {
@@ -234,11 +248,13 @@ function ImageCanvasComponent({
       }
     } else if (d.type === 'move') {
       const delta = y - d.startY;
-      const newY = Math.max(0, Math.min(100 - d.origH, d.origY + delta));
+      let newY = Math.max(0, Math.min(100 - d.origH, d.origY + delta));
+      newY = snapToEdge(newY, [0]);
       onRegionUpdate(d.regionId, { y: newY });
     } else if (d.type === 'resize-top') {
       const bottom = d.origY + d.origH;
-      const newY = Math.max(0, Math.min(bottom - 2, y));
+      let newY = Math.max(0, Math.min(bottom - 2, y));
+      newY = snapToEdge(newY, [0]);
       const newH = bottom - newY;
       onRegionUpdate(d.regionId, { y: newY, height: newH });
     } else if (d.type === 'resize-bottom') {
@@ -248,7 +264,7 @@ function ImageCanvasComponent({
     
     dragDataRef.current.active = false;
     dragDataRef.current.type = '';
-  }, [getYPercent, onRegionCreate, onRegionUpdate, onDeselectAll, onStopPanning]);
+  }, [getYPercent, onRegionCreate, onRegionUpdate, onDeselectAll, onStopPanning, snapToEdge]);
 
   const handleRegionClick = useCallback((e: React.MouseEvent, region: ImageRegion) => {
     if (dragDataRef.current.type === 'move' || dragDataRef.current.type === 'resize-top' || dragDataRef.current.type === 'resize-bottom') {
@@ -349,60 +365,77 @@ function ImageCanvasComponent({
                   }}
                 />
                 
-                  <div className="absolute top-1 left-2 right-2 flex items-center justify-between pointer-events-none">
-                    <div className="flex items-center gap-2">
-                      {audioUrl && (
-                        <button
-                          className={cn(
-                            "p-1.5 rounded-full bg-background/90 hover:bg-background border shadow-sm pointer-events-auto transition-colors",
-                            playingRegionId === region.id && "bg-primary text-primary-foreground hover:bg-primary/90 border-primary"
-                          )}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (playingRegionId === region.id) {
-                              onStopPlaying();
-                            } else {
-                              onPlayRegion(region.id);
-                            }
-                          }}
-                        >
-                          {playingRegionId === region.id ? (
-                            <Pause className="w-3.5 h-3.5" />
-                          ) : (
-                            <Play className="w-3.5 h-3.5 fill-current" />
-                          )}
-                        </button>
-                      )}
-                      {isSelected && (
-                        <div className={cn(
-                          "w-5 h-5 rounded flex items-center justify-center",
-                          isFocused ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground"
+                  <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none flex flex-col">
+                    <div className="flex items-start justify-between gap-1 p-1.5 sm:p-2">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {isSelected && (
+                          <div className={cn(
+                            "w-5 h-5 rounded flex-shrink-0 flex items-center justify-center shadow-sm",
+                            isFocused ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground"
+                          )}>
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                        <span className={cn(
+                          "px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold truncate shadow-sm",
+                          isActive ? "bg-green-500 text-white" : "bg-background/95 border border-border/50"
                         )}>
-                          <Check className="w-3.5 h-3.5" />
-                        </div>
-                      )}
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-xs font-medium truncate max-w-[40%]",
-                        isActive ? "bg-green-500 text-white" : "bg-background/90"
+                          {region.label || `Seg ${region.order + 1}`}
+                        </span>
+                      </div>
+                      
+                      <div className={cn(
+                        "flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex-shrink-0",
+                        isActive ? "bg-green-500 text-white" : "bg-background/95 border border-border/50"
                       )}>
-                        {region.label || `Segment ${region.order + 1}`}
-                      </span>
+                        <span className="text-[10px] sm:text-xs font-mono tabular-nums">
+                          {formatTimeDisplay(region.startTime)}
+                        </span>
+                        <span className="text-[10px] sm:text-xs opacity-60 mx-0.5">-</span>
+                        <span className="text-[10px] sm:text-xs font-mono tabular-nums">
+                          {formatTimeDisplay(region.endTime)}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <span className={cn(
-                        "px-2 py-0.5 rounded text-xs font-mono",
-                        isActive ? "bg-green-500 text-white" : "bg-background/90"
-                      )}>
-                        {formatTimeDisplay(region.startTime)} - {formatTimeDisplay(region.endTime)}
-                      </span>
+                    
+                    <div className="flex-1" />
+                    
+                    <div className="flex items-end justify-between gap-1 p-1.5 sm:p-2">
+                      <div className="flex items-center gap-1">
+                        {audioUrl && (
+                          <button
+                            className={cn(
+                              "w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-md pointer-events-auto transition-all",
+                              playingRegionId === region.id 
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90 ring-2 ring-primary/30" 
+                                : "bg-background/95 hover:bg-background border border-border/50 hover:border-primary/50"
+                            )}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (playingRegionId === region.id) {
+                                onStopPlaying();
+                              } else {
+                                onPlayRegion(region.id);
+                              }
+                            }}
+                          >
+                            {playingRegionId === region.id ? (
+                              <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            ) : (
+                              <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current ml-0.5" />
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      
                       <button
-                        className="p-1 rounded bg-background/90 hover:bg-background pointer-events-auto"
+                        className="w-6 h-6 sm:w-7 sm:h-7 rounded flex items-center justify-center bg-background/95 hover:bg-background border border-border/50 shadow-sm pointer-events-auto transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           onToggleVisibility(region.id);
                         }}
                       >
-                        <Eye className="w-3.5 h-3.5" />
+                        <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </button>
                     </div>
                   </div>
