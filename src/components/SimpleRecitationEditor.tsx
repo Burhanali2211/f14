@@ -5,7 +5,9 @@ import {
   ChevronLeft, Loader2, Save, X, Plus, Trash2, 
   Settings2, Music, User, BookOpen, Calendar, 
   Type, Languages, Layout, Sparkles, Check, 
-  CircleHelp, Search
+  CircleHelp, Search, Minus, Eye, EyeOff, Copy,
+  RotateCcw, ChevronUp, ChevronDown, Globe,
+  Pilcrow, SeparatorHorizontal
 } from 'lucide-react';
 import { useSettings } from '@/hooks/use-settings';
 import {

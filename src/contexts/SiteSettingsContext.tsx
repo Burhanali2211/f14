@@ -10,18 +10,10 @@ const DEFAULT_SETTINGS: SiteSettings = {
   site_tagline: 'islamic poetry',
   logo_url: '/main.png',
   hero_image_url: null,
-  hero_gradient_opacity: null,
-  hero_image_opacity: null,
-  hero_gradient_preset: null,
-  hero_badge_text: null,
-  hero_heading_line1: null,
-  hero_heading_line2: null,
-  hero_description: null,
-  hero_text_color_mode: null,
-  hero_arabic_font: null,
+  hero_image_opacity: 1.0,
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
-};
+} as any;
 
 interface SiteSettingsContextType {
   siteSettings: SiteSettings;

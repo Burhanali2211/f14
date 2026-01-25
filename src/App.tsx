@@ -52,6 +52,9 @@ const FiqhTopicPage = lazy(() => import("./pages/FiqhTopicPage"));
 const QuranPage = lazy(() => import("./pages/QuranPage"));
 const QuranSurahPage = lazy(() => import("./pages/QuranSurahPage"));
 const QuranParaPage = lazy(() => import("./pages/QuranParaPage"));
+const TeleprompterPage = lazy(() => import("./pages/TeleprompterPage"));
+const ImageSegmentEditorPage = lazy(() => import("./pages/ImageSegmentEditorPage"));
+const AirSendMobilePage = lazy(() => import("./pages/AirSendMobilePage"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageLoader() {
@@ -136,8 +139,10 @@ function AppRoutes() {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/category/:slug" element={<CategoryPage />} />
-      <Route path="/piece/:id" element={<PiecePage />} />
-      <Route path="/figure/:slug" element={<FigurePage />} />
+        <Route path="/piece/:id" element={<PiecePage />} />
+        <Route path="/piece/:id/teleprompter" element={<TeleprompterPage />} />
+          <Route path="/piece/:id/teleprompter/image-edit" element={<ImageSegmentEditorPage />} />
+          <Route path="/figure/:slug" element={<FigurePage />} />
       <Route path="/ahlul-bayt" element={<AhlulBaytPage />} />
       <Route path="/artist/:reciterName" element={<ArtistPage />} />
       <Route path="/auth" element={<AuthPage />} />
@@ -162,8 +167,9 @@ function AppRoutes() {
           <Route path="/fiqh/:topicSlug" element={<FiqhTopicPage />} />
           <Route path="/quran" element={<QuranPage />} />
           <Route path="/quran/surah/:surahNumber" element={<QuranSurahPage />} />
-          <Route path="/quran/para/:paraNumber" element={<QuranParaPage />} />
-          <Route path="/sitemap.xml" element={<SitemapPage />} />
+            <Route path="/quran/para/:paraNumber" element={<QuranParaPage />} />
+            <Route path="/airsend" element={<AirSendMobilePage />} />
+            <Route path="/sitemap.xml" element={<SitemapPage />} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -8,7 +8,7 @@ You need to deploy the `fetch-content` and `ai-enhance` functions to your Supaba
 
 ### Option A: Using Supabase Dashboard (Easiest - No CLI needed)
 
-1. Go to: https://supabase.com/dashboard/project/qsmllpflneqlpmwzhjou/functions
+1. Go to: https://supabase.com/dashboard/project/ysacmemkrnmczmtkfqad/functions
 2. Click **"Create a new function"** or **"Deploy function"**
 3. Upload the function files:
    - For `fetch-content`: Upload the contents of `supabase/functions/fetch-content/index.ts`
@@ -28,7 +28,7 @@ You need to deploy the `fetch-content` and `ai-enhance` functions to your Supaba
 
 3. **Link your project**:
    ```bash
-   supabase link --project-ref qsmllpflneqlpmwzhjou
+   supabase link --project-ref ysacmemkrnmczmtkfqad
    ```
 
 4. **Deploy the functions**:
