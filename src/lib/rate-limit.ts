@@ -93,7 +93,7 @@ export const rateLimiter = new RateLimiter();
  */
 export const RATE_LIMITS = {
   search: {
-    maxRequests: 30,
+    maxRequests: 10,
     windowMs: 60 * 1000, // 1 minute
     key: 'search',
   },

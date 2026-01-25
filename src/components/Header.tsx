@@ -109,9 +109,11 @@ export function Header() {
               <span className="font-display text-sm sm:text-base md:text-xl font-bold text-foreground leading-tight truncate max-w-[120px] sm:max-w-[180px] md:max-w-none">
                 {siteSettings?.site_name || 'Kalam Reader'}
               </span>
+              {siteSettings?.site_tagline && (
                 <span className="text-[9px] sm:text-[10px] text-muted-foreground -mt-0.5 truncate max-w-[120px] sm:max-w-[180px] md:max-w-none">
-                  islamic poetry
+                  {siteSettings.site_tagline}
                 </span>
+              )}
             </div>
           </Link>
 

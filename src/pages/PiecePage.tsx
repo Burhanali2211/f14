@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, ChevronRight, User, Bookmark, Eye,
   Users, ArrowUp, Heart, Share2, Home, Settings,
-  ZoomIn, ZoomOut, RotateCcw, Music, Play
+  ZoomIn, ZoomOut, RotateCcw
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -37,7 +37,6 @@ type MediaType = 'video' | 'images' | 'pdf' | 'text' | 'none';
 
 export default function PiecePage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { settings, updateSetting } = useSettings();
   const { addToRecentlyViewed, isFavorite, addFavorite, removeFavorite } = useFavorites();
   const { saveProgress, getProgress } = useReadingProgress();
@@ -64,18 +63,18 @@ export default function PiecePage() {
     }
     
     try {
-        const { data, error } = await safeQuery(() =>
-          supabase
-            .from('pieces')
-            .select(`
-              id, title, text_content, image_url, video_url, audio_url, reciter, language,
-              view_count, created_at, updated_at, category_id, imam_id, tags,
-              category:categories(id, name, slug, description),
-              imam:imams(id, name, slug, title, description)
-            `)
-            .eq('id', id)
-            .maybeSingle()
-        );
+      const { data, error } = await safeQuery(() =>
+        supabase
+          .from('pieces')
+          .select(`
+            id, title, text_content, image_url, video_url, reciter, language,
+            view_count, created_at, updated_at, category_id, imam_id, tags,
+            category:categories(id, name, slug, description),
+            imam:imams(id, name, slug, title, description)
+          `)
+          .eq('id', id)
+          .maybeSingle()
+      );
 
       if (error || !data) {
         setLoading(false);
@@ -384,20 +383,9 @@ export default function PiecePage() {
               <span className="sm:hidden">Back</span>
             </Link>
 
-              <div className="flex items-center gap-1.5">
-                {(hasTextContent || (piece as any).audio_url) && (
-                  <button
-                    onClick={() => navigate(`/piece/${id}/teleprompter`)}
-                    className="w-10 h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center transition-all active:scale-90"
-                    aria-label="Open Teleprompter"
-                    title="Teleprompter Mode"
-                  >
-                    <Play className="w-5 h-5" />
-                  </button>
-                )}
-                
-                <button
-                  onClick={handleFavorite}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={handleFavorite}
                 className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all active:scale-90 ${
                   favorite ? 'bg-red-500/10 text-red-500' : 'bg-secondary hover:bg-secondary/80'
                 }`}
@@ -636,8 +624,8 @@ export default function PiecePage() {
           images={imageUrls.length > 1 ? imageUrls : undefined}
           currentIndex={currentImageIndex}
           onIndexChange={setCurrentImageIndex}
-          />
-        )}
-      </div>
-    );
-  }
+        />
+      )}
+    </div>
+  );
+}

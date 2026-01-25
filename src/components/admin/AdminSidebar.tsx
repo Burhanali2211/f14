@@ -135,14 +135,20 @@ export const AdminSidebar = ({
     ];
 
 
-    const quickActions = [
-      { 
-        label: 'Add Recitation', 
-        icon: Plus, 
-        onClick: () => navigate('/admin/piece/new'),
-        primary: true
-      },
-    ];
+  const quickActions = [
+    { 
+      label: 'Add Recitation', 
+      icon: Plus, 
+      onClick: () => navigate('/admin/piece/new'),
+      primary: true
+    },
+    { 
+      label: 'Bulk Upload', 
+      icon: Upload, 
+      onClick: () => navigate('/admin/bulk-upload'),
+      primary: false
+    },
+  ];
 
   const additionalLinks = [
     { label: 'Announcements', icon: Bell, to: '/admin/announcements' },

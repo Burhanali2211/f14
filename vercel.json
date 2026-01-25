@@ -1,7 +1,4 @@
 {
-  "installCommand": "npm install",
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
   "rewrites": [
     {
       "source": "/sitemap.xml",

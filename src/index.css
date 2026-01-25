@@ -182,8 +182,8 @@
 
     /* Typography */
     --font-display: 'Plus Jakarta Sans', system-ui, sans-serif;
-    --font-arabic: 'AlMajeed', serif;
-    --font-arabic-heading: 'AlMajeed', serif;
+    --font-arabic: 'AlMajeed', 'Noto Nastaliq Urdu', 'Cairo', 'Tajawal', 'Noto Sans Arabic', 'IBM Plex Sans Arabic', 'Amiri', 'Lateef', system-ui, sans-serif;
+    --font-arabic-heading: 'AlMajeed', 'Noto Nastaliq Urdu', 'Lateef', 'Cairo', 'Tajawal', 'Noto Sans Arabic', system-ui, sans-serif;
     --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
 
     --sidebar-background: 0 0% 100%;

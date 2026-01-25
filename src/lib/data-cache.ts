@@ -1,10 +1,19 @@
-/**
- * Core cache manager for localStorage-based data caching
- */
-
 import { logger } from './logger';
 import { getCachePolicy, CACHE_KEY_PREFIX, MAX_TOTAL_CACHE_SIZE } from './cache-config';
 import { getCurrentUser } from './auth-utils';
+
+const isLocalStorageAvailable = (): boolean => {
+  try {
+    const testKey = '__storage_test__';
+    localStorage.setItem(testKey, testKey);
+    localStorage.removeItem(testKey);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const localStorageEnabled = isLocalStorageAvailable();
 
 export interface CacheEntry<T = any> {
   data: T;
@@ -45,6 +54,8 @@ export function getCacheKey(queryName: string, params?: Record<string, any>): st
  * Get cached data if valid
  */
 export function getCachedData<T = any>(key: string): CacheEntry<T> | null {
+  if (!localStorageEnabled) return null;
+  
   try {
     const fullKey = key.startsWith(CACHE_KEY_PREFIX) ? key : `${CACHE_KEY_PREFIX}${key}`;
     const cached = localStorage.getItem(fullKey);
@@ -94,6 +105,8 @@ export function setCachedData<T = any>(
   version?: string,
   customTtl?: number
 ): boolean {
+  if (!localStorageEnabled) return false;
+  
   try {
     const fullKey = key.startsWith(CACHE_KEY_PREFIX) ? key : `${CACHE_KEY_PREFIX}${key}`;
     const policy = getCachePolicy(key.replace(CACHE_KEY_PREFIX, ''));
@@ -164,6 +177,8 @@ export function setCachedData<T = any>(
  * Invalidate cache entries matching a pattern
  */
 export function invalidateCache(pattern: string): number {
+  if (!localStorageEnabled) return 0;
+  
   let invalidated = 0;
   
   try {
@@ -217,6 +232,8 @@ export function invalidateCache(pattern: string): number {
  * Clear expired cache entries
  */
 export function clearExpiredCache(): number {
+  if (!localStorageEnabled) return 0;
+  
   let cleared = 0;
   
   try {
@@ -269,6 +286,8 @@ export function clearExpiredCache(): number {
  * Clear oldest cache entries to make room
  */
 function clearOldestCacheEntries(minBytesToFree?: number): void {
+  if (!localStorageEnabled) return;
+  
   try {
     const entries: Array<{ key: string; timestamp: number; size: number }> = [];
     let totalSize = 0;
@@ -331,6 +350,8 @@ export function getCacheStats(): CacheStats {
     newestEntry: null,
   };
   
+  if (!localStorageEnabled) return stats;
+  
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -368,6 +389,8 @@ export function getCacheStats(): CacheStats {
  * Clear all cache entries
  */
 export function clearAllCache(): void {
+  if (!localStorageEnabled) return;
+  
   try {
     const keysToRemove: string[] = [];
     

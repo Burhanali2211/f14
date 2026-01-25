@@ -273,11 +273,7 @@ export function UpdateNotification() {
           serviceWorkerRegistrationRef.current = registration;
           
           // Check for updates
-          try {
-            registration.update();
-          } catch (err) {
-            logger.error('Error updating service worker registration:', err);
-          }
+          registration.update();
 
           // Listen for service worker updates
           registration.addEventListener('updatefound', () => {

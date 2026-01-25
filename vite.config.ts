@@ -121,16 +121,10 @@ export default defineConfig({
     host: true,
     open: true,
     cors: true,
-    strictPort: false,
+    strictPort: false, // Allow Vite to use next available port if 8000 is busy
     fs: {
       strict: false
-    },
-      proxy: {
-        '/api': {
-          target: 'http://localhost:3001',
-          changeOrigin: true,
-        }
-      }
+    }
   },
   preview: {
     port: 4173,

@@ -5,6 +5,19 @@ import { logger } from './logger';
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const AUTH_FUNCTION_URL = `${SUPABASE_URL}/functions/v1/auth`;
 
+const isLocalStorageAvailable = (): boolean => {
+  try {
+    const testKey = '__storage_test__';
+    localStorage.setItem(testKey, testKey);
+    localStorage.removeItem(testKey);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const localStorageEnabled = isLocalStorageAvailable();
+
 async function sendNewUserNotification(userData: {
   full_name: string;
   email: string;
@@ -123,6 +136,8 @@ export interface AuthResult {
 
 // Get session from localStorage
 export function getSession(): User | null {
+  if (!localStorageEnabled) return null;
+  
   try {
     const sessionData = localStorage.getItem('user_session');
     if (!sessionData) return null;
@@ -147,6 +162,11 @@ export function getSession(): User | null {
 const SESSION_DURATION_DAYS = 30;
 
 export function saveSession(user: User): void {
+  if (!localStorageEnabled) {
+    window.dispatchEvent(new Event('auth:change'));
+    return;
+  }
+  
   try {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + SESSION_DURATION_DAYS);
@@ -167,7 +187,9 @@ export function saveSession(user: User): void {
 
 // Clear session
 export function clearSession(): void {
-  localStorage.removeItem('user_session');
+  if (localStorageEnabled) {
+    localStorage.removeItem('user_session');
+  }
   window.dispatchEvent(new Event('auth:change'));
 }
 
@@ -334,6 +356,8 @@ export function getCurrentUser(): User | null {
 }
 
 function refreshSessionExpiration(): void {
+  if (!localStorageEnabled) return;
+  
   try {
     const sessionData = localStorage.getItem('user_session');
     if (!sessionData) return;

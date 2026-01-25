@@ -12,42 +12,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      airsend_sessions: {
-        Row: {
-          id: string
-          session_code: string
-          piece_id: string | null
-          audio_url: string | null
-          audio_name: string | null
-          status: string
-          created_at: string
-          expires_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          session_code: string
-          piece_id?: string | null
-          audio_url?: string | null
-          audio_name?: string | null
-          status?: string
-          created_at?: string
-          expires_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          session_code?: string
-          piece_id?: string | null
-          audio_url?: string | null
-          audio_name?: string | null
-          status?: string
-          created_at?: string
-          expires_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       ahlul_bait_events: {
         Row: {
           id: string

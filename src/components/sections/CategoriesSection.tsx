@@ -19,7 +19,7 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
     if (count <= 3) return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
     if (count <= 4) return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4';
     // For 5+ categories, use full responsive grid with better medium device support
-    return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+    return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6';
   };
 
   return (
@@ -54,7 +54,7 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
         </div>
         
         {loading ? (
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-4 lg:gap-5 w-full">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 sm:gap-5 md:gap-4 lg:gap-5 w-full">
             {[...Array(8)].map((_, i) => (
               <div 
                 key={i} 
