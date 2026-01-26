@@ -32,6 +32,61 @@ function getLocalStorageKey(pieceId: string): string {
   return `${STORAGE_KEY}-${pieceId}`;
 }
 
+function estimateStorageSize(data: unknown): number {
+  try {
+    return new Blob([JSON.stringify(data)]).size;
+  } catch {
+    return JSON.stringify(data).length * 2;
+  }
+}
+
+function getLocalStorageUsage(): { used: number; available: number } {
+  let totalSize = 0;
+  try {
+    for (const key in localStorage) {
+      if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+        totalSize += localStorage.getItem(key)?.length ?? 0;
+      }
+    }
+  } catch {
+  }
+  const maxSize = 5 * 1024 * 1024;
+  return { used: totalSize * 2, available: maxSize - totalSize * 2 };
+}
+
+function cleanupOldStorage(currentPieceId: string, requiredSpace: number): boolean {
+  try {
+    const storageKeys: { key: string; savedAt: Date; size: number }[] = [];
+    
+    for (const key in localStorage) {
+      if (key.startsWith(STORAGE_KEY) && key !== getLocalStorageKey(currentPieceId)) {
+        try {
+          const data = JSON.parse(localStorage.getItem(key) || '{}');
+          storageKeys.push({
+            key,
+            savedAt: new Date(data.savedAt || 0),
+            size: (localStorage.getItem(key)?.length ?? 0) * 2,
+          });
+        } catch {
+        }
+      }
+    }
+    
+    storageKeys.sort((a, b) => a.savedAt.getTime() - b.savedAt.getTime());
+    
+    let freedSpace = 0;
+    for (const item of storageKeys) {
+      if (freedSpace >= requiredSpace) break;
+      localStorage.removeItem(item.key);
+      freedSpace += item.size;
+    }
+    
+    return freedSpace >= requiredSpace;
+  } catch {
+    return false;
+  }
+}
+
 function getLocalData(pieceId: string): StoredData | null {
   try {
     const stored = localStorage.getItem(getLocalStorageKey(pieceId));
@@ -41,11 +96,37 @@ function getLocalData(pieceId: string): StoredData | null {
   }
 }
 
-function saveLocalData(pieceId: string, data: StoredData): void {
+function saveLocalData(pieceId: string, data: StoredData): { success: boolean; error?: string } {
   try {
-    localStorage.setItem(getLocalStorageKey(pieceId), JSON.stringify(data));
-  } catch (e) {
+    const jsonData = JSON.stringify(data);
+    const requiredSize = jsonData.length * 2;
+    const { available } = getLocalStorageUsage();
+    
+    if (requiredSize > available) {
+      const cleaned = cleanupOldStorage(pieceId, requiredSize - available + 100000);
+      if (!cleaned) {
+        console.warn('localStorage quota exceeded, unable to free enough space');
+        return { success: false, error: 'Storage quota exceeded' };
+      }
+    }
+    
+    localStorage.setItem(getLocalStorageKey(pieceId), jsonData);
+    return { success: true };
+  } catch (e: any) {
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      const cleaned = cleanupOldStorage(pieceId, 500000);
+      if (cleaned) {
+        try {
+          localStorage.setItem(getLocalStorageKey(pieceId), JSON.stringify(data));
+          return { success: true };
+        } catch {
+        }
+      }
+      console.error('localStorage quota exceeded:', e);
+      return { success: false, error: 'Storage quota exceeded' };
+    }
     console.error('Failed to save to localStorage:', e);
+    return { success: false, error: e.message };
   }
 }
 

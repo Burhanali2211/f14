@@ -10,7 +10,6 @@ import {
   ImageCanvas,
   SegmentList,
   SegmentEditor,
-  TimelineView,
   SelectionToolbar,
 } from './components';
 import type { ImageRegion } from './types';
@@ -38,8 +37,8 @@ export function ImageSegmentEditor({
 }: ImageSegmentEditorProps) {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [hiddenRegionIds, setHiddenRegionIds] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'image' | 'timeline'>('image');
   const [clipboardRegion, setClipboardRegion] = useState<ImageRegion | null>(null);
+  const [chainTimes, setChainTimes] = useState(false);
   
   const [pdfPages, setPdfPages] = useState<string[]>([]);
   const [pdfLoading, setPdfLoading] = useState(false);
@@ -57,6 +56,8 @@ export function ImageSegmentEditor({
     canRedo,
     historyLength,
     resetHistory,
+    startBatch,
+    endBatch,
   } = useUndoRedo(initialRegions);
 
   const audioPlayer = useAudioPlayer({ audioUrl });
@@ -64,7 +65,6 @@ export function ImageSegmentEditor({
   const zoomPan = useZoomPan({
     containerRef,
     imageRef,
-    enabled: viewMode === 'image',
   });
 
   const handleRegionsDelete = useCallback((ids: string[]) => {
@@ -95,6 +95,7 @@ export function ImageSegmentEditor({
     if (!pdfUrl) return;
     
     let cancelled = false;
+    let pdfDocRef: { destroy: () => void } | null = null;
     setPdfLoading(true);
     setPdfError(null);
 
@@ -109,8 +110,17 @@ export function ImageSegmentEditor({
           cMapPacked: true,
         }).promise;
         
+        pdfDocRef = pdf;
+        
+        if (cancelled) {
+          pdf.destroy();
+          return;
+        }
+        
         const pages: string[] = [];
         for (let i = 1; i <= pdf.numPages; i++) {
+          if (cancelled) break;
+          
           const page = await pdf.getPage(i);
           const scale = 2;
           const viewport = page.getViewport({ scale });
@@ -126,6 +136,10 @@ export function ImageSegmentEditor({
           }).promise;
           
           pages.push(canvas.toDataURL('image/png'));
+          
+          page.cleanup();
+          canvas.width = 0;
+          canvas.height = 0;
         }
         
         if (!cancelled) {
@@ -142,7 +156,12 @@ export function ImageSegmentEditor({
     };
 
     loadPdf();
-    return () => { cancelled = true; };
+    return () => { 
+      cancelled = true;
+      if (pdfDocRef) {
+        pdfDocRef.destroy();
+      }
+    };
   }, [pdfUrl]);
 
   const allPages = useMemo(() => 
@@ -187,8 +206,40 @@ export function ImageSegmentEditor({
   }, [regions, currentPageIndex, setRegions, selection]);
 
   const handleRegionUpdate = useCallback((id: string, updates: Partial<ImageRegion>) => {
+    if (chainTimes && updates.endTime !== undefined) {
+      const updatedRegion = regions.find(r => r.id === id);
+      if (updatedRegion) {
+        const oldEndTime = updatedRegion.endTime;
+        const newEndTime = updates.endTime;
+        const timeDelta = newEndTime - oldEndTime;
+        
+        if (timeDelta !== 0) {
+          const sortedRegions = [...regions].sort((a, b) => a.startTime - b.startTime);
+          const currentIndex = sortedRegions.findIndex(r => r.id === id);
+          
+          const newRegions = regions.map(r => {
+            if (r.id === id) {
+              return { ...r, ...updates };
+            }
+            const rIndex = sortedRegions.findIndex(sr => sr.id === r.id);
+            if (rIndex > currentIndex) {
+              const segmentDuration = r.endTime - r.startTime;
+              return {
+                ...r,
+                startTime: r.startTime + timeDelta,
+                endTime: r.startTime + timeDelta + segmentDuration,
+              };
+            }
+            return r;
+          });
+          
+          setRegions(newRegions);
+          return;
+        }
+      }
+    }
     setRegions(regions.map(r => r.id === id ? { ...r, ...updates } : r));
-  }, [regions, setRegions]);
+  }, [regions, setRegions, chainTimes]);
 
   const handleRegionDelete = useCallback((id: string) => {
     setRegions(regions.filter(r => r.id !== id));
@@ -372,21 +423,22 @@ export function ImageSegmentEditor({
 
   return (
     <div className="flex flex-col h-full bg-background">
-      <Toolbar
-        hasChanges={hasChanges}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        historyLength={historyLength}
-        zoom={zoomPan.zoom}
-        viewMode={viewMode}
-        onSave={onSave}
-        onUndo={undo}
-        onRedo={redo}
-        onZoomIn={zoomPan.zoomIn}
-        onZoomOut={zoomPan.zoomOut}
-        onResetZoom={zoomPan.resetZoomPan}
-        onToggleViewMode={() => setViewMode(v => v === 'image' ? 'timeline' : 'image')}
-      />
+<Toolbar
+          hasChanges={hasChanges}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          historyLength={historyLength}
+          zoom={zoomPan.zoom}
+          chainTimes={chainTimes}
+          onSave={onSave}
+          onUndo={undo}
+          onRedo={redo}
+          onZoomIn={zoomPan.zoomIn}
+          onZoomOut={zoomPan.zoomOut}
+          onResetZoom={zoomPan.resetZoomPan}
+          onZoomChange={zoomPan.setZoom}
+          onToggleChainTimes={() => setChainTimes(c => !c)}
+        />
 
       {audioUrl && (
         <WaveformTimeline
@@ -420,66 +472,55 @@ export function ImageSegmentEditor({
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {viewMode === 'image' ? (
-          <div className="flex-1 overflow-auto p-4">
-            <div className="mx-auto max-w-3xl">
-              <ImageCanvas
-                imageSrc={allPages[currentPageIndex]}
-                regions={currentPageRegions}
-                selectedIds={selection.selectedIds}
-                focusedId={selection.focusedId}
-                activeId={activeId}
-                hiddenRegionIds={hiddenRegionIds}
-                audioUrl={audioUrl}
-                playingRegionId={activeId}
-                onPlayRegion={handlePlayRegion}
-                onStopPlaying={audioPlayer.stop}
-                onRegionCreate={handleRegionCreate}
-                onRegionUpdate={handleRegionUpdate}
-                onRegionSelect={selection.select}
-                onRegionFocus={selection.focus}
-                onToggleVisibility={handleToggleVisibility}
-                onDeselectAll={selection.deselectAll}
-                isZoomed={zoomPan.isZoomed}
-                getTransformStyle={zoomPan.getTransformStyle}
-                imageRef={imageRef}
-                containerRef={containerRef}
-                onStartPanning={zoomPan.startPanning}
-                onUpdatePan={zoomPan.updatePan}
-                onStopPanning={zoomPan.stopPanning}
-              />
-            </div>
+        <div className="flex-1 overflow-auto p-4">
+          <div className="mx-auto max-w-3xl">
+            <ImageCanvas
+              imageSrc={allPages[currentPageIndex]}
+              regions={currentPageRegions}
+              selectedIds={selection.selectedIds}
+              focusedId={selection.focusedId}
+              activeId={activeId}
+              hiddenRegionIds={hiddenRegionIds}
+              audioUrl={audioUrl}
+              playingRegionId={activeId}
+              onPlayRegion={handlePlayRegion}
+              onStopPlaying={audioPlayer.stop}
+              onRegionCreate={handleRegionCreate}
+              onRegionUpdate={handleRegionUpdate}
+              onRegionSelect={selection.select}
+              onRegionFocus={selection.focus}
+              onToggleVisibility={handleToggleVisibility}
+              onDeselectAll={selection.deselectAll}
+              onDragStart={startBatch}
+              onDragEnd={endBatch}
+              isZoomed={zoomPan.isZoomed}
+              getTransformStyle={zoomPan.getTransformStyle}
+              imageRef={imageRef}
+              containerRef={containerRef}
+              onStartPanning={zoomPan.startPanning}
+              onUpdatePan={zoomPan.updatePan}
+              onStopPanning={zoomPan.stopPanning}
+            />
           </div>
-        ) : (
-          <TimelineView
-            regions={regions}
-            allPages={allPages}
-            duration={audioPlayer.duration}
-            currentTime={audioPlayer.currentTime}
-            selectedRegionId={selection.focusedId}
-            onRegionSelect={(id) => selection.select(id)}
-            onRegionEdit={(id) => selection.focus(id)}
-            onSeekTo={audioPlayer.seekTo}
-            onRegionUpdate={handleRegionUpdate}
-          />
-        )}
+        </div>
 
         <div className="w-80 border-l bg-card flex flex-col">
           {selection.focusedRegion ? (
-            <SegmentEditor
-              region={selection.focusedRegion}
-              currentTime={audioPlayer.currentTime}
-              duration={audioPlayer.duration}
-              hasAudio={audioPlayer.hasAudio}
-              onSave={(updates) => {
-                handleRegionUpdate(selection.focusedRegion!.id, updates);
-                selection.focus(null);
-              }}
-              onDelete={() => handleRegionDelete(selection.focusedRegion!.id)}
-              onCancel={() => selection.focus(null)}
-              onPlayRegion={() => handlePlayRegion(selection.focusedRegion!.id)}
-              onCopy={handleCopySegment}
-            />
+<SegmentEditor
+                region={selection.focusedRegion}
+                currentTime={audioPlayer.currentTime}
+                duration={audioPlayer.duration}
+                hasAudio={audioPlayer.hasAudio}
+                chainTimes={chainTimes}
+                onSave={(updates) => {
+                  handleRegionUpdate(selection.focusedRegion!.id, updates);
+                  selection.focus(null);
+                }}
+                onDelete={() => handleRegionDelete(selection.focusedRegion!.id)}
+                onCancel={() => selection.focus(null)}
+                onPlayRegion={() => handlePlayRegion(selection.focusedRegion!.id)}
+                onCopy={handleCopySegment}
+              />
           ) : (
             <SegmentList
               regions={regions}

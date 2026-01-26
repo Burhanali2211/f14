@@ -27,7 +27,6 @@ export interface EditorState {
   hiddenRegionIds: Set<string>;
   zoom: number;
   pan: { x: number; y: number };
-  viewMode: 'image' | 'timeline';
 }
 
 export interface AudioState {
@@ -103,7 +102,6 @@ export interface EditorContextValue {
   editingRegionId: string | null;
   audioState: AudioState;
   zoomPanState: ZoomPanState;
-  viewMode: 'image' | 'timeline';
   hiddenRegionIds: Set<string>;
   canUndo: boolean;
   canRedo: boolean;
@@ -120,7 +118,6 @@ export interface EditorContextValue {
   setZoom: (zoom: number) => void;
   setPan: (x: number, y: number) => void;
   resetZoomPan: () => void;
-  setViewMode: (mode: 'image' | 'timeline') => void;
   seekTo: (time: number) => void;
   togglePlayPause: () => void;
   setPlaybackRate: (rate: number) => void;

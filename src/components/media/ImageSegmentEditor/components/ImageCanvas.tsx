@@ -21,6 +21,8 @@ interface ImageCanvasProps {
   onRegionFocus: (id: string | null) => void;
   onToggleVisibility: (id: string) => void;
   onDeselectAll: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
   isZoomed: boolean;
   getTransformStyle: () => React.CSSProperties;
   imageRef: React.RefObject<HTMLImageElement | null>;
@@ -47,6 +49,8 @@ function ImageCanvasComponent({
   onRegionFocus,
   onToggleVisibility,
   onDeselectAll,
+  onDragStart,
+  onDragEnd,
   isZoomed,
   getTransformStyle,
   imageRef,
@@ -57,6 +61,7 @@ function ImageCanvasComponent({
 }: ImageCanvasProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const drawBandRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
   
   const dragDataRef = useRef({
     active: false,
@@ -69,6 +74,36 @@ function ImageCanvasComponent({
     panStartX: 0,
     panStartY: 0,
   });
+
+  const cleanupDrag = useCallback(() => {
+    const d = dragDataRef.current;
+    const wasDraggingRegion = d.type === 'move' || d.type === 'resize-top' || d.type === 'resize-bottom';
+    
+    if (d.type === 'pan') {
+      onStopPanning();
+    }
+    
+    if (drawBandRef.current) {
+      drawBandRef.current.style.display = 'none';
+    }
+    
+    if (wasDraggingRegion) {
+      onDragEnd?.();
+    }
+    
+    dragDataRef.current = {
+      active: false,
+      type: '',
+      regionId: '',
+      startY: 0,
+      startClientY: 0,
+      origY: 0,
+      origH: 0,
+      panStartX: 0,
+      panStartY: 0,
+    };
+    setIsDragging(false);
+  }, [onStopPanning, onDragEnd]);
 
   const SNAP_THRESHOLD = 3;
 
@@ -103,6 +138,8 @@ function ImageCanvasComponent({
     const regionEl = target.closest('[data-region-id]') as HTMLElement;
     const handle = target.dataset.handle;
     
+    setIsDragging(true);
+    
     if (e.altKey || (!regionEl && isZoomed)) {
       dragDataRef.current = {
         active: true,
@@ -123,7 +160,12 @@ function ImageCanvasComponent({
     if (regionEl) {
       const regionId = regionEl.dataset.regionId!;
       const region = regions.find(r => r.id === regionId);
-      if (!region) return;
+      if (!region) {
+        setIsDragging(false);
+        return;
+      }
+      
+      onDragStart?.();
       
       if (handle === 'top' || handle === 'bottom') {
         dragDataRef.current = {
@@ -174,8 +216,10 @@ function ImageCanvasComponent({
         drawBandRef.current.style.height = '0%';
       }
       (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } else {
+      setIsDragging(false);
     }
-  }, [focusedId, isZoomed, regions, getYPercent, onStartPanning]);
+  }, [focusedId, isZoomed, regions, getYPercent, onStartPanning, onDragStart]);
 
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
     const d = dragDataRef.current;
@@ -223,14 +267,19 @@ function ImageCanvasComponent({
 
   const handlePointerUp = useCallback((e: React.PointerEvent) => {
     const d = dragDataRef.current;
-    if (!d.active) return;
+    if (!d.active) {
+      setIsDragging(false);
+      return;
+    }
     
     const y = getYPercent(e.clientY);
+    const wasDraggingRegion = d.type === 'move' || d.type === 'resize-top' || d.type === 'resize-bottom';
     
     if (d.type === 'pan') {
       onStopPanning();
       dragDataRef.current.active = false;
       dragDataRef.current.type = '';
+      setIsDragging(false);
       return;
     }
     
@@ -262,9 +311,14 @@ function ImageCanvasComponent({
       onRegionUpdate(d.regionId, { height: newH });
     }
     
+    if (wasDraggingRegion) {
+      onDragEnd?.();
+    }
+    
     dragDataRef.current.active = false;
     dragDataRef.current.type = '';
-  }, [getYPercent, onRegionCreate, onRegionUpdate, onDeselectAll, onStopPanning, snapToEdge]);
+    setIsDragging(false);
+  }, [getYPercent, onRegionCreate, onRegionUpdate, onDeselectAll, onStopPanning, snapToEdge, onDragEnd]);
 
   const handleRegionClick = useCallback((e: React.MouseEvent, region: ImageRegion) => {
     if (dragDataRef.current.type === 'move' || dragDataRef.current.type === 'resize-top' || dragDataRef.current.type === 'resize-bottom') {
@@ -295,11 +349,7 @@ function ImageCanvasComponent({
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onPointerCancel={() => {
-        if (drawBandRef.current) drawBandRef.current.style.display = 'none';
-        dragDataRef.current.active = false;
-        dragDataRef.current.type = '';
-      }}
+      onPointerCancel={cleanupDrag}
     >
       <div style={getTransformStyle()}>
         <img

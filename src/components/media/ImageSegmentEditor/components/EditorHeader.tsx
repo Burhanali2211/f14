@@ -8,8 +8,6 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
-  LayoutGrid,
-  Image,
   Keyboard,
   Eye,
   Upload,
@@ -23,8 +21,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
-  MoreHorizontal,
-  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -67,7 +63,6 @@ interface EditorHeaderProps {
   canRedo: boolean;
   historyLength: number;
   zoom: number;
-  viewMode: 'image' | 'timeline';
   audioUrl?: string;
   audioFileName?: string;
   isUploading: boolean;
@@ -83,7 +78,6 @@ interface EditorHeaderProps {
   onZoomOut: () => void;
   onZoomChange: (value: number) => void;
   onResetZoom: () => void;
-  onToggleViewMode: () => void;
   onPreview: () => void;
   onAudioUpload: (file: File) => void;
   onRemoveAudio: () => void;
@@ -100,7 +94,6 @@ function EditorHeaderComponent({
   canRedo,
   historyLength,
   zoom,
-  viewMode,
   audioUrl,
   audioFileName,
   isUploading,
@@ -116,7 +109,6 @@ function EditorHeaderComponent({
   onZoomOut,
   onZoomChange,
   onResetZoom,
-  onToggleViewMode,
   onPreview,
   onAudioUpload,
   onRemoveAudio,
@@ -362,40 +354,6 @@ function EditorHeaderComponent({
     </div>
   );
 
-  const renderViewModeToggle = () => (
-    <div className="hidden md:flex items-center bg-muted rounded-md p-0.5">
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={viewMode === 'image' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={() => viewMode !== 'image' && onToggleViewMode()}
-          >
-            <Image className="w-3.5 h-3.5 mr-1" />
-            Image
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Image View</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant={viewMode === 'timeline' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={() => viewMode !== 'timeline' && onToggleViewMode()}
-          >
-            <LayoutGrid className="w-3.5 h-3.5 mr-1" />
-            Timeline
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Timeline View</TooltipContent>
-      </Tooltip>
-    </div>
-  );
-
   const renderUndoRedo = () => (
     <div className="hidden sm:flex items-center gap-0.5">
       <Tooltip>
@@ -494,36 +452,6 @@ function EditorHeaderComponent({
               >
                 <Smartphone className="w-4 h-4 mr-1" />
                 AirSend
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-muted-foreground">View Mode</p>
-            <div className="flex gap-2">
-              <Button
-                variant={viewMode === 'image' ? 'secondary' : 'outline'}
-                size="sm"
-                className="flex-1"
-                onClick={() => {
-                  viewMode !== 'image' && onToggleViewMode();
-                  setMobileMenuOpen(false);
-                }}
-              >
-                <Image className="w-4 h-4 mr-1" />
-                Image
-              </Button>
-              <Button
-                variant={viewMode === 'timeline' ? 'secondary' : 'outline'}
-                size="sm"
-                className="flex-1"
-                onClick={() => {
-                  viewMode !== 'timeline' && onToggleViewMode();
-                  setMobileMenuOpen(false);
-                }}
-              >
-                <LayoutGrid className="w-4 h-4 mr-1" />
-                Timeline
               </Button>
             </div>
           </div>
@@ -697,44 +625,6 @@ function EditorHeaderComponent({
           </Button>
 
           {renderMobileMenu()}
-        </div>
-
-        <div className="flex items-center gap-2 px-2 pb-2 sm:px-4 border-t border-border/50 pt-2 bg-muted/30">
-          {renderPageNavigation()}
-
-          <div className="flex-1" />
-
-          {renderZoomControls()}
-
-          <div className="h-5 w-px bg-border mx-1 hidden md:block" />
-
-          {renderViewModeToggle()}
-
-          <div className="h-5 w-px bg-border mx-1 hidden sm:block" />
-
-          {renderUndoRedo()}
-
-          <div className="md:hidden flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={onZoomOut}
-              disabled={zoom <= 0.25}
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </Button>
-            <span className="text-xs w-10 text-center">{Math.round(zoom * 100)}%</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={onZoomIn}
-              disabled={zoom >= 4}
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </Button>
-          </div>
         </div>
       </header>
     </TooltipProvider>

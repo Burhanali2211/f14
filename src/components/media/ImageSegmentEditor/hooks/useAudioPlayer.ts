@@ -76,9 +76,22 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.pause();
+      audio.src = '';
+      audio.load();
+      audioRef.current = null;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
+      setState({
+        isPlaying: false,
+        currentTime: 0,
+        duration: 0,
+        playbackRate: 1,
+        isLooping: false,
+        loopStart: null,
+        loopEnd: null,
+      });
     };
   }, [audioUrl]);
 

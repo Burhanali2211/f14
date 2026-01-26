@@ -73,7 +73,6 @@ export default function ImageSegmentEditorPage() {
     localSavedAt: string | null;
   } | null>(null);
   
-  const [viewMode, setViewMode] = useState<'image' | 'timeline'>('image');
   const [zoom, setZoom] = useState(1);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
@@ -383,37 +382,35 @@ export default function ImageSegmentEditorPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <EditorHeader
-        pieceId={id || ''}
-        pieceTitle={piece.title}
-        hasChanges={hasChanges}
-        canUndo={false}
-        canRedo={false}
-        historyLength={0}
-        zoom={zoom}
-        viewMode={viewMode}
-        audioUrl={audioUrl}
-        audioFileName={audioFileName}
-        isUploading={isUploading}
-        saveStatus={saveStatus}
-        regionsCount={regions.length}
-        pages={allPages}
-        currentPageIndex={currentPageIndex}
-        regionsPerPage={regionsPerPage}
-        onSave={handleSave}
-        onUndo={() => {}}
-        onRedo={() => {}}
-        onZoomIn={() => setZoom(z => Math.min(4, z * 1.2))}
-        onZoomOut={() => setZoom(z => Math.max(0.25, z / 1.2))}
-        onZoomChange={setZoom}
-        onResetZoom={() => setZoom(1)}
-        onToggleViewMode={() => setViewMode(v => v === 'image' ? 'timeline' : 'image')}
-        onPreview={handlePreview}
-        onAudioUpload={handleAudioUpload}
-        onRemoveAudio={handleRemoveAudio}
-        onAirSend={() => setShowAirSend(true)}
-        onPageChange={setCurrentPageIndex}
-        onSyncToCloud={() => syncToCloud(true)}
-      />
+          pieceId={id || ''}
+          pieceTitle={piece.title}
+          hasChanges={hasChanges}
+          canUndo={false}
+          canRedo={false}
+          historyLength={0}
+          zoom={zoom}
+          audioUrl={audioUrl}
+          audioFileName={audioFileName}
+          isUploading={isUploading}
+          saveStatus={saveStatus}
+          regionsCount={regions.length}
+          pages={allPages}
+          currentPageIndex={currentPageIndex}
+          regionsPerPage={regionsPerPage}
+          onSave={handleSave}
+          onUndo={() => {}}
+          onRedo={() => {}}
+          onZoomIn={() => setZoom(z => Math.min(4, z * 1.2))}
+          onZoomOut={() => setZoom(z => Math.max(0.25, z / 1.2))}
+          onZoomChange={setZoom}
+          onResetZoom={() => setZoom(1)}
+          onPreview={handlePreview}
+          onAudioUpload={handleAudioUpload}
+          onRemoveAudio={handleRemoveAudio}
+          onAirSend={() => setShowAirSend(true)}
+          onPageChange={setCurrentPageIndex}
+          onSyncToCloud={() => syncToCloud(true)}
+        />
 
       <main className="flex-1">
         <ImageSegmentEditor

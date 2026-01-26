@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { Trash2, Check, Play, Copy } from 'lucide-react';
+import { useState, useCallback, useEffect, memo } from 'react';
+import { Trash2, Check, Play, Copy, Link2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ interface SegmentEditorProps {
   currentTime: number;
   duration: number;
   hasAudio: boolean;
+  chainTimes?: boolean;
   onSave: (updates: Partial<ImageRegion>) => void;
   onDelete: () => void;
   onCancel: () => void;
@@ -19,11 +20,12 @@ interface SegmentEditorProps {
   onCopy: () => void;
 }
 
-export function SegmentEditor({
+function SegmentEditorComponent({
   region,
   currentTime,
   duration,
   hasAudio,
+  chainTimes = false,
   onSave,
   onDelete,
   onCancel,
@@ -199,19 +201,28 @@ export function SegmentEditor({
         onSave={handleSave}
       />
 
-      <TimeInput
-        label="End Time (MM:SS.CC)"
-        minutes={form.endMM}
-        seconds={form.endSS}
-        centiseconds={form.endCC}
-        onMinutesChange={(v) => setForm(prev => ({ ...prev, endMM: v }))}
-        onSecondsChange={(v) => setForm(prev => ({ ...prev, endSS: v }))}
-        onCentisecondsChange={(v) => setForm(prev => ({ ...prev, endCC: v }))}
-        onCaptureTime={hasAudio ? captureEndTime : undefined}
-        onAdjust={adjustEndTime}
-        showCapture={hasAudio}
-        onSave={handleSave}
-      />
+<TimeInput
+          label="End Time (MM:SS.CC)"
+          minutes={form.endMM}
+          seconds={form.endSS}
+          centiseconds={form.endCC}
+          onMinutesChange={(v) => setForm(prev => ({ ...prev, endMM: v }))}
+          onSecondsChange={(v) => setForm(prev => ({ ...prev, endSS: v }))}
+          onCentisecondsChange={(v) => setForm(prev => ({ ...prev, endCC: v }))}
+          onCaptureTime={hasAudio ? captureEndTime : undefined}
+          onAdjust={adjustEndTime}
+          showCapture={hasAudio}
+          onSave={handleSave}
+        />
+
+        {chainTimes && (
+          <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/20 text-xs">
+            <Link2 className="w-4 h-4 text-primary shrink-0" />
+            <span className="text-muted-foreground">
+              Chain mode: Changing end time will shift all following segments
+            </span>
+          </div>
+        )}
 
       <div className="flex items-center justify-between text-sm">
         <span className="text-muted-foreground">Duration:</span>
@@ -245,3 +256,5 @@ export function SegmentEditor({
     </div>
   );
 }
+
+export const SegmentEditor = memo(SegmentEditorComponent);

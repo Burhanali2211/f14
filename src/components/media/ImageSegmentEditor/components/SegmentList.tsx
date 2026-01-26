@@ -1,6 +1,5 @@
-import { memo, useRef, useEffect, useCallback } from 'react';
+import { memo, useRef, useEffect, useCallback, useState, useMemo } from 'react';
 import { Plus, Eye, EyeOff, Check, Play } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import type { ImageRegion } from '../types';
 import { formatTimeDisplay } from '../types';
@@ -19,6 +18,10 @@ interface SegmentListProps {
   onChangePage: (index: number) => void;
   onPlayRegion?: (id: string) => void;
 }
+
+const ITEM_HEIGHT = 76;
+const OVERSCAN = 3;
+const VIRTUALIZATION_THRESHOLD = 50;
 
 const SegmentItem = memo(function SegmentItem({
   region,
@@ -137,8 +140,18 @@ function SegmentListComponent({
   onChangePage,
   onPlayRegion,
 }: SegmentListProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
   const prevActiveId = useRef<string | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [containerHeight, setContainerHeight] = useState(400);
+
+  const sortedRegions = useMemo(() => 
+    [...regions].sort((a, b) => a.startTime - b.startTime),
+    [regions]
+  );
+
+  const useVirtualization = sortedRegions.length > VIRTUALIZATION_THRESHOLD;
 
   useEffect(() => {
     if (activeId && activeId !== prevActiveId.current && activeRef.current) {
@@ -146,6 +159,25 @@ function SegmentListComponent({
     }
     prevActiveId.current = activeId;
   }, [activeId]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !useVirtualization) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(entry.contentRect.height);
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [useVirtualization]);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (useVirtualization) {
+      setScrollTop(e.currentTarget.scrollTop);
+    }
+  }, [useVirtualization]);
 
   const handleItemClick = useCallback((e: React.MouseEvent, region: ImageRegion) => {
     const isCtrl = e.ctrlKey || e.metaKey;
@@ -164,6 +196,62 @@ function SegmentListComponent({
     }
   }, [currentPageIndex, onChangePage, onSelect]);
 
+  const { visibleItems, startIndex, totalHeight } = useMemo(() => {
+    if (!useVirtualization) {
+      return { 
+        visibleItems: sortedRegions, 
+        startIndex: 0, 
+        totalHeight: sortedRegions.length * ITEM_HEIGHT 
+      };
+    }
+
+    const start = Math.max(0, Math.floor(scrollTop / ITEM_HEIGHT) - OVERSCAN);
+    const visibleCount = Math.ceil(containerHeight / ITEM_HEIGHT) + OVERSCAN * 2;
+    const end = Math.min(sortedRegions.length, start + visibleCount);
+    
+    return {
+      visibleItems: sortedRegions.slice(start, end),
+      startIndex: start,
+      totalHeight: sortedRegions.length * ITEM_HEIGHT,
+    };
+  }, [sortedRegions, scrollTop, containerHeight, useVirtualization]);
+
+  const renderItem = useCallback((region: ImageRegion, index: number) => {
+    const style = useVirtualization ? {
+      position: 'absolute' as const,
+      top: (startIndex + index) * ITEM_HEIGHT,
+      left: 12,
+      right: 12,
+      height: ITEM_HEIGHT - 8,
+    } : undefined;
+
+    return (
+      <div 
+        key={region.id} 
+        ref={activeId === region.id ? activeRef : null}
+        style={style}
+        className={!useVirtualization ? "mb-2" : undefined}
+      >
+        <SegmentItem
+          region={region}
+          isSelected={selectedIds.has(region.id)}
+          isFocused={focusedId === region.id}
+          isActive={activeId === region.id}
+          isHidden={hiddenRegionIds.has(region.id)}
+          isOtherPage={region.imageIndex !== currentPageIndex && allPages.length > 1}
+          onSelect={(e) => handleItemClick(e, region)}
+          onFocus={() => onFocus(region.id)}
+          onToggleVisibility={() => onToggleVisibility(region.id)}
+          onPlayRegion={onPlayRegion ? () => onPlayRegion(region.id) : undefined}
+        />
+      </div>
+    );
+  }, [
+    useVirtualization, startIndex, activeId, selectedIds, focusedId, 
+    hiddenRegionIds, currentPageIndex, allPages.length, handleItemClick, 
+    onFocus, onToggleVisibility, onPlayRegion
+  ]);
+
   return (
     <>
       <div className="p-4 border-b">
@@ -180,65 +268,54 @@ function SegmentListComponent({
         </p>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-3 space-y-2">
-          {regions.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Plus className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              <p className="text-sm">No segments yet</p>
-              <p className="text-xs mt-1">Drag on the page to create</p>
-            </div>
-          ) : (
-            <>
-              {allPages.map((_, pageIdx) => {
-                const pageRegions = regions
-                  .filter(r => r.imageIndex === pageIdx)
-                  .sort((a, b) => a.startTime - b.startTime);
-                
-                if (pageRegions.length === 0 && allPages.length === 1) return null;
+      <div 
+        ref={containerRef}
+        className="flex-1 overflow-auto"
+        onScroll={handleScroll}
+      >
+        {regions.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <Plus className="w-10 h-10 mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No segments yet</p>
+            <p className="text-xs mt-1">Drag on the page to create</p>
+          </div>
+        ) : useVirtualization ? (
+          <div style={{ height: totalHeight, position: 'relative' }}>
+            {visibleItems.map((region, idx) => renderItem(region, idx))}
+          </div>
+        ) : (
+          <div className="p-3">
+            {allPages.length > 1 ? (
+              allPages.map((_, pageIdx) => {
+                const pageRegions = sortedRegions.filter(r => r.imageIndex === pageIdx);
+                if (pageRegions.length === 0) return null;
                 
                 return (
-                  <div key={pageIdx} className="space-y-2">
-                    {allPages.length > 1 && (
-                      <div 
-                        className={cn(
-                          "text-xs font-medium px-2 py-1.5 rounded-md flex items-center justify-between cursor-pointer",
-                          pageIdx === currentPageIndex 
-                            ? "bg-primary/10 text-primary" 
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        )}
-                        onClick={() => onChangePage(pageIdx)}
-                      >
-                        <span>Page {pageIdx + 1}</span>
-                        <span className="text-xs opacity-70">
-                          {pageRegions.length} segment{pageRegions.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                    )}
-                    
-                    {pageRegions.map((region) => (
-                      <div key={region.id} ref={activeId === region.id ? activeRef : null}>
-                        <SegmentItem
-                          region={region}
-                          isSelected={selectedIds.has(region.id)}
-                          isFocused={focusedId === region.id}
-                          isActive={activeId === region.id}
-                          isHidden={hiddenRegionIds.has(region.id)}
-                          isOtherPage={pageIdx !== currentPageIndex && allPages.length > 1}
-                          onSelect={(e) => handleItemClick(e, region)}
-                          onFocus={() => onFocus(region.id)}
-                          onToggleVisibility={() => onToggleVisibility(region.id)}
-                          onPlayRegion={onPlayRegion ? () => onPlayRegion(region.id) : undefined}
-                        />
-                      </div>
-                    ))}
+                  <div key={pageIdx} className="mb-4">
+                    <div 
+                      className={cn(
+                        "text-xs font-medium px-2 py-1.5 rounded-md flex items-center justify-between cursor-pointer mb-2",
+                        pageIdx === currentPageIndex 
+                          ? "bg-primary/10 text-primary" 
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                      )}
+                      onClick={() => onChangePage(pageIdx)}
+                    >
+                      <span>Page {pageIdx + 1}</span>
+                      <span className="text-xs opacity-70">
+                        {pageRegions.length} segment{pageRegions.length !== 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {pageRegions.map((region, idx) => renderItem(region, idx))}
                   </div>
                 );
-              })}
-            </>
-          )}
-        </div>
-      </ScrollArea>
+              })
+            ) : (
+              sortedRegions.map((region, idx) => renderItem(region, idx))
+            )}
+          </div>
+        )}
+      </div>
     </>
   );
 }
