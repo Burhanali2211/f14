@@ -1,5 +1,5 @@
 import { memo, useRef, useEffect, useCallback, useState, useMemo } from 'react';
-import { Plus, Eye, EyeOff, Check, Play } from 'lucide-react';
+import { Plus, Eye, EyeOff, Check, Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ImageRegion } from '../types';
 import { formatTimeDisplay } from '../types';
@@ -12,11 +12,13 @@ interface SegmentListProps {
   focusedId: string | null;
   activeId: string | null;
   hiddenRegionIds: Set<string>;
+  isPlaying?: boolean;
   onSelect: (id: string, options?: { addToSelection?: boolean; rangeSelect?: boolean }) => void;
   onFocus: (id: string | null) => void;
   onToggleVisibility: (id: string) => void;
   onChangePage: (index: number) => void;
   onPlayRegion?: (id: string) => void;
+  onStopPlaying?: () => void;
 }
 
 const ITEM_HEIGHT = 76;
@@ -30,10 +32,12 @@ const SegmentItem = memo(function SegmentItem({
   isActive,
   isHidden,
   isOtherPage,
+  isCurrentlyPlaying,
   onSelect,
   onFocus,
   onToggleVisibility,
   onPlayRegion,
+  onStopPlaying,
 }: {
   region: ImageRegion;
   isSelected: boolean;
@@ -41,10 +45,12 @@ const SegmentItem = memo(function SegmentItem({
   isActive: boolean;
   isHidden: boolean;
   isOtherPage: boolean;
+  isCurrentlyPlaying: boolean;
   onSelect: (e: React.MouseEvent) => void;
   onFocus: () => void;
   onToggleVisibility: () => void;
   onPlayRegion?: () => void;
+  onStopPlaying?: () => void;
 }) {
   return (
     <div
@@ -87,15 +93,26 @@ const SegmentItem = memo(function SegmentItem({
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          {onPlayRegion && (
+          {(onPlayRegion || onStopPlaying) && (
             <button
-              className="p-1 rounded hover:bg-muted opacity-0 group-hover:opacity-100"
+              className={cn(
+                "p-1 rounded hover:bg-muted",
+                isCurrentlyPlaying ? "opacity-100 text-green-600" : "opacity-0 group-hover:opacity-100"
+              )}
               onClick={(e) => {
                 e.stopPropagation();
-                onPlayRegion();
+                if (isCurrentlyPlaying && onStopPlaying) {
+                  onStopPlaying();
+                } else if (onPlayRegion) {
+                  onPlayRegion();
+                }
               }}
             >
-              <Play className="w-4 h-4" />
+              {isCurrentlyPlaying ? (
+                <Pause className="w-4 h-4" />
+              ) : (
+                <Play className="w-4 h-4" />
+              )}
             </button>
           )}
           <button
@@ -134,11 +151,13 @@ function SegmentListComponent({
   focusedId,
   activeId,
   hiddenRegionIds,
+  isPlaying = false,
   onSelect,
   onFocus,
   onToggleVisibility,
   onChangePage,
   onPlayRegion,
+  onStopPlaying,
 }: SegmentListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement>(null);
@@ -225,6 +244,8 @@ function SegmentListComponent({
       height: ITEM_HEIGHT - 8,
     } : undefined;
 
+    const isCurrentlyPlaying = isPlaying && activeId === region.id;
+
     return (
       <div 
         key={region.id} 
@@ -239,17 +260,19 @@ function SegmentListComponent({
           isActive={activeId === region.id}
           isHidden={hiddenRegionIds.has(region.id)}
           isOtherPage={region.imageIndex !== currentPageIndex && allPages.length > 1}
+          isCurrentlyPlaying={isCurrentlyPlaying}
           onSelect={(e) => handleItemClick(e, region)}
           onFocus={() => onFocus(region.id)}
           onToggleVisibility={() => onToggleVisibility(region.id)}
           onPlayRegion={onPlayRegion ? () => onPlayRegion(region.id) : undefined}
+          onStopPlaying={onStopPlaying}
         />
       </div>
     );
   }, [
     useVirtualization, startIndex, activeId, selectedIds, focusedId, 
     hiddenRegionIds, currentPageIndex, allPages.length, handleItemClick, 
-    onFocus, onToggleVisibility, onPlayRegion
+    onFocus, onToggleVisibility, onPlayRegion, onStopPlaying, isPlaying
   ]);
 
   return (

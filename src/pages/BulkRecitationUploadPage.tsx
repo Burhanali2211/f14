@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
 import { authenticatedQuery } from '@/lib/db-utils';
+import { invalidateCache } from '@/lib/data-cache';
 import { logger } from '@/lib/logger';
 import type { Category, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
@@ -333,10 +334,13 @@ export default function BulkRecitationUploadPage() {
         throw new Error('No pieces could be created');
       }
 
-      const { error } = await authenticatedQuery(() => supabase.from('pieces').insert(piecesToInsert).select());
-      if (error) throw error;
+const { error } = await authenticatedQuery(() => supabase.from('pieces').insert(piecesToInsert).select());
+        if (error) throw error;
 
-      toast({ title: 'Success', description: `Saved ${piecesToInsert.length} recitation(s)` });
+        invalidateCache('index');
+        invalidateCache('pieces*');
+
+        toast({ title: 'Success', description: `Saved ${piecesToInsert.length} recitation(s)` });
 
       const savedGroupIds = new Set(validGroups.map(g => g.id));
       const savedPageIds = new Set(pages.filter(p => p.groupId && savedGroupIds.has(p.groupId)).map(p => p.id));

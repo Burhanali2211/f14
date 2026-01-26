@@ -416,38 +416,40 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                   )}
                 </div>
 
-                <div className="flex items-center justify-between bg-background/80 backdrop-blur-sm border rounded-xl p-4 sticky bottom-4 shadow-lg z-20">
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={currentImageIndex === 0}
-                      onClick={() => setCurrentImageIndex(prev => Math.max(0, prev - 1))}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </Button>
-                    <span className="text-sm font-medium tabular-nums">
-                      Page {currentImageIndex + 1} of {imageUrls.length}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      disabled={currentImageIndex === imageUrls.length - 1}
-                      onClick={() => setCurrentImageIndex(prev => Math.min(imageUrls.length - 1, prev + 1))}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    {onNavigateToImageEditor && (
-                      <Button variant="ghost" size="sm" onClick={onNavigateToImageEditor}>
-                        <ImageIcon className="w-4 h-4 mr-2" />
-                        Edit Regions
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                  {!isPlaybackMode && (
+                    <div className="flex items-center justify-between bg-background/80 backdrop-blur-sm border rounded-xl p-4 sticky bottom-4 shadow-lg z-20">
+                      <div className="flex items-center gap-4">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          disabled={currentImageIndex === 0}
+                          onClick={() => setCurrentImageIndex(prev => Math.max(0, prev - 1))}
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </Button>
+                        <span className="text-sm font-medium tabular-nums">
+                          Page {currentImageIndex + 1} of {imageUrls.length}
+                        </span>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          disabled={currentImageIndex === imageUrls.length - 1}
+                          onClick={() => setCurrentImageIndex(prev => Math.min(imageUrls.length - 1, prev + 1))}
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {onNavigateToImageEditor && (
+                          <Button variant="ghost" size="sm" onClick={onNavigateToImageEditor}>
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            Edit Regions
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
               </div>
             ) : (
               <div className="space-y-8">
@@ -548,7 +550,7 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                 );
               })}
 
-              {currentSegmentIndex >= 0 && (
+              {currentSegmentIndex >= 0 && !isPlaybackMode && (
                 <div className="sticky bottom-4 mx-auto w-fit bg-background/95 backdrop-blur-sm border rounded-full px-4 py-2 shadow-lg">
                   <span className="text-sm font-medium">
                     Segment {currentSegmentIndex + 1}/{segments.length}

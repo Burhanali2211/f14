@@ -103,6 +103,59 @@ async function createPresignedUrl(bucket, key, method, contentType, expiresIn = 
   return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
 }
 
+async function createGetPresignedUrl(bucket, key, expiresIn = 3600) {
+  const crypto = await import('crypto');
+  const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const region = 'auto';
+  const service = 's3';
+  
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.slice(0, 8);
+  
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
+  
+  const canonicalUri = `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
+  
+  const queryParams = new URLSearchParams({
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Credential': credential,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': expiresIn.toString(),
+    'X-Amz-SignedHeaders': 'host',
+  });
+  
+  const canonicalQueryString = queryParams.toString().split('&').sort().join('&');
+  
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const canonicalHeaders = `host:${host}\n`;
+  const signedHeaders = 'host';
+  
+  const canonicalRequest = [
+    'GET',
+    canonicalUri,
+    canonicalQueryString,
+    canonicalHeaders,
+    signedHeaders,
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+  
+  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
+  
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    canonicalRequestHash,
+  ].join('\n');
+  
+  const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
+  const signature = toHex(await hmacSha256(signingKey, stringToSign));
+  
+  return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+}
+
 async function verifyUser(authHeader) {
   if (!authHeader?.startsWith('Bearer ') || !supabase) {
     return null;
@@ -118,6 +171,91 @@ async function verifyUser(authHeader) {
     return null;
   }
 }
+
+const multer = await import('multer');
+const upload = multer.default({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+
+app.post('/api/r2-audio-upload', upload.single('file'), async (req, res) => {
+  try {
+    if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+      return res.status(500).json({ error: 'R2 credentials not configured' });
+    }
+
+    const file = req.file;
+    const r2Key = req.body.r2Key;
+
+    if (!file || !r2Key) {
+      return res.status(400).json({ error: 'Missing file or r2Key' });
+    }
+
+    if (!r2Key.startsWith('audio/')) {
+      return res.status(400).json({ error: 'Invalid r2Key - must start with audio/' });
+    }
+
+    const crypto = await import('crypto');
+    const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    const region = 'auto';
+    const service = 's3';
+    
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+    const dateStamp = amzDate.slice(0, 8);
+    
+    const payloadHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
+    
+    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+    const canonicalUri = `/${R2_BUCKET_NAME}/${r2Key}`;
+    
+    const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+    const canonicalHeaders = `content-type:${file.mimetype}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
+    const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
+    
+    const canonicalRequest = [
+      'PUT',
+      canonicalUri,
+      '',
+      canonicalHeaders,
+      signedHeaders,
+      payloadHash,
+    ].join('\n');
+    
+    const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
+    
+    const stringToSign = [
+      'AWS4-HMAC-SHA256',
+      amzDate,
+      credentialScope,
+      canonicalRequestHash,
+    ].join('\n');
+    
+    const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
+    const signature = toHex(await hmacSha256(signingKey, stringToSign));
+    
+    const authorizationHeader = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+    
+    const uploadResponse = await fetch(`${endpoint}${canonicalUri}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.mimetype,
+        'x-amz-content-sha256': payloadHash,
+        'x-amz-date': amzDate,
+        'Authorization': authorizationHeader,
+      },
+      body: file.buffer,
+    });
+
+    if (!uploadResponse.ok) {
+      const errorText = await uploadResponse.text();
+      console.error('R2 upload error:', errorText);
+      return res.status(uploadResponse.status).json({ error: 'Failed to upload to R2', details: errorText });
+    }
+
+    return res.json({ success: true, r2Key });
+  } catch (error) {
+    console.error('Error uploading audio:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 app.post('/api/r2-upload-url', async (req, res) => {
   try {
@@ -419,6 +557,52 @@ app.post('/api/telegram-notify', async (req, res) => {
     return res.status(success ? 200 : 500).json({ success });
   } catch (error) {
     console.error('Error processing telegram notification:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+app.get('/api/r2-audio-proxy', async (req, res) => {
+  try {
+    if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+      return res.status(500).json({ error: 'R2 credentials not configured' });
+    }
+
+    const r2Key = req.query.key;
+
+    if (!r2Key || !r2Key.startsWith('audio/')) {
+      return res.status(400).json({ error: 'Invalid or missing audio key' });
+    }
+
+    const presignedUrl = await createGetPresignedUrl(R2_BUCKET_NAME, r2Key, 3600);
+    
+    const fetchHeaders = {};
+    if (req.headers.range) {
+      fetchHeaders['Range'] = req.headers.range;
+    }
+
+    const r2Response = await fetch(presignedUrl, {
+      method: 'GET',
+      headers: fetchHeaders,
+    });
+
+    if (!r2Response.ok && r2Response.status !== 206) {
+      console.error('R2 error:', r2Response.status, await r2Response.text());
+      return res.status(r2Response.status).json({ error: 'Failed to fetch audio from R2' });
+    }
+
+    const contentType = r2Response.headers.get('Content-Type') || 'audio/mpeg';
+    const contentLength = r2Response.headers.get('Content-Length');
+    const contentRange = r2Response.headers.get('Content-Range');
+
+    res.set('Content-Type', contentType);
+    res.set('Accept-Ranges', 'bytes');
+    if (contentLength) res.set('Content-Length', contentLength);
+    if (contentRange) res.set('Content-Range', contentRange);
+
+    const buffer = Buffer.from(await r2Response.arrayBuffer());
+    return res.status(r2Response.status).send(buffer);
+  } catch (error) {
+    console.error('Error proxying audio:', error);
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

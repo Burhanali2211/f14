@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, ChevronRight, User, Bookmark, Eye,
   Users, ArrowUp, Heart, Share2, Home, Settings,
-  ZoomIn, ZoomOut, RotateCcw, Music, Play
+  ZoomIn, ZoomOut, RotateCcw, RotateCw, Music, Play, Pause, Volume2, VolumeX,
+  FastForward, Rewind, Timer
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -53,9 +54,18 @@ export default function PiecePage() {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const contentRef = useRef<HTMLDivElement>(null);
-  const verseRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const verseRefs = useRef<(HTMLDivElement | null)[]>([]);
+    const audioRef = useRef<HTMLAudioElement>(null);
+    
+    const [audioStreamUrl, setAudioStreamUrl] = useState<string | null>(null);
+    const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+    const [audioProgress, setAudioProgress] = useState(0);
+    const [audioDuration, setAudioDuration] = useState(0);
+    const [audioMuted, setAudioMuted] = useState(false);
+    const [audioLoading, setAudioLoading] = useState(false);
+    const [playbackSpeed, setPlaybackSpeed] = useState(1);
 
-  const favorite = piece ? isFavorite(piece.id) : false;
+    const favorite = piece ? isFavorite(piece.id) : false;
 
   const fetchPiece = useCallback(async () => {
     if (!id) {
@@ -202,15 +212,100 @@ export default function PiecePage() {
   };
 
   const handleShare = async () => {
-    if (navigator.share) {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: piece?.title, url: window.location.href });
+        } catch {}
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({ title: "Link copied!", description: "Share link copied to clipboard" });
+      }
+    };
+
+    const loadAudioStreamUrl = useCallback(async () => {
+      const audioR2Key = (piece as any)?.audio_url;
+      if (!audioR2Key || !audioR2Key.startsWith('audio/')) return;
+      
+      setAudioLoading(true);
       try {
-        await navigator.share({ title: piece?.title, url: window.location.href });
-      } catch {}
-    } else {
-      await navigator.clipboard.writeText(window.location.href);
-      toast({ title: "Link copied!", description: "Share link copied to clipboard" });
-    }
-  };
+        const proxyUrl = `/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`;
+        setAudioStreamUrl(proxyUrl);
+      } catch (error) {
+        console.error('Failed to load audio stream URL:', error);
+      } finally {
+        setAudioLoading(false);
+      }
+    }, [piece]);
+
+    useEffect(() => {
+      if ((piece as any)?.audio_url) {
+        loadAudioStreamUrl();
+      }
+    }, [piece, loadAudioStreamUrl]);
+
+    const toggleAudioPlayback = () => {
+      if (audioRef.current) {
+        if (isAudioPlaying) {
+          audioRef.current.pause();
+        } else {
+          audioRef.current.play();
+        }
+        setIsAudioPlaying(!isAudioPlaying);
+      }
+    };
+
+    const handleAudioTimeUpdate = () => {
+      if (audioRef.current) {
+        setAudioProgress(audioRef.current.currentTime);
+      }
+    };
+
+    const handleAudioLoadedMetadata = () => {
+      if (audioRef.current) {
+        setAudioDuration(audioRef.current.duration);
+      }
+    };
+
+    const handleAudioSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const time = parseFloat(e.target.value);
+      if (audioRef.current) {
+        audioRef.current.currentTime = time;
+        setAudioProgress(time);
+      }
+    };
+
+    const formatAudioTime = (seconds: number) => {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleSkipForward = () => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = Math.min(audioRef.current.duration, audioRef.current.currentTime + 5);
+        setAudioProgress(audioRef.current.currentTime);
+      }
+    };
+
+    const handleSkipBackward = () => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 5);
+        setAudioProgress(audioRef.current.currentTime);
+      }
+    };
+
+    const handleSpeedChange = (speed: number) => {
+      setPlaybackSpeed(speed);
+      if (audioRef.current) {
+        audioRef.current.playbackRate = speed;
+      }
+    };
+
+    useEffect(() => {
+      if (audioRef.current) {
+        audioRef.current.playbackRate = playbackSpeed;
+      }
+    }, [playbackSpeed, audioStreamUrl, isAudioPlaying]);
 
   const getFontFamily = () => {
     switch (settings.fontFamily) {
@@ -468,12 +563,122 @@ export default function PiecePage() {
           </div>
         </header>
 
-        <div className="space-y-8">
-          {piece.video_url && (
-            <section>
-              <EnhancedVideoPlayer src={piece.video_url} title={piece.title} />
-            </section>
-          )}
+          <div className="space-y-8">
+            {piece.video_url && (
+              <section>
+                <EnhancedVideoPlayer src={piece.video_url} title={piece.title} />
+              </section>
+            )}
+
+            {audioStreamUrl && (
+              <section>
+                <div className="rounded-2xl border border-border/50 bg-card p-4 sm:p-6">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <Music className="w-4 h-4 text-primary" />
+                    <span>Audio Recitation</span>
+                  </div>
+                  
+                    <div className="flex flex-col gap-4">
+                      <div className="flex items-center gap-2 sm:gap-4">
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <button
+                            onClick={handleSkipBackward}
+                            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-secondary transition-all active:scale-90"
+                            title="Backward 5s"
+                          >
+                            <Rewind className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+                          </button>
+                          
+                          <button
+                            onClick={toggleAudioPlayback}
+                            disabled={audioLoading}
+                            className="w-14 h-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-primary/20"
+                          >
+                            {isAudioPlaying ? (
+                              <Pause className="w-6 h-6" />
+                            ) : (
+                              <Play className="w-6 h-6 ml-1" />
+                            )}
+                          </button>
+
+                          <button
+                            onClick={handleSkipForward}
+                            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-secondary transition-all active:scale-90"
+                            title="Forward 5s"
+                          >
+                            <FastForward className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+                          </button>
+                        </div>
+                        
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="range"
+                            min={0}
+                            max={audioDuration || 100}
+                            value={audioProgress}
+                            onChange={handleAudioSeek}
+                            className="w-full h-2 bg-secondary rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-primary [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:shadow-md"
+                          />
+                          <div className="flex justify-between text-[10px] sm:text-xs text-muted-foreground font-medium">
+                            <span>{formatAudioTime(audioProgress)}</span>
+                            <span>{formatAudioTime(audioDuration)}</span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-1 sm:gap-2">
+                          <div className="relative group">
+                            <button
+                              className="w-10 h-10 rounded-lg bg-secondary hover:bg-secondary/80 flex flex-col items-center justify-center transition-all"
+                            >
+                              <Timer className="w-3 h-3 mb-0.5" />
+                              <span className="text-[10px] font-bold">{playbackSpeed}x</span>
+                            </button>
+                            <div className="absolute bottom-full mb-2 right-0 hidden group-hover:flex flex-col bg-card border border-border rounded-xl shadow-xl p-1 z-50 min-w-[80px]">
+                              {[0.5, 0.75, 1, 1.25, 1.5, 2].map((speed) => (
+                                <button
+                                  key={speed}
+                                  onClick={() => handleSpeedChange(speed)}
+                                  className={`px-3 py-1.5 text-[11px] font-medium rounded-lg hover:bg-secondary transition-colors text-left ${
+                                    playbackSpeed === speed ? 'bg-primary/10 text-primary' : ''
+                                  }`}
+                                >
+                                  {speed}x
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setAudioMuted(!audioMuted);
+                              if (audioRef.current) {
+                                audioRef.current.muted = !audioMuted;
+                              }
+                            }}
+                            className="w-10 h-10 rounded-lg bg-secondary hover:bg-secondary/80 flex items-center justify-center transition-all"
+                          >
+                            {audioMuted ? (
+                              <VolumeX className="w-5 h-5" />
+                            ) : (
+                              <Volume2 className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  
+                  <audio
+                    ref={audioRef}
+                    src={audioStreamUrl}
+                    onTimeUpdate={handleAudioTimeUpdate}
+                    onLoadedMetadata={handleAudioLoadedMetadata}
+                    onEnded={() => setIsAudioPlaying(false)}
+                    onPlay={() => setIsAudioPlaying(true)}
+                    onPause={() => setIsAudioPlaying(false)}
+                  />
+                </div>
+              </section>
+            )}
 
             {imageUrls.length > 0 && (
               <section>

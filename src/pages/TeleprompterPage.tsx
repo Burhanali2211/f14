@@ -122,9 +122,23 @@ export default function TeleprompterPage() {
   const [cloudAudio, setCloudAudio] = useState<AudioFile | null>(null);
   const [cloudAudioStreamUrl, setCloudAudioStreamUrl] = useState<string | null>(null);
 
-  const { getStreamUrl, getUserAudioFiles } = useR2Audio();
+const { getStreamUrl, getUserAudioFiles } = useR2Audio();
+    
+    const [pieceAudioStreamUrl, setPieceAudioStreamUrl] = useState<string | null>(null);
 
-  const audioUrl = cloudAudioStreamUrl || airSendAudioUrl || piece?.audio_url;
+    useEffect(() => {
+      const audioR2Key = piece?.audio_url;
+      if (audioR2Key && audioR2Key.startsWith('audio/')) {
+        const proxyUrl = `/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`;
+        setPieceAudioStreamUrl(proxyUrl);
+      } else if (audioR2Key && (audioR2Key.startsWith('http://') || audioR2Key.startsWith('https://'))) {
+        setPieceAudioStreamUrl(audioR2Key);
+      } else {
+        setPieceAudioStreamUrl(null);
+      }
+    }, [piece?.audio_url]);
+
+    const audioUrl = cloudAudioStreamUrl || airSendAudioUrl || pieceAudioStreamUrl;
 
   const pdfUrl = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);

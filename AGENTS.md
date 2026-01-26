@@ -33,3 +33,10 @@ A comprehensive hub for sacred recitations, Quranic content, and Shia religious 
 - **State Management**: React Context for global state (Audio, UI, Auth)
 - **Database Access**: Use the generated Supabase client for all DB operations
 - **Notifications**: Use the `telegram-notify` API for system events
+
+## Critical Reminders
+### Cloudflare R2 Credentials
+- **R2_ACCESS_KEY_ID**: Must be exactly 32 characters (NOT the Token Value which is 40 chars)
+- **R2_SECRET_ACCESS_KEY**: Must be exactly 64 characters
+- When creating R2 API tokens, copy the **Access Key ID** field, NOT the "Token Value"
+- Always restart the dev server after updating .env files to pick up new values

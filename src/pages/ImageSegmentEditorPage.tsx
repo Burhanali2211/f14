@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Home, Image as ImageIcon } from 'lucide-react';
@@ -76,8 +76,6 @@ export default function ImageSegmentEditorPage() {
   const [zoom, setZoom] = useState(1);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
 
-  const audioInputRef = useRef<HTMLInputElement>(null);
-
   const { saveStatus, manualSave, loadFromStorage, discardLocalChanges, syncToCloud } = useAutoSave({
     pieceId: id || '',
     regions,
@@ -137,7 +135,21 @@ export default function ImageSegmentEditorPage() {
     return map;
   }, [regions]);
 
-  const audioUrl = piece?.audio_url || undefined;
+  const [resolvedAudioUrl, setResolvedAudioUrl] = useState<string | undefined>(undefined);
+
+    useEffect(() => {
+      const audioR2Key = piece?.audio_url;
+      if (audioR2Key && audioR2Key.startsWith('audio/')) {
+        const proxyUrl = `/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`;
+        setResolvedAudioUrl(proxyUrl);
+      } else if (audioR2Key && (audioR2Key.startsWith('http://') || audioR2Key.startsWith('https://'))) {
+        setResolvedAudioUrl(audioR2Key);
+      } else {
+        setResolvedAudioUrl(undefined);
+      }
+    }, [piece?.audio_url]);
+
+    const audioUrl = resolvedAudioUrl;
 
   const handleAudioUpload = useCallback(async (file: File) => {
     if (!id) return;

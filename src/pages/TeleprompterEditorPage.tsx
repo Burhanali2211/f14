@@ -101,7 +101,21 @@ export default function TeleprompterEditorPage() {
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const audioUrl = piece?.audio_url;
+    const [resolvedAudioUrl, setResolvedAudioUrl] = useState<string | null>(null);
+
+    useEffect(() => {
+      const audioR2Key = piece?.audio_url;
+      if (audioR2Key && audioR2Key.startsWith('audio/')) {
+        const proxyUrl = `/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`;
+        setResolvedAudioUrl(proxyUrl);
+      } else if (audioR2Key && (audioR2Key.startsWith('http://') || audioR2Key.startsWith('https://'))) {
+        setResolvedAudioUrl(audioR2Key);
+      } else {
+        setResolvedAudioUrl(null);
+      }
+    }, [piece?.audio_url]);
+
+    const audioUrl = resolvedAudioUrl;
 
   const imageUrls = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);

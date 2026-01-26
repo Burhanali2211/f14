@@ -333,6 +333,8 @@ export default function UploaderPage() {
         if (paginatedPieces.length <= pieceIds.length && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         }
+        invalidateCache('index');
+        invalidateCache('pieces*');
         const user = getCurrentUser();
         if (user) {
           invalidateCache(`uploader:data:userId=${user.id}*`);
@@ -381,6 +383,8 @@ export default function UploaderPage() {
         if (paginatedPieces.length === 1 && currentPage > 1) {
           setCurrentPage(currentPage - 1);
         }
+        invalidateCache('index');
+        invalidateCache('pieces*');
         const user = getCurrentUser();
         if (user) {
           invalidateCache(`uploader:data:userId=${user.id}*`);

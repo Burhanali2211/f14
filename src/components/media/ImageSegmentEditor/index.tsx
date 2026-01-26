@@ -522,21 +522,23 @@ export function ImageSegmentEditor({
                 onCopy={handleCopySegment}
               />
           ) : (
-            <SegmentList
-              regions={regions}
-              allPages={allPages}
-              currentPageIndex={currentPageIndex}
-              selectedIds={selection.selectedIds}
-              focusedId={selection.focusedId}
-              activeId={activeId}
-              hiddenRegionIds={hiddenRegionIds}
-              onSelect={selection.select}
-              onFocus={selection.focus}
-              onToggleVisibility={handleToggleVisibility}
-              onChangePage={setCurrentPageIndex}
-              onPlayRegion={audioPlayer.hasAudio ? handlePlayRegion : undefined}
-            />
-          )}
+              <SegmentList
+                regions={regions}
+                allPages={allPages}
+                currentPageIndex={currentPageIndex}
+                selectedIds={selection.selectedIds}
+                focusedId={selection.focusedId}
+                activeId={activeId}
+                hiddenRegionIds={hiddenRegionIds}
+                isPlaying={audioPlayer.isPlaying}
+                onSelect={selection.select}
+                onFocus={selection.focus}
+                onToggleVisibility={handleToggleVisibility}
+                onChangePage={setCurrentPageIndex}
+                onPlayRegion={audioPlayer.hasAudio ? handlePlayRegion : undefined}
+                onStopPlaying={audioPlayer.hasAudio ? audioPlayer.stop : undefined}
+              />
+            )}
         </div>
       </div>
 

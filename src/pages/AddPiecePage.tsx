@@ -23,6 +23,9 @@ import {
   ArrowRight,
   CheckCircle2,
   Plus,
+  Music,
+  Play,
+  Pause,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
@@ -54,6 +57,7 @@ import { useUserRole } from '@/hooks/use-user-role';
 import { authenticatedQuery } from '@/lib/db-utils';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/auth-utils';
+import { invalidateCache } from '@/lib/data-cache';
 import { optimizeRecitationImage } from '@/lib/image-optimizer';
 import type { Category, Piece, Imam } from '@/lib/supabase-types';
 import { ReciterCombobox } from '@/components/ReciterCombobox';
@@ -82,6 +86,11 @@ export default function AddPiecePage() {
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+  const [audioUploading, setAudioUploading] = useState(false);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
   
   const [fetchingContent, setFetchingContent] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -100,6 +109,7 @@ export default function AddPiecePage() {
     text_content: '',
     video_url: '',
     image_url: [] as string[],
+    audio_url: '',
   });
 
   const STEPS = [
@@ -172,15 +182,20 @@ export default function AddPiecePage() {
           : [];
       
       setPieceForm({
-        title: piece.title,
-        category_id: piece.category_id,
-        imam_id: piece.imam_id || '',
-        reciter: piece.reciter || '',
-        language: piece.language,
-        text_content: piece.text_content,
-        video_url: piece.video_url || '',
-        image_url: imageUrls,
-      });
+          title: piece.title,
+          category_id: piece.category_id,
+          imam_id: piece.imam_id || '',
+          reciter: piece.reciter || '',
+          language: piece.language,
+          text_content: piece.text_content,
+          video_url: piece.video_url || '',
+          image_url: imageUrls,
+          audio_url: (piece as any).audio_url || '',
+        });
+        
+        if ((piece as any).audio_url) {
+          setAudioPreviewUrl((piece as any).audio_url);
+        }
     }
 
     setLoading(false);
@@ -260,10 +275,88 @@ export default function AddPiecePage() {
   };
   
   const handleRemoveImage = (index: number) => {
-    setPieceForm(f => ({
-      ...f,
-      image_url: f.image_url.filter((_, i) => i !== index)
-    }));
+      setPieceForm(f => ({
+        ...f,
+        image_url: f.image_url.filter((_, i) => i !== index)
+      }));
+    };
+
+  const handleAudioUpload = async (file: File) => {
+    const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/aac', 'audio/m4a', 'audio/x-m4a', 'audio/flac'];
+    if (!validTypes.includes(file.type)) {
+      toast({ title: t('error', uiLang), description: 'Please upload an audio file (MP3, WAV, OGG, etc.)', variant: 'destructive' });
+      return;
+    }
+    
+    if (file.size > 100 * 1024 * 1024) {
+      toast({ title: t('error', uiLang), description: 'Audio file too large. Max 100MB', variant: 'destructive' });
+      return;
+    }
+
+    setAudioUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id || 'anonymous';
+      
+      const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const r2Key = `audio/${userId}/${Date.now()}_${sanitizedFilename}`;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('r2Key', r2Key);
+
+      const response = await fetch('/api/r2-audio-upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload audio');
+      }
+
+      setPieceForm(f => ({ ...f, audio_url: r2Key }));
+      
+      const previewUrl = URL.createObjectURL(file);
+      setAudioPreviewUrl(previewUrl);
+      
+      toast({ title: t('success', uiLang) || 'Success', description: 'Audio uploaded successfully' });
+    } catch (error) {
+      console.error('Audio upload error:', error);
+      toast({ title: t('error', uiLang), description: 'Failed to upload audio', variant: 'destructive' });
+    } finally {
+      setAudioUploading(false);
+    }
+  };
+
+  const onAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleAudioUpload(file);
+    }
+    if (audioInputRef.current) {
+      audioInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveAudio = () => {
+    setPieceForm(f => ({ ...f, audio_url: '' }));
+    setAudioPreviewUrl(null);
+    setIsAudioPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+  };
+
+  const toggleAudioPlayback = () => {
+    if (audioRef.current) {
+      if (isAudioPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsAudioPlaying(!isAudioPlaying);
+    }
   };
 
   const translateText = async () => {
@@ -384,33 +477,39 @@ export default function AddPiecePage() {
       text_content: pieceForm.text_content,
       video_url: pieceForm.video_url || null,
       image_url: pieceForm.image_url.length > 0 ? pieceForm.image_url : null,
+      audio_url: pieceForm.audio_url || null,
       user_id: user.id,
     };
 
     try {
-      if (isEditing && id) {
-          const { error } = await authenticatedQuery(async () =>
-            await supabase.from('pieces').update(data).eq('id', id)
-          );
-          if (error) throw error;
-          toast({ title: t('saved', uiLang), description: t('recitationUpdated', uiLang) });
-        } else {
-          const { error } = await authenticatedQuery(async () =>
-            await supabase.from('pieces').insert([data])
-          );
-          if (error) throw error;
-          
-          const categoryName = categories.find(c => c.id === pieceForm.category_id)?.name;
-          notifyNewRecitation({
-            title: pieceForm.title,
-            category: categoryName || 'Unknown',
-            language: pieceForm.language,
-            reciter: pieceForm.reciter || 'Unknown',
-            uploader_name: user.full_name || user.email,
-          }).catch(() => {});
-          
-          toast({ title: t('saved', uiLang), description: t('recitationCreated', uiLang) });
-        }
+if (isEditing && id) {
+            const { error } = await authenticatedQuery(async () =>
+              await supabase.from('pieces').update(data).eq('id', id)
+            );
+            if (error) throw error;
+            invalidateCache('index');
+            invalidateCache('pieces*');
+            toast({ title: t('saved', uiLang), description: t('recitationUpdated', uiLang) });
+          } else {
+            const { error } = await authenticatedQuery(async () =>
+              await supabase.from('pieces').insert([data])
+            );
+            if (error) throw error;
+            
+            invalidateCache('index');
+            invalidateCache('pieces*');
+            
+            const categoryName = categories.find(c => c.id === pieceForm.category_id)?.name;
+            notifyNewRecitation({
+              title: pieceForm.title,
+              category: categoryName || 'Unknown',
+              language: pieceForm.language,
+              reciter: pieceForm.reciter || 'Unknown',
+              uploader_name: user.full_name || user.email,
+            }).catch(() => {});
+            
+            toast({ title: t('saved', uiLang), description: t('recitationCreated', uiLang) });
+          }
       navigate(role === 'admin' ? '/admin' : '/uploader');
     } catch {
       toast({ title: t('error', uiLang), description: t('errorSave', uiLang), variant: 'destructive' });
@@ -789,17 +888,85 @@ export default function AddPiecePage() {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium flex items-center gap-2 mb-2">
-                    <Video className="w-4 h-4" />
-                    {t('youtubeUrl', uiLang)}
-                  </Label>
-                  <Input
-                    value={pieceForm.video_url}
-                    onChange={(e) => setPieceForm(f => ({ ...f, video_url: e.target.value }))}
-                    placeholder="https://youtube.com/..."
-                    className="h-12 rounded-xl"
-                  />
-                </div>
+                    <Label className="text-sm font-medium flex items-center gap-2 mb-2">
+                      <Video className="w-4 h-4" />
+                      {t('youtubeUrl', uiLang)}
+                    </Label>
+                    <Input
+                      value={pieceForm.video_url}
+                      onChange={(e) => setPieceForm(f => ({ ...f, video_url: e.target.value }))}
+                      placeholder="https://youtube.com/..."
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium flex items-center gap-2 mb-3">
+                      <Music className="w-4 h-4" />
+                      Audio File
+                    </Label>
+                    
+                    {pieceForm.audio_url || audioPreviewUrl ? (
+                      <div className="space-y-3">
+                        <div className="relative rounded-xl overflow-hidden border-2 border-dashed border-primary/30 bg-muted/30 p-4">
+                          <div className="flex items-center gap-4">
+                            <button
+                              type="button"
+                              onClick={toggleAudioPlayback}
+                              className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:bg-primary/90 transition-all active:scale-95"
+                            >
+                              {isAudioPlaying ? (
+                                <Pause className="w-5 h-5" />
+                              ) : (
+                                <Play className="w-5 h-5 ml-0.5" />
+                              )}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">Audio uploaded</p>
+                              <p className="text-xs text-muted-foreground">Click to preview</p>
+                            </div>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-8 w-8 p-0 rounded-lg"
+                              onClick={handleRemoveAudio}
+                            >
+                              <XIcon className="w-4 h-4" />
+                            </Button>
+                          </div>
+                          {audioPreviewUrl && (
+                            <audio
+                              ref={audioRef}
+                              src={audioPreviewUrl}
+                              onEnded={() => setIsAudioPlaying(false)}
+                              className="hidden"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => audioInputRef.current?.click()}
+                        disabled={audioUploading}
+                        className="w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 hover:bg-muted/50 transition-colors"
+                      >
+                        {audioUploading ? (
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        ) : (
+                          <>
+                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                              <Music className="w-6 h-6 text-primary" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-medium">Upload Audio</p>
+                              <p className="text-xs text-muted-foreground">MP3, WAV, OGG (max 100MB)</p>
+                            </div>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
               </div>
             </div>
           )}
@@ -834,7 +1001,10 @@ export default function AddPiecePage() {
                   <div>{pieceForm.text_content.trim().split(/\s+/).length} {t('words', uiLang)}</div>
                   
                   <div className="text-muted-foreground">{t('step3', uiLang)}:</div>
-                  <div>{pieceForm.image_url.length > 0 ? `${pieceForm.image_url.length} ${t('images', uiLang)}` : t('no', uiLang)}</div>
+                    <div>{pieceForm.image_url.length > 0 ? `${pieceForm.image_url.length} ${t('images', uiLang)}` : t('no', uiLang)}</div>
+                    
+                    <div className="text-muted-foreground">Audio:</div>
+                    <div>{pieceForm.audio_url ? 'Yes' : t('no', uiLang)}</div>
                 </div>
               </div>
 
@@ -909,13 +1079,21 @@ export default function AddPiecePage() {
       </div>
 
       <input
-        type="file"
-        ref={imageInputRef}
-        className="hidden"
-        accept="image/*"
-        multiple
-        onChange={onImageSelect}
-      />
+          type="file"
+          ref={imageInputRef}
+          className="hidden"
+          accept="image/*"
+          multiple
+          onChange={onImageSelect}
+        />
+
+        <input
+          type="file"
+          ref={audioInputRef}
+          className="hidden"
+          accept="audio/*"
+          onChange={onAudioSelect}
+        />
 
       <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
         <DialogContent className="max-w-4xl p-0">
