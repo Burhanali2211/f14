@@ -1,1 +1,0 @@
-import{r as e}from"./ui-vendor-CCNeZrie.js";function n(){const[n,t]=e.useState(void 0);return e.useEffect(()=>{const e=window.matchMedia("(max-width: 767px)"),n=()=>{t(window.innerWidth<768)};return e.addEventListener("change",n),t(window.innerWidth<768),()=>e.removeEventListener("change",n)},[]),!!n}export{n as u};
