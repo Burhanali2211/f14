@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
-import { List } from 'react-window';
-import type { ListProps } from 'react-window';
+import { FixedSizeList as List } from 'react-window';
 import { Link } from 'react-router-dom';
 import { PieceCard } from '@/components/PieceCard';
 import type { Piece } from '@/lib/supabase-types';
@@ -136,13 +135,15 @@ export function VirtualizedPieceList({
   if (viewMode === 'list') {
     return (
       <List
-        rowCount={pieces.length}
-        rowHeight={itemHeight}
-        rowComponent={ListRow}
+        itemCount={pieces.length}
+        itemSize={itemHeight}
+        height={containerHeight}
+        width="100%"
         className="scrollbar-hide"
-        style={{ height: containerHeight, width: '100%' }}
         overscanCount={3}
-      />
+      >
+        {ListRow}
+      </List>
     );
   }
 
