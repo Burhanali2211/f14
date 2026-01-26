@@ -32,13 +32,16 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
   const getFontFamily = () => {
     switch (settings.fontFamily) {
-      case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
-      case 'gulzar': return "'Gulzar', serif";
-      case 'lateef': return "'Lateef', serif";
+      case 'al-majeed': return "'AlMajeed', serif";
+      case 'cairo': return "'Cairo', sans-serif";
+      case 'tajawal': return "'Tajawal', sans-serif";
       case 'noto-sans-arabic': return "'Noto Sans Arabic', sans-serif";
-      case 'reem-kufi': return "'Reem Kufi', sans-serif";
+      case 'ibm-plex-sans-arabic': return "'IBM Plex Sans Arabic', sans-serif";
+      case 'amiri': return "'Amiri', serif";
+      case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
+      case 'lateef': return "'Lateef', serif";
       case 'scheherazade': return "'Scheherazade New', serif";
-      default: return "'Amiri', serif";
+      default: return "'AlMajeed', serif";
     }
   };
 
@@ -297,16 +300,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                   <SelectTrigger className="h-11">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cairo">Cairo - Modern & Clean (Recommended)</SelectItem>
-                    <SelectItem value="tajawal">Tajawal - Modern & Readable</SelectItem>
-                    <SelectItem value="noto-sans-arabic">Noto Sans Arabic - Clean & Modern</SelectItem>
-                    <SelectItem value="ibm-plex-sans-arabic">IBM Plex - Professional</SelectItem>
-                    <SelectItem value="amiri">Amiri - Classic Arabic</SelectItem>
-                    <SelectItem value="noto-nastaliq">Noto Nastaliq - Traditional Urdu</SelectItem>
-                    <SelectItem value="lateef">Lateef - Elegant Urdu</SelectItem>
-                    <SelectItem value="scheherazade">Scheherazade - Modern Arabic</SelectItem>
-                  </SelectContent>
+                    <SelectContent>
+                      <SelectItem value="al-majeed">Al Majeed - Quranic Font (Recommended)</SelectItem>
+                      <SelectItem value="cairo">Cairo - Modern & Clean</SelectItem>
+                      <SelectItem value="tajawal">Tajawal - Modern & Readable</SelectItem>
+                      <SelectItem value="noto-sans-arabic">Noto Sans Arabic - Clean & Modern</SelectItem>
+                      <SelectItem value="ibm-plex-sans-arabic">IBM Plex - Professional</SelectItem>
+                      <SelectItem value="amiri">Amiri - Classic Arabic</SelectItem>
+                      <SelectItem value="noto-nastaliq">Noto Nastaliq - Traditional Urdu</SelectItem>
+                      <SelectItem value="lateef">Lateef - Elegant Urdu</SelectItem>
+                      <SelectItem value="scheherazade">Scheherazade - Modern Arabic</SelectItem>
+                    </SelectContent>
                 </Select>
               </div>
 

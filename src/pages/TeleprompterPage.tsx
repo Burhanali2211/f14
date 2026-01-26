@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
+import { cn, normalizeImageUrl } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeleprompterSegment } from '@/lib/teleprompter-types';
 import {
@@ -125,43 +125,14 @@ export default function TeleprompterPage() {
   const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
   const audioUrl = cloudAudioStreamUrl || airSendAudioUrl || piece?.audio_url;
-  
-  const parseImageUrls = (url: unknown): string[] => {
-    if (!url) return [];
-    
-    if (typeof url === 'string') {
-      const cleaned = url.replace(/^\{?"?|"?\}$/g, '').trim();
-      if (cleaned.includes(',')) {
-        return cleaned.split(',').map(u => u.trim()).filter(Boolean);
-      }
-      return cleaned ? [cleaned] : [];
-    }
-    
-    if (Array.isArray(url)) {
-      const allUrls: string[] = [];
-      for (const item of url) {
-        if (typeof item === 'string') {
-          const cleaned = item.replace(/^\{?"?|"?\}$/g, '').trim();
-          if (cleaned.includes(',')) {
-            allUrls.push(...cleaned.split(',').map(u => u.trim()).filter(Boolean));
-          } else if (cleaned) {
-            allUrls.push(cleaned);
-          }
-        }
-      }
-      return allUrls;
-    }
-    
-    return [];
-  };
 
   const pdfUrl = useMemo(() => {
-    const urls = parseImageUrls(piece?.image_url);
+    const urls = normalizeImageUrl(piece?.image_url);
     return urls.find(u => u.toLowerCase().endsWith('.pdf')) || null;
   }, [piece?.image_url]);
 
   const imageUrls = useMemo(() => {
-    const urls = parseImageUrls(piece?.image_url);
+    const urls = normalizeImageUrl(piece?.image_url);
     return urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
   }, [piece?.image_url]);
 
@@ -716,14 +687,14 @@ export default function TeleprompterPage() {
               <X className="w-6 h-6" />
             </Button>
             
-            <h1 
-              className="text-lg font-semibold text-white overflow-visible text-center flex-1 mx-4 py-2"
-              dir="rtl"
-              style={{ 
-                fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif",
-                lineHeight: '1.6'
-              }}
-            >
+              <h1 
+                className="text-lg font-semibold text-white overflow-visible text-center flex-1 mx-4 py-2"
+                dir="rtl"
+                style={{ 
+                  fontFamily: "'AlMajeed', 'Noto Nastaliq Urdu', 'Cairo', sans-serif",
+                  lineHeight: '1.6'
+                }}
+              >
               {piece.title}
             </h1>
 

@@ -1,10 +1,8 @@
-'use client';
-
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Play, Pause, Plus, Trash2, Edit2, Save, X, Clock,
-  ChevronUp, ChevronDown, Scissors, Merge, RotateCcw, RotateCw,
-  Upload, Music, AlertTriangle, CheckCircle, GripVertical
+  Scissors, Merge, RotateCcw, RotateCw,
+  Music, AlertTriangle, CheckCircle, GripVertical
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -76,7 +74,6 @@ export function TeleprompterEditor({
   const [addForm, setAddForm] = useState({ text: '', startTime: '', endTime: '' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
-  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -126,15 +123,16 @@ export function TeleprompterEditor({
     audio.addEventListener('ended', handleEnded);
 
     audioRef.current = audio;
-    setAudioElement(audio);
 
     return () => {
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('ended', handleEnded);
-      audio.pause();
-    };
-  }, [audioUrl]);
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('ended', handleEnded);
+        audio.pause();
+        audio.src = '';
+        audioRef.current = null;
+      };
+    }, [audioUrl]);
 
   useEffect(() => {
     if (!session) return;

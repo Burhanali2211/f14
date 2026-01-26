@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, Home, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Home, RefreshCw, Trash2, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import { errorTracker } from '@/lib/error-tracking';
@@ -14,6 +14,7 @@ interface State {
   hasError: boolean;
   error: Error | null;
   errorInfo: ErrorInfo | null;
+  isOffline: boolean;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -23,10 +24,51 @@ export class ErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
+      isOffline: typeof navigator !== 'undefined' ? !navigator.onLine : false,
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  componentDidMount() {
+    window.addEventListener('online', this.handleOnline);
+    window.addEventListener('offline', this.handleOffline);
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('online', this.handleOnline);
+    window.removeEventListener('offline', this.handleOffline);
+  }
+
+  handleOnline = () => {
+    this.setState({ isOffline: false });
+    if (this.state.hasError) {
+      this.handleReset();
+    }
+  };
+
+  handleOffline = () => {
+    this.setState({ isOffline: true });
+  };
+
+  isNetworkError = (error: Error | null): boolean => {
+    if (!error) return false;
+    const message = error.message.toLowerCase();
+    const name = error.name.toLowerCase();
+    return (
+      !navigator.onLine ||
+      message.includes('network') ||
+      message.includes('fetch') ||
+      message.includes('failed to fetch') ||
+      message.includes('networkerror') ||
+      message.includes('net::') ||
+      message.includes('connection') ||
+      message.includes('offline') ||
+      message.includes('internet') ||
+      name === 'typeerror' && message.includes('failed') ||
+      name === 'networkerror'
+    );
+  };
+
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
       error,
@@ -35,19 +77,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to console and any error tracking service
     logger.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    const isOffline = typeof navigator !== 'undefined' ? !navigator.onLine : false;
     
     this.setState({
       error,
       errorInfo,
+      isOffline,
     });
 
-    // Send to error tracking service
-    errorTracker.captureException(error, {
-      componentStack: errorInfo.componentStack,
-      errorBoundary: true,
-    });
+    if (!isOffline) {
+      errorTracker.captureException(error, {
+        componentStack: errorInfo.componentStack,
+        errorBoundary: true,
+      });
+    }
   }
 
   handleReset = () => {
@@ -66,6 +111,45 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       if (this.props.fallback) {
         return this.props.fallback;
+      }
+
+      if (this.state.isOffline || this.isNetworkError(this.state.error)) {
+        return (
+          <div className="min-h-screen bg-background flex items-center justify-center p-4">
+            <div className="max-w-md w-full bg-card rounded-2xl p-8 shadow-elevated text-center">
+              <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
+                <WifiOff className="w-8 h-8 text-amber-500" />
+              </div>
+              
+              <h1 className="text-2xl font-bold text-foreground mb-2">
+                You're Offline
+              </h1>
+              
+              <p className="text-muted-foreground mb-6">
+                Please check your internet connection and try again. The app will automatically reload when you're back online.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <Button
+                  onClick={() => window.location.reload()}
+                  className="rounded-xl w-full"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Try Again
+                </Button>
+                
+                <Button
+                  onClick={() => (window.location.href = '/')}
+                  variant="outline"
+                  className="rounded-xl w-full"
+                >
+                  <Home className="w-4 h-4 mr-2" />
+                  Go Home
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
       }
 
       const isSyntaxError = this.state.error?.name === 'SyntaxError' || 

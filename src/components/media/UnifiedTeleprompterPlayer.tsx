@@ -16,7 +16,7 @@ export interface UnifiedPlayerProps {
   segments: TeleprompterSegment[];
   imageRegions: ImageRegion[];
   currentTime: number;
-  duration: number;
+  duration?: number;
   isPlaying: boolean;
   fontSize: number;
   imageZoom: number;

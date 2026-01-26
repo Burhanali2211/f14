@@ -5,30 +5,15 @@ export interface AppSettings {
   fontSize: number;
   lineHeight: number;
   letterSpacing: number;
-  fontFamily: 'cairo' | 'tajawal' | 'noto-sans-arabic' | 'ibm-plex-sans-arabic' | 'amiri' | 'noto-nastaliq' | 'lateef' | 'scheherazade';
+  fontFamily: 'al-majeed' | 'cairo' | 'tajawal' | 'noto-sans-arabic' | 'ibm-plex-sans-arabic' | 'amiri' | 'noto-nastaliq' | 'lateef' | 'scheherazade';
   textAlign: 'right' | 'center' | 'justify';
-  
-  // Display settings
-  showVerseNumbers: boolean;
-  highlightCurrentVerse: boolean;
-  autoScrollWhilePlaying: boolean;
-  rememberReadingPosition: boolean;
-  
-  // Appearance
-  readerBackground: 'default' | 'sepia' | 'dark' | 'paper' | 'parchment' | 'cream' | 'night' | 'blue-light' | 'green-light' | 'warm-white';
-  compactMode: boolean;
-  animationsEnabled: boolean;
-  
-  // Accessibility
-  highContrast: boolean;
-  reducedMotion: boolean;
 }
 
 const defaultSettings: AppSettings = {
   fontSize: 24,
   lineHeight: 2.2,
   letterSpacing: 0,
-  fontFamily: 'cairo',
+  fontFamily: 'al-majeed',
   textAlign: 'right',
   showVerseNumbers: true,
   highlightCurrentVerse: true,

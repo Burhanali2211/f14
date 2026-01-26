@@ -1,9 +1,7 @@
 import type { 
   TeleprompterSession, 
   TeleprompterProgress, 
-  TeleprompterSegment,
-  DEFAULT_SESSION,
-  DEFAULT_PROGRESS 
+  TeleprompterSegment
 } from './teleprompter-types';
 
 const SESSIONS_KEY = 'teleprompter_sessions';

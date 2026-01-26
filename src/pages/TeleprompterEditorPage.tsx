@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
+import { cn, normalizeImageUrl } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import type { TeleprompterSegment, TeleprompterSession } from '@/lib/teleprompter-types';
@@ -103,40 +103,13 @@ export default function TeleprompterEditorPage() {
 
     const audioUrl = piece?.audio_url;
 
-
-  const parseImageUrls = (url: unknown): string[] => {
-    if (!url) return [];
-    if (typeof url === 'string') {
-      const cleaned = url.replace(/^\{?"?|"?\}$/g, '').trim();
-      if (cleaned.includes(',')) {
-        return cleaned.split(',').map(u => u.trim()).filter(Boolean);
-      }
-      return cleaned ? [cleaned] : [];
-    }
-    if (Array.isArray(url)) {
-      const allUrls: string[] = [];
-      for (const item of url) {
-        if (typeof item === 'string') {
-          const cleaned = item.replace(/^\{?"?|"?\}$/g, '').trim();
-          if (cleaned.includes(',')) {
-            allUrls.push(...cleaned.split(',').map(u => u.trim()).filter(Boolean));
-          } else if (cleaned) {
-            allUrls.push(cleaned);
-          }
-        }
-      }
-      return allUrls;
-    }
-    return [];
-  };
-
   const imageUrls = useMemo(() => {
-    const urls = parseImageUrls(piece?.image_url);
+    const urls = normalizeImageUrl(piece?.image_url);
     return urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
   }, [piece?.image_url]);
 
   const pdfUrl = useMemo(() => {
-    const urls = parseImageUrls(piece?.image_url);
+    const urls = normalizeImageUrl(piece?.image_url);
     return urls.find(u => u.toLowerCase().endsWith('.pdf')) || null;
   }, [piece?.image_url]);
 
@@ -240,12 +213,14 @@ export default function TeleprompterEditorPage() {
     audioRef.current = audio;
 
     return () => {
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('ended', handleEnded);
-      audio.pause();
-    };
-  }, [audioUrl]);
+        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+        audio.removeEventListener('timeupdate', handleTimeUpdate);
+        audio.removeEventListener('ended', handleEnded);
+        audio.pause();
+        audio.src = '';
+        audioRef.current = null;
+      };
+    }, [audioUrl]);
 
     // Auto-save to localStorage
     useEffect(() => {

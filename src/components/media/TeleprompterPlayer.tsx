@@ -1,10 +1,8 @@
-'use client';
-
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
-  Repeat, ChevronLeft, ChevronRight, Maximize2, Minimize2,
-  Settings, Clock, Music, RotateCcw, RotateCw, Gauge
+  Repeat, Maximize2, Minimize2,
+  Clock, Music, RotateCcw, RotateCw, Gauge
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
