@@ -256,7 +256,7 @@ export function ImageSegmentEditor({
   const handlePlayRegion = useCallback((regionId: string) => {
     const region = regions.find(r => r.id === regionId);
     if (region && audioPlayer.hasAudio) {
-      audioPlayer.playRegion(region.startTime, region.endTime, regionId);
+      audioPlayer.playRegion(region.startTime, region.endTime);
     }
   }, [regions, audioPlayer]);
 
@@ -306,15 +306,15 @@ export function ImageSegmentEditor({
     const selectedIds = Array.from(selection.selectedIds);
     setRegions(regions.map(r => {
       if (selectedIds.includes(r.id)) {
-        const newEndTime = Math.max(r.startTime + 0.1, r.endTime + delta);
         return {
           ...r,
-          endTime: newEndTime,
+          startTime: Math.max(0, r.startTime + delta),
+          endTime: Math.max(0, r.endTime + delta),
         };
       }
       return r;
     }));
-    toast.success(`Adjusted ${selectedIds.length} segment${selectedIds.length > 1 ? 's' : ''} duration by ${delta}s`);
+    toast.success(`Shifted ${selectedIds.length} segment${selectedIds.length > 1 ? 's' : ''} by ${delta}s`);
   }, [selection.selectedIds, regions, setRegions]);
 
   useKeyboardShortcuts({
@@ -424,31 +424,30 @@ export function ImageSegmentEditor({
           <div className="flex-1 overflow-auto p-4">
             <div className="mx-auto max-w-3xl">
               <ImageCanvas
-                  imageSrc={allPages[currentPageIndex]}
-                  regions={currentPageRegions}
-                  selectedIds={selection.selectedIds}
-                  focusedId={selection.focusedId}
-                  activeId={activeId}
-                  hiddenRegionIds={hiddenRegionIds}
-                  audioUrl={audioUrl}
-                  playingRegionId={audioPlayer.playingRegionId}
-                  onRegionCreate={handleRegionCreate}
-                  onRegionUpdate={handleRegionUpdate}
-                  onRegionSelect={selection.select}
-                  onRegionFocus={selection.focus}
-                  onToggleVisibility={handleToggleVisibility}
-                  onRegionDelete={handleRegionDelete}
-                  onPlayRegion={handlePlayRegion}
-                  onStopPlaying={audioPlayer.stop}
-                  onDeselectAll={selection.deselectAll}
-                  isZoomed={zoomPan.isZoomed}
-                  getTransformStyle={zoomPan.getTransformStyle}
-                  imageRef={imageRef}
-                  containerRef={containerRef}
-                  onStartPanning={zoomPan.startPanning}
-                  onUpdatePan={zoomPan.updatePan}
-                  onStopPanning={zoomPan.stopPanning}
-                />
+                imageSrc={allPages[currentPageIndex]}
+                regions={currentPageRegions}
+                selectedIds={selection.selectedIds}
+                focusedId={selection.focusedId}
+                activeId={activeId}
+                hiddenRegionIds={hiddenRegionIds}
+                audioUrl={audioUrl}
+                playingRegionId={activeId}
+                onPlayRegion={handlePlayRegion}
+                onStopPlaying={audioPlayer.stop}
+                onRegionCreate={handleRegionCreate}
+                onRegionUpdate={handleRegionUpdate}
+                onRegionSelect={selection.select}
+                onRegionFocus={selection.focus}
+                onToggleVisibility={handleToggleVisibility}
+                onDeselectAll={selection.deselectAll}
+                isZoomed={zoomPan.isZoomed}
+                getTransformStyle={zoomPan.getTransformStyle}
+                imageRef={imageRef}
+                containerRef={containerRef}
+                onStartPanning={zoomPan.startPanning}
+                onUpdatePan={zoomPan.updatePan}
+                onStopPanning={zoomPan.stopPanning}
+              />
             </div>
           </div>
         ) : (
@@ -481,23 +480,22 @@ export function ImageSegmentEditor({
               onPlayRegion={() => handlePlayRegion(selection.focusedRegion!.id)}
               onCopy={handleCopySegment}
             />
-            ) : (
-              <SegmentList
-                regions={regions}
-                allPages={allPages}
-                currentPageIndex={currentPageIndex}
-                selectedIds={selection.selectedIds}
-                focusedId={selection.focusedId}
-                activeId={activeId}
-                hiddenRegionIds={hiddenRegionIds}
-                onSelect={selection.select}
-                onFocus={selection.focus}
-                onToggleVisibility={handleToggleVisibility}
-                onDelete={handleRegionDelete}
-                onChangePage={setCurrentPageIndex}
-                onPlayRegion={audioPlayer.hasAudio ? handlePlayRegion : undefined}
-              />
-            )}
+          ) : (
+            <SegmentList
+              regions={regions}
+              allPages={allPages}
+              currentPageIndex={currentPageIndex}
+              selectedIds={selection.selectedIds}
+              focusedId={selection.focusedId}
+              activeId={activeId}
+              hiddenRegionIds={hiddenRegionIds}
+              onSelect={selection.select}
+              onFocus={selection.focus}
+              onToggleVisibility={handleToggleVisibility}
+              onChangePage={setCurrentPageIndex}
+              onPlayRegion={audioPlayer.hasAudio ? handlePlayRegion : undefined}
+            />
+          )}
         </div>
       </div>
 

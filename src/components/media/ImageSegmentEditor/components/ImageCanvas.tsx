@@ -1,7 +1,8 @@
 import { useCallback, memo, useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import type { ImageRegion } from '../types';
-import { EyeOff, Eye, Trash2, Play, Pause, X, Settings } from 'lucide-react';
+import { formatTimeDisplay } from '../types';
+import { Eye, EyeOff, Check, Play, Pause } from 'lucide-react';
 
 interface ImageCanvasProps {
   imageSrc: string;
@@ -12,14 +13,13 @@ interface ImageCanvasProps {
   hiddenRegionIds: Set<string>;
   audioUrl?: string;
   playingRegionId: string | null;
+  onPlayRegion: (regionId: string) => void;
+  onStopPlaying: () => void;
   onRegionCreate: (y: number, height: number) => void;
   onRegionUpdate: (id: string, updates: Partial<ImageRegion>) => void;
   onRegionSelect: (id: string, options?: { addToSelection?: boolean; rangeSelect?: boolean }) => void;
   onRegionFocus: (id: string | null) => void;
   onToggleVisibility: (id: string) => void;
-  onRegionDelete: (id: string) => void;
-  onPlayRegion: (id: string) => void;
-  onStopPlaying: () => void;
   onDeselectAll: () => void;
   isZoomed: boolean;
   getTransformStyle: () => React.CSSProperties;
@@ -39,14 +39,13 @@ function ImageCanvasComponent({
   hiddenRegionIds,
   audioUrl,
   playingRegionId,
+  onPlayRegion,
+  onStopPlaying,
   onRegionCreate,
   onRegionUpdate,
   onRegionSelect,
   onRegionFocus,
   onToggleVisibility,
-  onRegionDelete,
-  onPlayRegion,
-  onStopPlaying,
   onDeselectAll,
   isZoomed,
   getTransformStyle,
@@ -58,7 +57,6 @@ function ImageCanvasComponent({
 }: ImageCanvasProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const drawBandRef = useRef<HTMLDivElement>(null);
-  const [expandedControlId, setExpandedControlId] = useState<string | null>(null);
   
   const dragDataRef = useRef({
     active: false,
@@ -358,34 +356,59 @@ function ImageCanvasComponent({
                   className="absolute -bottom-1.5 left-0 right-0 h-3 cursor-ns-resize z-10"
                 />
                 
-                  <div 
-                    className="absolute inset-0 cursor-pointer"
-                    onClick={(e) => {
-                      handleRegionClick(e, region);
-                      if (expandedControlId && expandedControlId !== region.id) {
-                        setExpandedControlId(null);
-                      }
-                    }}
-                    onDoubleClick={(e) => {
-                      e.stopPropagation();
-                      if (audioUrl) {
-                        setExpandedControlId(region.id);
-                        onPlayRegion(region.id);
-                      } else {
-                        onRegionFocus(region.id);
-                      }
-                    }}
-                  />
-                  
-                    {expandedControlId === region.id && audioUrl ? (
-                      <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none flex items-start justify-between p-1">
-                        <div className="flex items-center gap-1.5 pointer-events-auto">
+                <div 
+                  className="absolute inset-0 cursor-pointer"
+                  onClick={(e) => handleRegionClick(e, region)}
+                  onDoubleClick={(e) => {
+                    e.stopPropagation();
+                    onRegionFocus(region.id);
+                  }}
+                />
+                
+                  <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none flex flex-col">
+                    <div className="flex items-start justify-between gap-1 p-1.5 sm:p-2">
+                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                        {isSelected && (
+                          <div className={cn(
+                            "w-5 h-5 rounded flex-shrink-0 flex items-center justify-center shadow-sm",
+                            isFocused ? "bg-primary text-primary-foreground" : "bg-primary/80 text-primary-foreground"
+                          )}>
+                            <Check className="w-3 h-3" />
+                          </div>
+                        )}
+                        <span className={cn(
+                          "px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs font-semibold truncate shadow-sm",
+                          isActive ? "bg-green-500 text-white" : "bg-background/95 border border-border/50"
+                        )}>
+                          {region.label || `Seg ${region.order + 1}`}
+                        </span>
+                      </div>
+                      
+                      <div className={cn(
+                        "flex items-center gap-0.5 px-1.5 sm:px-2 py-0.5 rounded shadow-sm flex-shrink-0",
+                        isActive ? "bg-green-500 text-white" : "bg-background/95 border border-border/50"
+                      )}>
+                        <span className="text-[10px] sm:text-xs font-mono tabular-nums">
+                          {formatTimeDisplay(region.startTime)}
+                        </span>
+                        <span className="text-[10px] sm:text-xs opacity-60 mx-0.5">-</span>
+                        <span className="text-[10px] sm:text-xs font-mono tabular-nums">
+                          {formatTimeDisplay(region.endTime)}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1" />
+                    
+                    <div className="flex items-end justify-between gap-1 p-1.5 sm:p-2">
+                      <div className="flex items-center gap-1">
+                        {audioUrl && (
                           <button
                             className={cn(
-                              "w-7 h-7 rounded-full flex items-center justify-center shadow-md transition-all",
+                              "w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-md pointer-events-auto transition-all",
                               playingRegionId === region.id 
-                                ? "bg-primary text-primary-foreground hover:bg-primary/90" 
-                                : "bg-background/95 hover:bg-muted"
+                                ? "bg-primary text-primary-foreground hover:bg-primary/90 ring-2 ring-primary/30" 
+                                : "bg-background/95 hover:bg-background border border-border/50 hover:border-primary/50"
                             )}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -397,85 +420,25 @@ function ImageCanvasComponent({
                             }}
                           >
                             {playingRegionId === region.id ? (
-                              <Pause className="w-3.5 h-3.5" />
+                              <Pause className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             ) : (
-                              <Play className="w-3.5 h-3.5 ml-0.5" />
+                              <Play className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-current ml-0.5" />
                             )}
                           </button>
-                          
-                          <button
-                            className="w-7 h-7 rounded-full flex items-center justify-center bg-background/95 hover:bg-muted shadow-md transition-all"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRegionFocus(region.id);
-                            }}
-                            title="Edit Segment"
-                          >
-                            <Settings className="w-3.5 h-3.5 text-foreground/70" />
-                          </button>
-                          
-                          <button
-                            className="w-7 h-7 rounded-full flex items-center justify-center bg-background/95 hover:bg-muted shadow-md transition-all"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onToggleVisibility(region.id);
-                            }}
-                            title={hiddenRegionIds.has(region.id) ? "Show Segment" : "Hide Segment"}
-                          >
-                            {hiddenRegionIds.has(region.id) ? (
-                              <Eye className="w-3.5 h-3.5 text-muted-foreground" />
-                            ) : (
-                              <EyeOff className="w-3.5 h-3.5 text-muted-foreground" />
-                            )}
-                          </button>
-
-                          <button
-                            className="w-7 h-7 rounded-full flex items-center justify-center bg-destructive/10 hover:bg-destructive/20 text-destructive shadow-md transition-all border border-destructive/20"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onRegionDelete(region.id);
-                            }}
-                            title="Delete Segment"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-
-                        <button
-                          className="w-5 h-5 rounded-full flex items-center justify-center bg-background/95 hover:bg-muted shadow-sm pointer-events-auto"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedControlId(null);
-                            if (playingRegionId === region.id) {
-                              onStopPlaying();
-                            }
-                          }}
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
+                        )}
                       </div>
-                    ) : (
-                    <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none flex flex-col group/segment">
-                      <div className="flex items-start justify-between p-1">
-                        <span className={cn(
-                          "px-1.5 py-0.5 rounded text-[10px] font-medium shadow-sm",
-                          isActive ? "bg-green-500 text-white" : isFocused ? "bg-primary text-primary-foreground" : "bg-background/90 text-foreground/80"
-                        )}>
-                          {region.order + 1}
-                        </span>
-                        
-                        <button
-                          className="w-5 h-5 rounded-full flex items-center justify-center bg-destructive/80 hover:bg-destructive text-destructive-foreground shadow-sm pointer-events-auto opacity-0 group-hover/segment:opacity-100 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onRegionDelete(region.id);
-                          }}
-                        >
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
+                      
+                      <button
+                        className="w-6 h-6 sm:w-7 sm:h-7 rounded flex items-center justify-center bg-background/95 hover:bg-background border border-border/50 shadow-sm pointer-events-auto transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleVisibility(region.id);
+                        }}
+                      >
+                        <Eye className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      </button>
                     </div>
-                  )}
+                  </div>
               </div>
             );
           })}

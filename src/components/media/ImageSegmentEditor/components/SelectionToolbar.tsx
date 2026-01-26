@@ -197,8 +197,29 @@ function SelectionToolbarComponent({
           </Button>
         </div>
 
-          <div className="flex items-center gap-1 border-l pl-2">
-            {selectedCount < totalCount && (
+        <div className="flex items-center gap-1 border-l pl-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCopy}
+            title="Copy segments"
+            className="h-8 px-2"
+          >
+            <Copy className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            title="Delete selected"
+            className="h-8 px-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-1 border-l pl-2">
+          {selectedCount < totalCount && (
             <Button
               variant="ghost"
               size="sm"

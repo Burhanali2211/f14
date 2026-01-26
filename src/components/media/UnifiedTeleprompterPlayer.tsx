@@ -325,86 +325,86 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                         }}
                         src={url}
                         alt={`${title} - Page ${idx + 1}`}
-                        className={cn(
-                          "transition-all duration-700 ease-out",
-                          isPlaybackMode ? "absolute" : "w-full h-full object-contain"
-                        )}
-                          style={isPlaybackMode && currentRegion ? (() => {
-                            const imgEl = imageRefs.current.get(currentImageIndex);
-                            
-                            if (!containerSize.width || !containerSize.height || !imgEl) {
-                              return { width: '100%', height: 'auto' };
-                            }
-                            
-                            const imgNaturalWidth = imgEl.naturalWidth || 1;
-                            const imgNaturalHeight = imgEl.naturalHeight || 1;
-                            
-                            const regionWidthPercent = currentRegion.width || 100;
-                            const regionHeightPercent = currentRegion.height || 10;
-                            const regionYPercent = currentRegion.y || 0;
-                            const regionXPercent = currentRegion.x || 0;
-                            
-                            const regionNaturalWidth = (regionWidthPercent / 100) * imgNaturalWidth;
-                            const regionNaturalHeight = (regionHeightPercent / 100) * imgNaturalHeight;
-                            
-                            const displayRegionWidth = containerSize.width * (imageZoom / 100);
-                            
-                            const scale = displayRegionWidth / regionNaturalWidth;
-                            
-                            const scaledImgWidth = imgNaturalWidth * scale;
-                            const scaledImgHeight = imgNaturalHeight * scale;
-                            const displayRegionHeight = regionNaturalHeight * scale;
-                            
-                            const regionLeftInScaledImg = (regionXPercent / 100) * scaledImgWidth;
-                            const regionTopInScaledImg = (regionYPercent / 100) * scaledImgHeight;
-                            
-                            const translateX = (containerSize.width - scaledImgWidth) / 2 - regionLeftInScaledImg + (containerSize.width - displayRegionWidth) / 2;
-                            const translateY = (containerSize.height - displayRegionHeight) / 2 - regionTopInScaledImg;
-                            
-                            return {
-                              width: `${scaledImgWidth}px`,
-                              height: `${scaledImgHeight}px`,
-                              left: 0,
-                              top: 0,
-                              transform: `translate(${translateX}px, ${translateY}px)`,
-                            };
-                          })() : {
-                          transform: `scale(${calculatedScale})`,
-                          transformOrigin: currentRegion ? `${currentRegion.x + currentRegion.width / 2}% ${currentRegion.y + currentRegion.height / 2}%` : 'center',
-                        }}
-                        onLoad={(e) => handleImageLoad(idx, e)}
-                      />
-                      
-                      {currentImageIndex === idx && currentRegion && !isPlaybackMode && (
-                        <div
                           className={cn(
-                            "absolute transition-all duration-500 pointer-events-none",
-                            highlightMode === 'background' && cn(
-                              "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.8)]",
-                              !isPlaybackMode && "border-2 border-primary"
-                            ),
-                            highlightMode === 'border' && cn(
-                              "shadow-[0_0_20px_rgba(var(--primary),0.5)]",
-                              !isPlaybackMode && "border-4 border-primary"
-                            ),
-                            highlightMode === 'glow' && cn(
-                              "shadow-[0_0_40px_rgba(var(--primary),0.3),0_0_0_9999px_rgba(0,0,0,0.7)]",
-                              !isPlaybackMode && "border-2 border-primary"
-                            ),
-                            highlightMode === 'scale' && cn(
-                              "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] scale-110",
-                              !isPlaybackMode && "border-2 border-primary"
-                            )
-                          )}
-                          style={{
-                            left: `${currentRegion.x}%`,
-                            top: `${currentRegion.y}%`,
-                            width: `${currentRegion.width}%`,
-                            height: `${currentRegion.height}%`,
-                            opacity: isPlaybackMode ? 1 : 0.8,
-                          }}
+                                "transition-all duration-700 ease-out",
+                                isPlaybackMode 
+                                  ? "absolute left-0 top-0" 
+                                  : "w-full h-full object-contain"
+                              )}
+                              style={isPlaybackMode && currentRegion ? (() => {
+                                const imgEl = imageRefs.current.get(currentImageIndex);
+                                
+                                if (!containerSize.width || !containerSize.height || !imgEl) {
+                                  return { width: '100%', height: 'auto' };
+                                }
+                                
+                                const imgNaturalWidth = imgEl.naturalWidth || 1;
+                                const imgNaturalHeight = imgEl.naturalHeight || 1;
+                                const imgAspect = imgNaturalWidth / imgNaturalHeight;
+                                
+                                const regionWidthFraction = (currentRegion.width || 100) / 100;
+                                const regionHeightFraction = (currentRegion.height || 10) / 100;
+                                const regionYFraction = (currentRegion.y || 0) / 100;
+                                const regionXFraction = (currentRegion.x || 0) / 100;
+                                
+                                const scaleToFitWidth = containerSize.width / regionWidthFraction;
+                                const imgHeightAtScaleWidth = scaleToFitWidth / imgAspect;
+                                const regionHeightPxAtScaleWidth = regionHeightFraction * imgHeightAtScaleWidth;
+                                const scaleToFitHeight = (containerSize.height * 0.9) / regionHeightPxAtScaleWidth;
+                                
+                                const scale = Math.min(1, scaleToFitHeight) * (imageZoom / 100);
+                                
+                                const scaledImgWidth = scaleToFitWidth * scale;
+                                const scaledImgHeight = scaledImgWidth / imgAspect;
+                                
+                                const regionCenterYPx = (regionYFraction + regionHeightFraction / 2) * scaledImgHeight;
+                                const regionCenterXPx = (regionXFraction + regionWidthFraction / 2) * scaledImgWidth;
+                                
+                                const translateX = (containerSize.width / 2) - regionCenterXPx;
+                                const translateY = (containerSize.height / 2) - regionCenterYPx;
+                                
+                                return {
+                                  width: `${scaledImgWidth}px`,
+                                  height: `${scaledImgHeight}px`,
+                                  transform: `translate(${translateX}px, ${translateY}px)`,
+                                };
+                              })() : {
+                                transform: `scale(${calculatedScale})`,
+                                transformOrigin: currentRegion ? `${currentRegion.x + currentRegion.width / 2}% ${currentRegion.y + currentRegion.height / 2}%` : 'center',
+                              }}
+                          onLoad={(e) => handleImageLoad(idx, e)}
                         />
-                      )}
+                        
+                        {currentImageIndex === idx && currentRegion && !isPlaybackMode && (
+                          <div
+                            className={cn(
+                              "absolute transition-all duration-500 pointer-events-none",
+                                highlightMode === 'background' && cn(
+                                  "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.8)]",
+                                  !isPlaybackMode && "border-2 border-primary"
+                                ),
+                                highlightMode === 'border' && cn(
+                                  "shadow-[0_0_20px_rgba(var(--primary),0.5)]",
+                                  !isPlaybackMode && "border-4 border-primary"
+                                ),
+                                highlightMode === 'glow' && cn(
+                                  "shadow-[0_0_40px_rgba(var(--primary),0.3),0_0_0_9999px_rgba(0,0,0,0.7)]",
+                                  !isPlaybackMode && "border-2 border-primary"
+                                ),
+                                highlightMode === 'scale' && cn(
+                                  "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] scale-110",
+                                  !isPlaybackMode && "border-2 border-primary"
+                                )
+                              )}
+                            style={{
+                              left: `${currentRegion.x}%`,
+                              top: `${currentRegion.y}%`,
+                              width: `${currentRegion.width}%`,
+                              height: `${currentRegion.height}%`,
+                              opacity: isPlaybackMode ? 1 : 0.8,
+                            }}
+                          />
+                        )}
                     </div>
                   ))}
 

@@ -16,7 +16,6 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
     loopStart: null,
     loopEnd: null,
   });
-  const [playingRegionId, setPlayingRegionId] = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
@@ -158,11 +157,10 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
     }));
   }, []);
 
-  const playRegion = useCallback((startTime: number, endTime: number, regionId?: string) => {
+  const playRegion = useCallback((startTime: number, endTime: number) => {
     if (!audioRef.current) return;
     audioRef.current.currentTime = startTime;
     setLoop(startTime, endTime);
-    setPlayingRegionId(regionId ?? null);
     audioRef.current.play();
   }, [setLoop]);
 
@@ -173,7 +171,6 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
       loopStart: null,
       loopEnd: null,
     }));
-    setPlayingRegionId(null);
   }, []);
 
   const stop = useCallback(() => {
@@ -184,7 +181,6 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
 
   return {
     ...state,
-    playingRegionId,
     audioRef,
     play,
     pause,
