@@ -5,7 +5,7 @@ export const config = {
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://ysacmemkrnmczmtkfqad.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
-const SITE_URL = 'https://followersof14.com';
+const SITE_URL = 'https://followerof14.vercel.app';
 
 function escapeXml(text: string): string {
   return text
@@ -57,6 +57,7 @@ export default async function handler(request: Request) {
       { path: '/ahlulbayt', priority: '0.8', changefreq: 'weekly' },
       { path: '/calendar', priority: '0.7', changefreq: 'weekly' },
       { path: '/fiqh', priority: '0.7', changefreq: 'weekly' },
+      { path: '/quran', priority: '0.9', changefreq: 'weekly' },
       { path: '/contact', priority: '0.5', changefreq: 'monthly' },
     ];
 

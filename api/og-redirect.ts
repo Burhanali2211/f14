@@ -5,11 +5,11 @@ export const config = {
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://ysacmemkrnmczmtkfqad.supabase.co';
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
 
-const SITE_URL = 'https://followersof14.com';
+const SITE_URL = 'https://followerof14.vercel.app';
 const SITE_NAME = 'Followers of 14';
-const SITE_ALT_NAME = 'Khanda Azaadars | Lyrics Hub';
+const SITE_ALT_NAME = 'Islamic Poetry & Recitation';
 const DEFAULT_IMAGE = `${SITE_URL}/main.png`;
-const DEFAULT_DESCRIPTION = 'Followers of 14 (Khanda Azaadars, Lyrics Hub) - The #1 destination for Islamic poetry. Find any recitation by name - Naat, Noha, Dua, Manqabat, Marsiya with full text, audio & video.';
+const DEFAULT_DESCRIPTION = 'Followers of 14 - The #1 destination for Islamic poetry. Find any recitation by name - Naat, Noha, Dua, Manqabat, Marsiya with full text, audio & video.';
 
 function escapeHtml(text: string): string {
   return text
@@ -122,7 +122,7 @@ export default async function handler(request: Request) {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeHtml(description)}">
-  <meta name="keywords" content="Followers of 14, khanda azaadars, lyrics hub, naat, noha, dua, manqabat, marsiya, islamic poetry">
+    <meta name="keywords" content="Followers of 14, F14, naat, noha, dua, manqabat, marsiya, islamic poetry, kashmir">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
   
   <!-- Open Graph -->
@@ -134,9 +134,9 @@ export default async function handler(request: Request) {
   <meta property="og:image:height" content="630">
   <meta property="og:url" content="${escapeHtml(pageUrl)}">
   <meta property="og:site_name" content="${SITE_NAME} - ${SITE_ALT_NAME}">
-  <meta property="og:locale" content="en_US">
-  <meta property="og:locale:alternate" content="ur_PK">
-  <meta property="og:locale:alternate" content="ar_SA">
+    <meta property="og:locale" content="en_US">
+    <meta property="og:locale:alternate" content="ur_IN">
+    <meta property="og:locale:alternate" content="ar_SA">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
