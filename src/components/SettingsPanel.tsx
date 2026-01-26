@@ -32,6 +32,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
   const getFontFamily = () => {
     switch (settings.fontFamily) {
+      case 'jameel-noori-nastaleeq': return "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif";
       case 'al-majeed': return "'AlMajeed', serif";
       case 'cairo': return "'Cairo', sans-serif";
       case 'tajawal': return "'Tajawal', sans-serif";
@@ -41,7 +42,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
       case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
       case 'lateef': return "'Lateef', serif";
       case 'scheherazade': return "'Scheherazade New', serif";
-      default: return "'AlMajeed', serif";
+      default: return "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif";
     }
   };
 
@@ -301,7 +302,8 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                     <SelectValue />
                   </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="al-majeed">Al Majeed - Quranic Font (Recommended)</SelectItem>
+                      <SelectItem value="jameel-noori-nastaleeq">Jameel Noori Nastaleeq - Urdu (Default)</SelectItem>
+                      <SelectItem value="al-majeed">Al Majeed - Quranic Font</SelectItem>
                       <SelectItem value="cairo">Cairo - Modern & Clean</SelectItem>
                       <SelectItem value="tajawal">Tajawal - Modern & Readable</SelectItem>
                       <SelectItem value="noto-sans-arabic">Noto Sans Arabic - Clean & Modern</SelectItem>

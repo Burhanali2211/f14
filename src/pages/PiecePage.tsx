@@ -214,6 +214,7 @@ export default function PiecePage() {
 
   const getFontFamily = () => {
     switch (settings.fontFamily) {
+      case 'jameel-noori-nastaleeq': return "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif";
       case 'al-majeed': return "'AlMajeed', serif";
       case 'cairo': return "'Cairo', sans-serif";
       case 'tajawal': return "'Tajawal', sans-serif";
@@ -222,7 +223,7 @@ export default function PiecePage() {
       case 'noto-nastaliq': return "'Noto Nastaliq Urdu', serif";
       case 'lateef': return "'Lateef', serif";
       case 'scheherazade': return "'Scheherazade New', serif";
-      default: return "'AlMajeed', serif";
+      default: return "'Jameel Noori Nastaleeq', 'Noto Nastaliq Urdu', serif";
     }
   };
 

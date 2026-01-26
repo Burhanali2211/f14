@@ -775,158 +775,160 @@ export default function TeleprompterPage() {
                     />
           </main>
 
-          <footer className="absolute bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
-            <div
-              className="h-2 bg-white/20 cursor-pointer group mx-4"
-              onClick={handleProgressClick}
-            >
-              <div
-                className="h-full bg-primary relative group-hover:h-3 transition-all"
-                style={{ width: `${progress}%` }}
-              >
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-              </div>
-            </div>
+          <footer className="absolute bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none hover:pointer-events-auto">
+              <div className="bg-gradient-to-t from-black/80 to-transparent pt-8">
+                <div
+                  className="h-1 bg-white/20 cursor-pointer group mx-4 pointer-events-auto"
+                  onClick={handleProgressClick}
+                >
+                  <div
+                    className="h-full bg-primary relative group-hover:h-2 transition-all"
+                    style={{ width: `${progress}%` }}
+                  >
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                </div>
 
-              <div className="p-4">
-                <div className="flex items-center justify-center max-w-4xl mx-auto relative">
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2" style={{ contain: 'layout size style', isolation: 'isolate' }}>
-                    <div className="flex items-center gap-1.5 text-sm text-white/70" style={{ width: '140px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontVariantNumeric: 'tabular-nums' }}>
-                      <Clock className="w-4 h-4 flex-shrink-0" />
-                      <span style={{ minWidth: '45px', display: 'inline-block', textAlign: 'right' }}>{formatTime(currentTimeDisplay)}</span>
-                      <span>/</span>
-                      <span style={{ minWidth: '45px', display: 'inline-block' }}>{formatTime(duration)}</span>
+                <div className="p-2 pointer-events-auto">
+                  <div className="flex items-center justify-center max-w-4xl mx-auto relative">
+                    <div className="absolute left-0 top-1/2 -translate-y-1/2" style={{ contain: 'layout size style', isolation: 'isolate' }}>
+                      <div className="flex items-center gap-1 text-xs text-white/70" style={{ width: '120px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontVariantNumeric: 'tabular-nums' }}>
+                        <Clock className="w-3 h-3 flex-shrink-0" />
+                        <span style={{ minWidth: '40px', display: 'inline-block', textAlign: 'right' }}>{formatTime(currentTimeDisplay)}</span>
+                        <span>/</span>
+                        <span style={{ minWidth: '40px', display: 'inline-block' }}>{formatTime(duration)}</span>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="flex items-center gap-2 md:gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={goToPreviousSegment}
-                    disabled={currentSegmentIndex <= 0 || segments.length === 0}
-                    className="text-white hover:bg-white/20"
-                  >
-                    <SkipBack className="w-5 h-5" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => skipBackward(5)}
-                    className="text-white hover:bg-white/20"
-                  >
-                    <RotateCcw className="w-5 h-5" />
-                  </Button>
-
-                  <Button
-                    size="lg"
-                    className="rounded-full w-14 h-14 bg-white text-black hover:bg-white/90"
-                    onClick={togglePlay}
-                    disabled={!isLoaded}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-6 h-6" />
-                    ) : (
-                      <Play className="w-6 h-6 ml-0.5" />
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => skipForward(5)}
-                    className="text-white hover:bg-white/20"
-                  >
-                    <RotateCw className="w-5 h-5" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={goToNextSegment}
-                    disabled={currentSegmentIndex >= segments.length - 1 || segments.length === 0}
-                    className="text-white hover:bg-white/20"
-                  >
-                    <SkipForward className="w-5 h-5" />
+                    <div className="flex items-center gap-1 md:gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={goToPreviousSegment}
+                      disabled={currentSegmentIndex <= 0 || segments.length === 0}
+                      className="text-white hover:bg-white/20 h-8 w-8"
+                    >
+                      <SkipBack className="w-4 h-4" />
                     </Button>
-                  </div>
 
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                  <Button
-                    variant={isLooping ? "default" : "ghost"}
-                    size="icon"
-                    onClick={isLooping ? clearLoop : loopCurrentSegment}
-                    disabled={segments.length === 0}
-                    className={cn(!isLooping && "text-white hover:bg-white/20")}
-                  >
-                    <Repeat className="w-4 h-4" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => skipBackward(5)}
+                      className="text-white hover:bg-white/20 h-8 w-8"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                    </Button>
 
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                        {isMuted || volume === 0 ? (
-                          <VolumeX className="w-4 h-4" />
-                        ) : (
-                          <Volume2 className="w-4 h-4" />
-                        )}
+                    <Button
+                      size="default"
+                      className="rounded-full w-10 h-10 bg-white text-black hover:bg-white/90"
+                      onClick={togglePlay}
+                      disabled={!isLoaded}
+                    >
+                      {isPlaying ? (
+                        <Pause className="w-5 h-5" />
+                      ) : (
+                        <Play className="w-5 h-5 ml-0.5" />
+                      )}
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => skipForward(5)}
+                      className="text-white hover:bg-white/20 h-8 w-8"
+                    >
+                      <RotateCw className="w-4 h-4" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={goToNextSegment}
+                      disabled={currentSegmentIndex >= segments.length - 1 || segments.length === 0}
+                      className="text-white hover:bg-white/20 h-8 w-8"
+                    >
+                      <SkipForward className="w-4 h-4" />
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-40" align="end">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">Volume</span>
-                          <span className="text-sm text-muted-foreground">
-                            {Math.round(volume * 100)}%
-                          </span>
-                        </div>
-                        <Slider
-                          value={[volume * 100]}
-                          onValueChange={([v]) => handleVolumeChange(v / 100)}
-                          max={100}
-                          step={1}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="w-full"
-                          onClick={toggleMute}
-                        >
-                          {isMuted ? 'Unmute' : 'Mute'}
+                    </div>
+
+                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                    <Button
+                      variant={isLooping ? "default" : "ghost"}
+                      size="icon"
+                      onClick={isLooping ? clearLoop : loopCurrentSegment}
+                      disabled={segments.length === 0}
+                      className={cn("h-8 w-8", !isLooping && "text-white hover:bg-white/20")}
+                    >
+                      <Repeat className="w-3 h-3" />
+                    </Button>
+
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
+                          {isMuted || volume === 0 ? (
+                            <VolumeX className="w-3 h-3" />
+                          ) : (
+                            <Volume2 className="w-3 h-3" />
+                          )}
                         </Button>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="text-white hover:bg-white/20">
-                        <Gauge className="w-4 h-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-40" align="end">
-                      <div className="space-y-2">
-                        <span className="text-sm font-medium">Speed</span>
-                        <div className="grid grid-cols-3 gap-1">
-                          {speedOptions.map((speed) => (
-                            <Button
-                              key={speed}
-                              variant={playbackSpeed === speed ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => handleSetPlaybackSpeed(speed)}
-                            >
-                              {speed}x
-                            </Button>
-                          ))}
+                      </PopoverTrigger>
+                      <PopoverContent className="w-40" align="end">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm">Volume</span>
+                            <span className="text-sm text-muted-foreground">
+                              {Math.round(volume * 100)}%
+                            </span>
+                          </div>
+                          <Slider
+                            value={[volume * 100]}
+                            onValueChange={([v]) => handleVolumeChange(v / 100)}
+                            max={100}
+                            step={1}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full"
+                            onClick={toggleMute}
+                          >
+                            {isMuted ? 'Unmute' : 'Mute'}
+                          </Button>
                         </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                      </PopoverContent>
+                    </Popover>
+
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
+                          <Gauge className="w-3 h-3" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-40" align="end">
+                        <div className="space-y-2">
+                          <span className="text-sm font-medium">Speed</span>
+                          <div className="grid grid-cols-3 gap-1">
+                            {speedOptions.map((speed) => (
+                              <Button
+                                key={speed}
+                                variant={playbackSpeed === speed ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleSetPlaybackSpeed(speed)}
+                              >
+                                {speed}x
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
                 </div>
               </div>
-            </div>
-          </footer>
+              </div>
+            </footer>
         </>
       ) : (
         <>
