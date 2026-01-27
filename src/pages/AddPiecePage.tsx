@@ -51,9 +51,11 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/use-user-role';
+import { useR2Audio } from '@/hooks/useR2Audio';
 import { authenticatedQuery } from '@/lib/db-utils';
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit';
 import { getCurrentUser } from '@/lib/auth-utils';
@@ -102,10 +104,10 @@ export default function AddPiecePage() {
   const [imageViewerUrl, setImageViewerUrl] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const audioInputRef = useRef<HTMLInputElement>(null);
-  const [audioUploading, setAudioUploading] = useState(false);
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const { uploadAudio, isUploading: isR2Uploading, uploadProgress, error: r2Error } = useR2Audio();
   
   const [fetchingContent, setFetchingContent] = useState(false);
   const [websiteUrl, setWebsiteUrl] = useState('');
@@ -296,57 +298,22 @@ export default function AddPiecePage() {
       }));
     };
 
-const handleAudioUpload = async (file: File) => {
+  const onAudioSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
       if (!isValidAudioFile(file)) {
         toast({ title: t('error', uiLang), description: 'Please upload an audio file', variant: 'destructive' });
         return;
       }
       
-      if (file.size > 100 * 1024 * 1024) {
-        toast({ title: t('error', uiLang), description: 'Audio file too large. Max 100MB', variant: 'destructive' });
-        return;
+      try {
+        const audioFile = await uploadAudio(file, id);
+        setPieceForm(f => ({ ...f, audio_url: audioFile.r2Key }));
+        setAudioPreviewUrl(URL.createObjectURL(file));
+        toast({ title: t('success', uiLang) || 'Success', description: 'Audio uploaded successfully' });
+      } catch (error) {
+        console.error('Audio upload error:', error);
       }
-
-    setAudioUploading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id || 'anonymous';
-      
-      const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const r2Key = `audio/${userId}/${Date.now()}_${sanitizedFilename}`;
-
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('r2Key', r2Key);
-
-      const response = await fetch('/api/r2-audio-upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload audio');
-      }
-
-      setPieceForm(f => ({ ...f, audio_url: r2Key }));
-      
-      const previewUrl = URL.createObjectURL(file);
-      setAudioPreviewUrl(previewUrl);
-      
-      toast({ title: t('success', uiLang) || 'Success', description: 'Audio uploaded successfully' });
-    } catch (error) {
-      console.error('Audio upload error:', error);
-      toast({ title: t('error', uiLang), description: 'Failed to upload audio', variant: 'destructive' });
-    } finally {
-      setAudioUploading(false);
-    }
-  };
-
-  const onAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleAudioUpload(file);
     }
     if (audioInputRef.current) {
       audioInputRef.current.value = '';
@@ -958,28 +925,32 @@ if (isEditing && id) {
                           )}
                         </div>
                       </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => audioInputRef.current?.click()}
-                        disabled={audioUploading}
-                        className="w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 hover:bg-muted/50 transition-colors"
-                      >
-                        {audioUploading ? (
-                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                        ) : (
-                          <>
-                            <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                              <Music className="w-6 h-6 text-primary" />
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => audioInputRef.current?.click()}
+                          disabled={isR2Uploading}
+                          className="w-full h-32 border-2 border-dashed rounded-xl flex flex-col items-center justify-center gap-3 hover:bg-muted/50 transition-colors"
+                        >
+                          {isR2Uploading ? (
+                            <div className="w-full px-8 space-y-2">
+                              <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-2" />
+                              <Progress value={uploadProgress?.percentage || 0} className="h-2" />
+                              <p className="text-xs text-center text-muted-foreground">{uploadProgress?.percentage || 0}%</p>
                             </div>
-                          <div className="text-center">
-                                <p className="text-sm font-medium">Upload Audio</p>
-                                <p className="text-xs text-muted-foreground">All audio formats (max 100MB)</p>
+                          ) : (
+                            <>
+                              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Music className="w-6 h-6 text-primary" />
                               </div>
-                          </>
-                        )}
-                      </button>
-                    )}
+                            <div className="text-center">
+                                  <p className="text-sm font-medium">Upload Audio</p>
+                                  <p className="text-xs text-muted-foreground">All audio formats (max 500MB)</p>
+                                </div>
+                            </>
+                          )}
+                        </button>
+                      )}
                   </div>
               </div>
             </div>
@@ -1111,6 +1082,8 @@ if (isEditing && id) {
 
       <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
         <DialogContent className="max-w-4xl p-0">
+          <DialogTitle className="sr-only">Image Preview</DialogTitle>
+          <DialogDescription className="sr-only">Preview of the uploaded recitation image</DialogDescription>
           {imageViewerUrl && (
             <div className="relative">
               <img src={imageViewerUrl} alt="Preview" className="w-full" />

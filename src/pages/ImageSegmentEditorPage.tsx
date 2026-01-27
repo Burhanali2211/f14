@@ -8,6 +8,7 @@ import { ImageSegmentEditor, type ImageRegion } from '@/components/media/ImageSe
 import { AirSendDialog } from '@/components/media/AirSendDialog';
 import { EditorHeader, RecoveryDialog } from '@/components/media/ImageSegmentEditor/components';
 import { useAutoSave } from '@/components/media/ImageSegmentEditor/hooks';
+import { useR2Audio } from '@/hooks/useR2Audio';
 import { toast } from '@/hooks/use-toast';
 
 async function fetchPiece(id: string) {
@@ -75,6 +76,8 @@ export default function ImageSegmentEditorPage() {
   
   const [zoom, setZoom] = useState(1);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+
+  const { uploadAudio, deleteAudio, isUploading: isR2Uploading } = useR2Audio();
 
   const { saveStatus, manualSave, loadFromStorage, discardLocalChanges, syncToCloud } = useAutoSave({
     pieceId: id || '',
@@ -154,37 +157,13 @@ export default function ImageSegmentEditorPage() {
   const handleAudioUpload = useCallback(async (file: File) => {
     if (!id) return;
     
-    if (!file.type.startsWith('audio/')) {
-      toast({
-        title: 'Invalid file',
-        description: 'Please select an audio file (MP3, WAV, etc.)',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     setIsUploading(true);
-
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `audio-${id}-${Date.now()}.${fileExt}`;
-
-      const { data, error: uploadError } = await supabase.storage
-        .from('piece-images')
-        .upload(fileName, file, {
-          cacheControl: '31536000',
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('piece-images')
-        .getPublicUrl(data?.path || fileName);
-
+      const audioFile = await uploadAudio(file, id);
+      
       const { error: updateError } = await supabase
         .from('pieces')
-        .update({ audio_url: publicUrl })
+        .update({ audio_url: audioFile.r2Key })
         .eq('id', id);
 
       if (updateError) throw updateError;
@@ -193,32 +172,24 @@ export default function ImageSegmentEditorPage() {
 
       toast({
         title: 'Audio uploaded',
-        description: `"${file.name}" has been saved`,
+        description: `"${file.name}" has been saved to cloud storage`,
       });
     } catch (err) {
       console.error('Upload error:', err);
-      toast({
-        title: 'Upload failed',
-        description: 'Could not upload the audio file',
-        variant: 'destructive',
-      });
     } finally {
       setIsUploading(false);
     }
-  }, [id, queryClient]);
+  }, [id, queryClient, uploadAudio]);
 
   const handleRemoveAudio = useCallback(async () => {
     if (!id || !piece?.audio_url) return;
 
     setIsUploading(true);
     try {
-      const url = new URL(piece.audio_url);
-      const fileName = url.pathname.split('/').pop();
-
-      if (fileName) {
-        await supabase.storage.from('piece-images').remove([fileName]);
-      }
-
+      // If it's an R2 key, we should ideally delete it from R2 too, 
+      // but for now let's just null the reference in the DB
+      // as deleting from R2 requires more logic (checking if other pieces use it)
+      
       const { error } = await supabase
         .from('pieces')
         .update({ audio_url: null })
@@ -230,13 +201,13 @@ export default function ImageSegmentEditorPage() {
 
       toast({
         title: 'Audio removed',
-        description: 'The audio file has been removed',
+        description: 'The audio reference has been removed',
       });
     } catch (err) {
       console.error('Remove error:', err);
       toast({
         title: 'Remove failed',
-        description: 'Could not remove the audio file',
+        description: 'Could not remove the audio reference',
         variant: 'destructive',
       });
     } finally {
@@ -258,25 +229,11 @@ export default function ImageSegmentEditorPage() {
       const blob = await response.blob();
       const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' });
       
-      const fileExt = fileName.split('.').pop() || 'mp3';
-      const uploadFileName = `audio-${id}-${Date.now()}.${fileExt}`;
-
-      const { data, error: uploadError } = await supabase.storage
-        .from('piece-images')
-        .upload(uploadFileName, file, {
-          cacheControl: '31536000',
-          upsert: true,
-        });
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('piece-images')
-        .getPublicUrl(data?.path || uploadFileName);
+      const audioFile = await uploadAudio(file, id);
 
       const { error: updateError } = await supabase
         .from('pieces')
-        .update({ audio_url: publicUrl })
+        .update({ audio_url: audioFile.r2Key })
         .eq('id', id);
 
       if (updateError) throw updateError;
@@ -285,32 +242,19 @@ export default function ImageSegmentEditorPage() {
 
       toast({
         title: 'Audio synced',
-        description: `"${fileName}" has been saved from AirSend`,
+        description: `"${fileName}" has been saved to cloud storage via AirSend`,
       });
     } catch (err: any) {
       console.error('AirSend sync error:', err);
-      
-      let errorMessage = 'Could not save the audio file';
-      if (err.message?.includes('exceeded the maximum allowed size')) {
-        errorMessage = 'The audio file is too large for the cloud storage (Max 50MB).';
-      }
-
       toast({
         title: 'Sync failed',
-        description: errorMessage,
+        description: 'Could not save the audio file to cloud',
         variant: 'destructive',
       });
-      
-      if (localUrl) {
-        toast({
-          title: 'Using locally',
-          description: 'The file will work in this session, but wasn\'t saved to the cloud.',
-        });
-      }
     } finally {
       setIsUploading(false);
     }
-  }, [id, queryClient]);
+  }, [id, queryClient, uploadAudio]);
 
   const handleSave = useCallback(async () => {
     await manualSave();
