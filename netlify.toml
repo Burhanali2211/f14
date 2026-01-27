@@ -19,6 +19,42 @@
   force = true
 
 [[redirects]]
+  from = "/api/r2-upload-url"
+  to = "/.netlify/functions/r2-upload-url"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/r2-stream-url"
+  to = "/.netlify/functions/r2-stream-url"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/r2-delete"
+  to = "/.netlify/functions/r2-delete"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/r2-audio-upload"
+  to = "/.netlify/functions/r2-audio-upload"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/r2-audio-proxy"
+  to = "/.netlify/functions/r2-audio-proxy"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/telegram-notify"
+  to = "/.netlify/functions/telegram-notify"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

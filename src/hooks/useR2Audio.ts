@@ -43,6 +43,39 @@ function isValidAudioFile(file: File): boolean {
   return AUDIO_EXTENSIONS.includes(ext);
 }
 
+function getAudioMimeType(file: File): string {
+  if (file.type && file.type !== 'application/octet-stream' && file.type !== '') {
+    return file.type;
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  const mimeTypes: Record<string, string> = {
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'webm': 'audio/webm',
+    'aac': 'audio/aac',
+    'm4a': 'audio/mp4',
+    'mp4': 'audio/mp4',
+    'flac': 'audio/flac',
+    'opus': 'audio/opus',
+    'wma': 'audio/x-ms-wma',
+    'aiff': 'audio/aiff',
+    'aif': 'audio/aiff',
+    'amr': 'audio/amr',
+    '3gp': 'audio/3gpp',
+    '3gpp': 'audio/3gpp',
+    '3g2': 'audio/3gpp2',
+    'mid': 'audio/midi',
+    'midi': 'audio/midi',
+    'mp2': 'audio/mpeg',
+    'ac3': 'audio/ac3',
+    'caf': 'audio/x-caf',
+    'mka': 'audio/x-matroska',
+    'oga': 'audio/ogg',
+  };
+  return mimeTypes[ext] || 'audio/mpeg';
+}
+
 async function getAuthToken(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
   return session?.access_token || null;
@@ -54,43 +87,44 @@ export function useR2Audio(): UseR2AudioReturn {
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const uploadAudio = useCallback(async (file: File, pieceId?: string): Promise<AudioFile> => {
-    setError(null);
-    setUploadProgress(null);
+    const uploadAudio = useCallback(async (file: File, pieceId?: string): Promise<AudioFile> => {
+      setError(null);
+      setUploadProgress(null);
 
-    if (!isValidAudioFile(file)) {
-      const err = `Invalid file type. Please upload an audio file.`;
-      setError(err);
-      throw new Error(err);
-    }
+      if (!isValidAudioFile(file)) {
+        const err = `Invalid file type. Please upload an audio file.`;
+        setError(err);
+        throw new Error(err);
+      }
 
-    if (file.size > MAX_FILE_SIZE) {
-      const err = `File too large. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB`;
-      setError(err);
-      throw new Error(err);
-    }
+      if (file.size > MAX_FILE_SIZE) {
+        const err = `File too large. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB`;
+        setError(err);
+        throw new Error(err);
+      }
 
-    setIsUploading(true);
+      setIsUploading(true);
+      const contentType = getAudioMimeType(file);
 
-      try {
-        const token = await getAuthToken();
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
+        try {
+          const token = await getAuthToken();
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+          }
 
-        const uploadUrlResponse = await fetch('/api/r2-upload-url', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            filename: file.name,
-            contentType: file.type,
-            fileSize: file.size,
-            pieceId,
-          }),
-        });
+          const uploadUrlResponse = await fetch('/api/r2-upload-url', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              filename: file.name,
+              contentType: contentType,
+              fileSize: file.size,
+              pieceId,
+            }),
+          });
 
       if (!uploadUrlResponse.ok) {
         const errData = await uploadUrlResponse.json().catch(() => ({}));
@@ -135,7 +169,7 @@ export function useR2Audio(): UseR2AudioReturn {
         });
 
         xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.setRequestHeader('Content-Type', contentType);
         xhr.send(file);
       });
 

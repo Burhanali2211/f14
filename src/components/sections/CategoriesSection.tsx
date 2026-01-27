@@ -54,20 +54,20 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
         </div>
         
         {loading ? (
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-4 lg:gap-5 w-full">
-            {[...Array(8)].map((_, i) => (
-              <div 
-                key={i} 
-                className={`h-[200px] sm:h-[220px] md:h-[200px] lg:h-[220px] w-full bg-card rounded-2xl md:rounded-3xl border animate-pulse ${
-                  theme === 'light'
-                    ? 'border-border/50 shadow-md'
-                    : 'border-border/40 shadow-lg'
-                }`} 
-              />
-            ))}
-          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5 md:gap-4 lg:gap-5 w-full">
+              {[...Array(8)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className={`h-[160px] sm:h-[220px] md:h-[200px] lg:h-[220px] w-full bg-card rounded-2xl md:rounded-3xl border animate-pulse ${
+                    theme === 'light'
+                      ? 'border-border/50 shadow-md'
+                      : 'border-border/40 shadow-lg'
+                  }`} 
+                />
+              ))}
+            </div>
         ) : categories.length > 0 ? (
-            <div className={`grid ${getGridCols()} gap-4 sm:gap-5 md:gap-4 lg:gap-5 w-full`}>
+            <div className={`grid ${getGridCols()} gap-3 sm:gap-5 md:gap-4 lg:gap-5 w-full`}>
               <QuranCategoryCard index={0} />
               {categories.map((category, i) => (
                 <CategoryCard 
