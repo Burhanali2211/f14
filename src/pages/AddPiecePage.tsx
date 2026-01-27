@@ -298,27 +298,32 @@ export default function AddPiecePage() {
       }));
     };
 
-  const onAudioSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!isValidAudioFile(file)) {
-        toast({ title: t('error', uiLang), description: 'Please upload an audio file', variant: 'destructive' });
-        return;
+    const onAudioSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        if (!isValidAudioFile(file)) {
+          toast({ title: t('error', uiLang), description: 'Please upload an audio file', variant: 'destructive' });
+          return;
+        }
+        
+        try {
+          // Create preview URL immediately so it's captured before upload starts
+          const previewUrl = URL.createObjectURL(file);
+          setAudioPreviewUrl(previewUrl);
+          
+          const audioFile = await uploadAudio(file, id);
+          setPieceForm(f => ({ ...f, audio_url: audioFile.r2Key }));
+          toast({ title: t('success', uiLang) || 'Success', description: 'Audio uploaded successfully' });
+        } catch (error) {
+          console.error('Audio upload error:', error);
+          // Don't show toast here as useR2Audio already sets an error state 
+          // that might be displayed in the UI
+        }
       }
-      
-      try {
-        const audioFile = await uploadAudio(file, id);
-        setPieceForm(f => ({ ...f, audio_url: audioFile.r2Key }));
-        setAudioPreviewUrl(URL.createObjectURL(file));
-        toast({ title: t('success', uiLang) || 'Success', description: 'Audio uploaded successfully' });
-      } catch (error) {
-        console.error('Audio upload error:', error);
+      if (audioInputRef.current) {
+        audioInputRef.current.value = '';
       }
-    }
-    if (audioInputRef.current) {
-      audioInputRef.current.value = '';
-    }
-  };
+    };
 
   const handleRemoveAudio = () => {
     setPieceForm(f => ({ ...f, audio_url: '' }));

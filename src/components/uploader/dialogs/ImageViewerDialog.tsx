@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import type { ImageViewerDialogProps } from '../types';
 
@@ -10,6 +12,8 @@ export const ImageViewerDialog = ({ imageUrl, isOpen, onClose }: ImageViewerDial
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-7xl w-full max-h-[90vh] h-[90vh] sm:h-auto p-0 overflow-hidden rounded-2xl">
+        <DialogTitle className="sr-only">Image Preview</DialogTitle>
+        <DialogDescription className="sr-only">Full size view of the uploaded image</DialogDescription>
         {imageUrl && (
           <div className="relative w-full h-full flex items-center justify-center bg-black/95 overflow-auto">
             <img 

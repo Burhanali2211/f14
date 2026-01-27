@@ -120,10 +120,10 @@ function EditorHeaderComponent({
   const audioInputRef = useRef<HTMLInputElement>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleAudioInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAudioInputChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      onAudioUpload(file);
+      await onAudioUpload(file);
       e.target.value = '';
     }
   }, [onAudioUpload]);
@@ -403,6 +403,9 @@ function EditorHeaderComponent({
       <SheetContent side="right" className="w-[280px]">
         <SheetHeader>
           <SheetTitle>Editor Options</SheetTitle>
+          <DialogDescription className="sr-only">
+            Configuration options for the image segment editor, including audio upload and zoom controls.
+          </DialogDescription>
         </SheetHeader>
         <div className="mt-6 space-y-6">
           {audioUrl && (
