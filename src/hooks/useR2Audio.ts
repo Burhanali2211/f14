@@ -29,17 +29,19 @@ interface UseR2AudioReturn {
 }
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
-const ALLOWED_TYPES = [
-  'audio/mpeg',
-  'audio/mp3',
-  'audio/wav',
-  'audio/ogg',
-  'audio/webm',
-  'audio/aac',
-  'audio/m4a',
-  'audio/x-m4a',
-  'audio/flac',
+const AUDIO_EXTENSIONS = [
+  '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
+  '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
+  '.mid', '.midi', '.mp2', '.ra', '.ram', '.ac3', '.caf', '.mka',
+  '.oga', '.spx', '.wv', '.ape', '.alac', '.dts', '.mpc', '.snd', '.au'
 ];
+
+function isValidAudioFile(file: File): boolean {
+  if (file.type.startsWith('audio/')) return true;
+  if (file.type === 'video/mp4' || file.type === 'video/3gpp') return true;
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+  return AUDIO_EXTENSIONS.includes(ext);
+}
 
 async function getAuthToken(): Promise<string | null> {
   const { data: { session } } = await supabase.auth.getSession();
@@ -56,8 +58,8 @@ export function useR2Audio(): UseR2AudioReturn {
     setError(null);
     setUploadProgress(null);
 
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      const err = `Invalid file type: ${file.type}. Allowed: ${ALLOWED_TYPES.join(', ')}`;
+    if (!isValidAudioFile(file)) {
+      const err = `Invalid file type. Please upload an audio file.`;
       setError(err);
       throw new Error(err);
     }

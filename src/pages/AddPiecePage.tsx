@@ -67,6 +67,21 @@ import { getUILanguage, setUILanguage, t, UILanguage } from '@/lib/ui-translatio
 import { notifyNewRecitation } from '@/lib/telegram-notify';
 
 
+const AUDIO_EXTENSIONS = [
+  '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
+  '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
+  '.mid', '.midi', '.mp2', '.ra', '.ram', '.ac3', '.caf', '.mka',
+  '.oga', '.spx', '.wv', '.ape', '.alac', '.dts', '.mpc', '.snd', '.au'
+];
+
+function isValidAudioFile(file: File): boolean {
+  if (file.type.startsWith('audio/')) return true;
+  if (file.type === 'video/mp4' || file.type === 'video/3gpp') return true;
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+  return AUDIO_EXTENSIONS.includes(ext);
+}
+
+
 export default function AddPiecePage() {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -281,17 +296,16 @@ export default function AddPiecePage() {
       }));
     };
 
-  const handleAudioUpload = async (file: File) => {
-    const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg', 'audio/webm', 'audio/aac', 'audio/m4a', 'audio/x-m4a', 'audio/flac'];
-    if (!validTypes.includes(file.type)) {
-      toast({ title: t('error', uiLang), description: 'Please upload an audio file (MP3, WAV, OGG, etc.)', variant: 'destructive' });
-      return;
-    }
-    
-    if (file.size > 100 * 1024 * 1024) {
-      toast({ title: t('error', uiLang), description: 'Audio file too large. Max 100MB', variant: 'destructive' });
-      return;
-    }
+const handleAudioUpload = async (file: File) => {
+      if (!isValidAudioFile(file)) {
+        toast({ title: t('error', uiLang), description: 'Please upload an audio file', variant: 'destructive' });
+        return;
+      }
+      
+      if (file.size > 100 * 1024 * 1024) {
+        toast({ title: t('error', uiLang), description: 'Audio file too large. Max 100MB', variant: 'destructive' });
+        return;
+      }
 
     setAudioUploading(true);
     try {
@@ -958,10 +972,10 @@ if (isEditing && id) {
                             <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                               <Music className="w-6 h-6 text-primary" />
                             </div>
-                            <div className="text-center">
-                              <p className="text-sm font-medium">Upload Audio</p>
-                              <p className="text-xs text-muted-foreground">MP3, WAV, OGG (max 100MB)</p>
-                            </div>
+                          <div className="text-center">
+                                <p className="text-sm font-medium">Upload Audio</p>
+                                <p className="text-xs text-muted-foreground">All audio formats (max 100MB)</p>
+                              </div>
                           </>
                         )}
                       </button>

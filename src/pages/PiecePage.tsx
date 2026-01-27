@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 
   ChevronLeft, ChevronRight, User, Bookmark, Eye,
   Users, ArrowUp, Heart, Share2, Home, Settings,
-  ZoomIn, ZoomOut, RotateCcw, RotateCw, Music, Play, Pause, Volume2, VolumeX,
+  ZoomIn, ZoomOut, RotateCcw, Music, Play, Pause, Volume2, VolumeX,
   FastForward, Rewind, Timer
 } from 'lucide-react';
 import { Header } from '@/components/Header';
@@ -482,7 +482,7 @@ export default function PiecePage() {
             </Link>
 
               <div className="flex items-center gap-1.5">
-                {(hasTextContent || (piece as any).audio_url) && (
+                {(hasTextContent || imageUrls.length > 0 || pdfUrl || (piece as any).audio_url) && (
                   <button
                     onClick={() => navigate(`/piece/${id}/teleprompter`)}
                     className="w-10 h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center transition-all active:scale-90"

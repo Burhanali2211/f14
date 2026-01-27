@@ -13,14 +13,14 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
   const { theme } = useTheme();
   
   // Determine optimal columns based on category count for better spacing
-  const getGridCols = () => {
-    const count = categories.length;
-    if (count <= 2) return 'grid-cols-1 sm:grid-cols-2';
-    if (count <= 3) return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-3';
-    if (count <= 4) return 'grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4';
-    // For 5+ categories, use full responsive grid with better medium device support
-    return 'grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
-  };
+    const getGridCols = () => {
+      const count = categories.length;
+      if (count <= 2) return 'grid-cols-2 sm:grid-cols-2';
+      if (count <= 3) return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3';
+      if (count <= 4) return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4';
+      // For 5+ categories, use 2 cols on mobile, scale up on larger screens
+      return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
+    };
 
   return (
     <section className="py-12 sm:py-16 md:py-18 lg:py-20">

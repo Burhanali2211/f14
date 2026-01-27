@@ -9,6 +9,20 @@ import { toast } from 'sonner';
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
+const AUDIO_EXTENSIONS = [
+  '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
+  '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
+  '.mid', '.midi', '.mp2', '.ra', '.ram', '.ac3', '.caf', '.mka',
+  '.oga', '.spx', '.wv', '.ape', '.alac', '.dts', '.mpc', '.snd', '.au'
+];
+
+function isValidAudioFile(file: File): boolean {
+  if (file.type.startsWith('audio/')) return true;
+  if (file.type === 'video/mp4' || file.type === 'video/3gpp') return true;
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+  return AUDIO_EXTENSIONS.includes(ext);
+}
+
 export default function AirSendMobilePage() {
   const [searchParams] = useSearchParams();
   const sessionCode = searchParams.get('session');
@@ -97,7 +111,7 @@ export default function AirSendMobilePage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('audio/')) {
+      if (!isValidAudioFile(file)) {
         setError('Please select an audio file');
         return;
       }

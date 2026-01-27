@@ -11,17 +11,22 @@ const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
-const ALLOWED_CONTENT_TYPES = [
-  'audio/mpeg',
-  'audio/mp3',
-  'audio/wav',
-  'audio/ogg',
-  'audio/webm',
-  'audio/aac',
-  'audio/m4a',
-  'audio/x-m4a',
-  'audio/flac',
-];
+
+function isValidAudioContentType(contentType: string, filename: string): boolean {
+  if (contentType.startsWith('audio/')) return true;
+  if (contentType === 'video/mp4' || contentType === 'video/3gpp') return true;
+  if (contentType === 'application/octet-stream' || contentType === '') {
+    const audioExtensions = [
+      '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
+      '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
+      '.mid', '.midi', '.mp2', '.ra', '.ram', '.ac3', '.caf', '.mka',
+      '.oga', '.spx', '.wv', '.ape', '.alac', '.dts', '.mpc', '.snd', '.au'
+    ];
+    const ext = '.' + filename.split('.').pop()?.toLowerCase();
+    return audioExtensions.includes(ext);
+  }
+  return false;
+}
 
 async function hmacSha256(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
   const cryptoKey = await crypto.subtle.importKey(
@@ -171,8 +176,8 @@ export default async function handler(request: Request) {
       });
     }
 
-    if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
-      return new Response(JSON.stringify({ error: `Invalid content type. Allowed: ${ALLOWED_CONTENT_TYPES.join(', ')}` }), {
+    if (!isValidAudioContentType(contentType, filename)) {
+      return new Response(JSON.stringify({ error: 'Invalid content type. Please upload an audio file.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });

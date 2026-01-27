@@ -13,6 +13,20 @@ import { useR2Audio, AudioFile } from '@/hooks/useR2Audio';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
+const AUDIO_EXTENSIONS = [
+  '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
+  '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
+  '.mid', '.midi', '.mp2', '.ra', '.ram', '.ac3', '.caf', '.mka',
+  '.oga', '.spx', '.wv', '.ape', '.alac', '.dts', '.mpc', '.snd', '.au'
+];
+
+function isValidAudioFile(file: File): boolean {
+  if (file.type.startsWith('audio/')) return true;
+  if (file.type === 'video/mp4' || file.type === 'video/3gpp') return true;
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase();
+  return AUDIO_EXTENSIONS.includes(ext);
+}
+
 interface R2AudioUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,7 +52,7 @@ export function R2AudioUploadDialog({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('audio/')) {
+    if (!isValidAudioFile(file)) {
       toast.error('Please select an audio file');
       return;
     }
@@ -150,9 +164,9 @@ export function R2AudioUploadDialog({
               <Upload className="w-7 h-7 text-primary" />
             </div>
             <div className="text-center">
-              <p className="font-medium">Select Audio File</p>
-              <p className="text-sm text-muted-foreground">MP3, WAV, AAC, FLAC up to 500MB</p>
-            </div>
+                <p className="font-medium">Select Audio File</p>
+                <p className="text-sm text-muted-foreground">All audio formats supported (max 500MB)</p>
+              </div>
           </button>
         )}
 
