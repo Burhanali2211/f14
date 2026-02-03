@@ -90,13 +90,11 @@ export class AirSendP2P {
   }
 
   private setupPeerConnection() {
+    // Use max 2 STUN servers - Chrome warns that 5+ servers slow down ICE discovery
     const configuration = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
       ],
     };
 
@@ -122,7 +120,7 @@ export class AirSendP2P {
           this.readyInterval = null;
         }
       } else if (state === 'failed' || state === 'disconnected') {
-        if (this.currentRetry < this.maxRetries) {
+        if (!this.isReceiver && this.currentRetry < this.maxRetries) {
           this.currentRetry++;
           this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
           this.restartIce();
@@ -246,6 +244,7 @@ export class AirSendP2P {
           break;
         case 'offer':
           if (this.isReceiver) {
+            this.iceCandidatesQueue = [];
             await this.pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
             this.remoteDescriptionSet = true;
             await this.processQueuedIceCandidates();
@@ -256,14 +255,20 @@ export class AirSendP2P {
           break;
         case 'answer':
           if (!this.isReceiver && this.pc.signalingState === 'have-local-offer') {
+            this.iceCandidatesQueue = [];
             await this.pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
             this.remoteDescriptionSet = true;
             await this.processQueuedIceCandidates();
           }
           break;
         case 'ice-candidate':
+          if (!message.candidate) break;
           if (this.remoteDescriptionSet) {
-            await this.pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+            try {
+              await this.pc.addIceCandidate(new RTCIceCandidate(message.candidate));
+            } catch (e) {
+              if (!this.destroyed) console.warn('Failed to add ICE candidate:', e);
+            }
           } else {
             this.iceCandidatesQueue.push(message.candidate);
           }
@@ -385,10 +390,18 @@ export class AirSendP2P {
   private async restartIce() {
     if (!this.pc || this.isReceiver || this.destroyed) return;
     try {
+      this.clearConnectionTimeout();
+      this.iceCandidatesQueue = [];
       this.remoteDescriptionSet = false;
       const offer = await this.pc.createOffer({ iceRestart: true });
       await this.pc.setLocalDescription(offer);
       this.sendSignalingMessage({ type: 'offer', sdp: offer });
+      this.connectionTimeout = setTimeout(() => {
+        if (!this.destroyed && this.pc?.connectionState !== 'connected') {
+          this.onStatusChange?.('Connection timeout. Retrying...');
+          this.restartIce();
+        }
+      }, 15000);
     } catch (err) {
       console.error('ICE restart failed:', err);
     }
