@@ -272,27 +272,38 @@ export function UpdateNotification() {
         if (registration) {
           serviceWorkerRegistrationRef.current = registration;
           
-          // Check for updates
-          try {
-            registration.update();
-          } catch (err) {
-            logger.error('Error updating service worker registration:', err);
+          // Skip update in dev (SW often disabled) and when registration may be stale - avoids "object no longer usable" error
+          if (!import.meta.env.DEV && registration.scope && typeof registration.update === 'function') {
+            registration.update().catch((err) => {
+              logger.error('Error updating service worker registration:', err);
+            });
           }
 
           // Listen for service worker updates
-          registration.addEventListener('updatefound', () => {
-            const newWorker = registration.installing;
-            if (newWorker) {
-              newWorker.addEventListener('statechange', () => {
-                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  // New service worker is ready
-                  logger.info('New service worker installed');
-                  checkForUpdates();
-                }
-              });
-            }
-          });
+          try {
+            registration.addEventListener('updatefound', () => {
+              const newWorker = registration.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  try {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                      logger.info('New service worker installed');
+                      checkForUpdates().catch((err) => {
+                        logger.error('Error in checkForUpdates:', err);
+                      });
+                    }
+                  } catch (err) {
+                    logger.error('Error in service worker statechange:', err);
+                  }
+                });
+              }
+            });
+          } catch (err) {
+            logger.error('Error adding updatefound listener:', err);
+          }
         }
+      }).catch((err) => {
+        logger.error('Error getting service worker registration:', err);
       });
 
       // Listen for messages from service worker

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Home, BookOpen, Shield, Menu, X, Heart, Settings, Upload, Calendar, LogIn, User, LayoutDashboard, LogOut } from 'lucide-react';
+import { Home, BookOpen, Shield, Menu, X, Heart, Settings, Upload, Calendar, LogIn, User, LayoutDashboard, LogOut, Monitor } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { FiqhNotifications } from './fiqh/FiqhNotifications';
@@ -69,6 +69,8 @@ export function Header() {
 
   const closeMenu = () => setIsMenuOpen(false);
   const isActive = (path: string) => location.pathname === path;
+  const isStudioActive = () =>
+    location.pathname === '/teleprompter/studio' || /^\/piece\/[^/]+\/teleprompter\/studio$/.test(location.pathname);
 
   return (
     <header 
@@ -152,6 +154,15 @@ export function Header() {
             >
               <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden xl:inline">Settings</span>
+            </Link>
+            <Link
+              to="/teleprompter/studio"
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                isStudioActive() ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+              }`}
+            >
+              <Monitor className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden xl:inline">Studio</span>
             </Link>
             {user && role === 'admin' && (
               <Link
@@ -327,6 +338,16 @@ export function Header() {
               >
                 <Settings className="w-6 h-6 flex-shrink-0" />
                 <span>Reading Settings</span>
+              </Link>
+              <Link 
+                to="/teleprompter/studio" 
+                onClick={closeMenu} 
+                className={`flex items-center gap-3 px-4 py-4 rounded-xl text-base font-medium transition-colors min-h-[52px] ${
+                  isStudioActive() ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary text-foreground'
+                }`}
+              >
+                <Monitor className="w-6 h-6 flex-shrink-0" />
+                <span>Teleprompter Studio</span>
               </Link>
               {user ? (
                 <>

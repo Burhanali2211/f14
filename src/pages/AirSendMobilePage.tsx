@@ -52,7 +52,7 @@ export default function AirSendMobilePage() {
           .from('airsend_sessions')
           .select('*')
           .eq('session_code', sessionCode)
-          .single();
+          .maybeSingle();
         
         if (!mounted.current) return;
         

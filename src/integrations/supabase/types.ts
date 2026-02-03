@@ -269,6 +269,42 @@ categories: {
         }
         Relationships: []
       }
+      user_audio_files: {
+        Row: {
+          id: string
+          user_id: string
+          r2_key: string
+          filename: string
+          content_type: string
+          size_bytes: number
+          duration_seconds: number | null
+          piece_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          r2_key: string
+          filename: string
+          content_type: string
+          size_bytes: number
+          duration_seconds?: number | null
+          piece_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          r2_key?: string
+          filename?: string
+          content_type?: string
+          size_bytes?: number
+          duration_seconds?: number | null
+          piece_id?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       earning_settings: {
         Row: {
           id: string

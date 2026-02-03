@@ -39,6 +39,7 @@ import {
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -403,9 +404,9 @@ function EditorHeaderComponent({
       <SheetContent side="right" className="w-[280px]">
         <SheetHeader>
           <SheetTitle>Editor Options</SheetTitle>
-          <DialogDescription className="sr-only">
+          <SheetDescription className="sr-only">
             Configuration options for the image segment editor, including audio upload and zoom controls.
-          </DialogDescription>
+          </SheetDescription>
         </SheetHeader>
         <div className="mt-6 space-y-6">
           {audioUrl && (
@@ -583,7 +584,7 @@ function EditorHeaderComponent({
       />
 
       <header className="sticky top-0 z-50 bg-background border-b border-border">
-        <div className="flex items-center gap-2 px-2 py-2 sm:px-4 sm:py-2.5">
+        <div className="flex items-center gap-2 px-2 py-2 sm:px-4 sm:py-2.5 flex-wrap min-w-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -598,13 +599,16 @@ function EditorHeaderComponent({
             <TooltipContent>Back to Teleprompter</TooltipContent>
           </Tooltip>
 
-          <div className="flex-1 min-w-0 mr-2">
+          <div className="flex-1 min-w-0 mr-2 overflow-hidden">
             <h1 className="text-sm sm:text-base font-semibold truncate">{pieceTitle}</h1>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground">Image Segment Editor</p>
+            <div className="flex items-center gap-2 flex-wrap min-w-0">
+              <p className="text-[10px] sm:text-xs text-muted-foreground truncate" title="Image Segment Editor">
+                <span className="hidden sm:inline">Image Segment Editor</span>
+                <span className="sm:hidden">Segments</span>
+              </p>
               {regionsCount > 0 && (
-                <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full font-medium">
-                  {regionsCount} segments
+                <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full font-medium flex-shrink-0">
+                  {regionsCount} segment{regionsCount !== 1 ? 's' : ''}
                 </span>
               )}
             </div>

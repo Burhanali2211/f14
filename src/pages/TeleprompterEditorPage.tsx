@@ -2,11 +2,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Play, Pause, Plus, Trash2, Edit2, Save, X, Clock,
+  Play, Plus, Trash2, Edit2, Save, Clock,
   Scissors, Merge, RotateCcw, RotateCw, Music, AlertTriangle,
-    CheckCircle, GripVertical, ArrowLeft, Loader2, Home,
-    Image as ImageIcon, FileText, Star, CheckCircle2
-  } from 'lucide-react';
+  CheckCircle, GripVertical, ArrowLeft, Loader2, Home,
+  Image as ImageIcon, FileText, Star, CheckCircle2
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,33 +29,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { FinishTaskDialog } from '@/components/media/FinishTaskDialog';
+import { TeleprompterAudioBar } from '@/components/media/TeleprompterAudioBar';
+import { useTeleprompterSegmentEditor } from '@/hooks/use-teleprompter-segment-editor';
 import { cn, normalizeImageUrl } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import type { TeleprompterSegment, TeleprompterSession } from '@/lib/teleprompter-types';
-import {
-  getSession,
-  createSession,
-  updateSessionSegments,
-  addSegment,
-  updateSegment,
-  deleteSegment,
-  splitSegment,
-  mergeSegments,
-  reorderSegments,
-  parseTextToSegments,
-  formatTime,
-  parseTime,
-  undo,
-  redo,
-  canUndo,
-  canRedo,
-    saveAutosave,
-    getAutosave,
-    clearAutosave,
-    hasUnsavedChanges,
-    finishTeleprompterTask,
-  } from '@/lib/teleprompter-storage';
+import type { TeleprompterSegment } from '@/lib/teleprompter-types';
+import { formatTime, finishTeleprompterTask } from '@/lib/teleprompter-storage';
 import { toast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 
@@ -65,7 +46,7 @@ async function fetchPiece(id: string) {
     .select('*')
     .eq('id', id)
     .single();
-  
+
   if (error) throw error;
   return data;
 }
@@ -80,42 +61,29 @@ export default function TeleprompterEditorPage() {
     enabled: !!id,
   });
 
-  const [session, setSession] = useState<TeleprompterSession | null>(null);
-  const [segments, setSegments] = useState<TeleprompterSegment[]>([]);
-  const [editingSegment, setEditingSegment] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ text: '', startTime: '', endTime: '' });
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [addForm, setAddForm] = useState({ text: '', startTime: '', endTime: '' });
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-    const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-    const [hasChanges, setHasChanges] = useState(false);
-    const [isAutoSaving, setIsAutoSaving] = useState(false);
-    const [lastSaved, setLastSaved] = useState<Date | null>(null);
-    const [showFinishDialog, setShowFinishDialog] = useState(false);
+  const [showFinishDialog, setShowFinishDialog] = useState(false);
+  const [resolvedAudioUrl, setResolvedAudioUrl] = useState<string | null>(null);
 
-    const audioRef = useRef<HTMLAudioElement | null>(null);
-    const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-    const [resolvedAudioUrl, setResolvedAudioUrl] = useState<string | null>(null);
+  const [showTypeSelector, setShowTypeSelector] = useState(false);
+  const [selectedType, setSelectedType] = useState<'images' | 'text' | null>(null);
 
-    useEffect(() => {
-      const audioR2Key = piece?.audio_url;
-      if (audioR2Key && audioR2Key.startsWith('audio/')) {
-        const proxyUrl = `/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`;
-        setResolvedAudioUrl(proxyUrl);
-      } else if (audioR2Key && (audioR2Key.startsWith('http://') || audioR2Key.startsWith('https://'))) {
-        setResolvedAudioUrl(audioR2Key);
-      } else {
-        setResolvedAudioUrl(null);
-      }
-    }, [piece?.audio_url]);
+  useEffect(() => {
+    const audioR2Key = piece?.audio_url;
+    if (audioR2Key && audioR2Key.startsWith('audio/')) {
+      setResolvedAudioUrl(`/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`);
+    } else if (audioR2Key && (audioR2Key.startsWith('http://') || audioR2Key.startsWith('https://'))) {
+      setResolvedAudioUrl(audioR2Key);
+    } else {
+      setResolvedAudioUrl(null);
+    }
+  }, [piece?.audio_url]);
 
-    const audioUrl = resolvedAudioUrl;
+  const audioUrl = resolvedAudioUrl;
 
   const imageUrls = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);
@@ -130,26 +98,22 @@ export default function TeleprompterEditorPage() {
   const hasImages = imageUrls.length > 0;
   const hasPdf = !!pdfUrl;
   const hasText = !!piece?.text_content && piece.text_content.trim().length > 0;
-  const hasAudio = !!audioUrl;
-
-  const [showTypeSelector, setShowTypeSelector] = useState(false);
-  const [selectedType, setSelectedType] = useState<'images' | 'text' | null>(null);
 
   const availableTypes = useMemo(() => {
     const types: { type: 'images' | 'text'; label: string; icon: typeof ImageIcon; recommended: boolean; description: string }[] = [];
-    
+
     if (hasImages || hasPdf) {
       types.push({
         type: 'images',
         label: hasPdf ? 'PDF / Images' : 'Images',
         icon: ImageIcon,
         recommended: hasImages || hasPdf,
-        description: hasPdf 
+        description: hasPdf
           ? 'Create regions on PDF pages synced with audio'
           : `Create regions on ${imageUrls.length} image(s) synced with audio`
       });
     }
-    
+
     if (hasText) {
       types.push({
         type: 'text',
@@ -159,7 +123,7 @@ export default function TeleprompterEditorPage() {
         description: 'Create text segments synced with audio'
       });
     }
-    
+
     return types;
   }, [hasImages, hasPdf, hasText, imageUrls.length]);
 
@@ -183,24 +147,8 @@ export default function TeleprompterEditorPage() {
 
     if (selectedType === 'images') {
       navigate(`/piece/${id}/teleprompter/image-edit`);
-      return;
     }
-
-    let existingSession = getSession(id);
-    
-    if (!existingSession) {
-      const initialSegments = piece.text_content ? parseTextToSegments(piece.text_content) : [];
-      existingSession = createSession(id, audioUrl, initialSegments);
-    }
-    
-    setSession(existingSession);
-    setSegments(existingSession.segments);
-
-    const autosave = getAutosave(existingSession.id);
-    if (autosave && hasUnsavedChanges(existingSession.id)) {
-      setShowUnsavedWarning(true);
-    }
-  }, [id, piece, audioUrl, availableTypes, selectedType, navigate]);
+  }, [id, piece, availableTypes, selectedType, navigate]);
 
   useEffect(() => {
     if (!audioUrl) return;
@@ -208,17 +156,9 @@ export default function TeleprompterEditorPage() {
     const audio = new Audio(audioUrl);
     audio.preload = 'metadata';
 
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration);
-    };
-
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime);
-    };
-
-    const handleEnded = () => {
-      setIsPlaying(false);
-    };
+    const handleLoadedMetadata = () => setDuration(audio.duration);
+    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const handleEnded = () => setIsPlaying(false);
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -227,53 +167,17 @@ export default function TeleprompterEditorPage() {
     audioRef.current = audio;
 
     return () => {
-        audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
-        audio.removeEventListener('timeupdate', handleTimeUpdate);
-        audio.removeEventListener('ended', handleEnded);
-        audio.pause();
-        audio.src = '';
-        audioRef.current = null;
-      };
-    }, [audioUrl]);
-
-    // Auto-save to localStorage
-    useEffect(() => {
-      if (!session || !hasChanges) return;
-
-      if (autosaveTimerRef.current) {
-        clearTimeout(autosaveTimerRef.current);
-      }
-
-      autosaveTimerRef.current = setTimeout(() => {
-        setIsAutoSaving(true);
-        saveAutosave(session.id, segments);
-        setLastSaved(new Date());
-        setIsAutoSaving(false);
-      }, 1000);
-
-      return () => {
-        if (autosaveTimerRef.current) {
-          clearTimeout(autosaveTimerRef.current);
-        }
-      };
-    }, [session, segments, hasChanges]);
-
-    // Prevent accidental navigation
-    useEffect(() => {
-      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-        if (hasChanges) {
-          e.preventDefault();
-          e.returnValue = '';
-        }
-      };
-
-      window.addEventListener('beforeunload', handleBeforeUnload);
-      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-    }, [hasChanges]);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('ended', handleEnded);
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
+    };
+  }, [audioUrl]);
 
   const togglePlayPause = useCallback(() => {
     if (!audioRef.current) return;
-    
     if (isPlaying) {
       audioRef.current.pause();
     } else {
@@ -295,250 +199,26 @@ export default function TeleprompterEditorPage() {
     setIsPlaying(true);
   }, []);
 
-  const handleEdit = useCallback((segment: TeleprompterSegment) => {
-    setEditingSegment(segment.id);
-    setEditForm({
-      text: segment.text,
-      startTime: formatTime(segment.startTime),
-      endTime: formatTime(segment.endTime),
-    });
-  }, []);
+  const editorEnabled = selectedType === 'text' || (availableTypes.length === 1 && availableTypes[0]?.type === 'text');
 
-  const handleSaveEdit = useCallback(() => {
-    if (!session || !editingSegment) return;
-
-    const startTime = parseTime(editForm.startTime);
-    const endTime = parseTime(editForm.endTime);
-
-    if (endTime <= startTime) {
-      toast({
-        title: 'Invalid time range',
-        description: 'End time must be after start time',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const updated = updateSegment(session.id, editingSegment, {
-      text: editForm.text,
-      startTime,
-      endTime,
-    });
-
-    if (updated) {
-      setSession(updated);
-      setSegments(updated.segments);
-      setHasChanges(true);
-    }
-
-    setEditingSegment(null);
-  }, [session, editingSegment, editForm]);
-
-  const handleCancelEdit = useCallback(() => {
-    setEditingSegment(null);
-    setEditForm({ text: '', startTime: '', endTime: '' });
-  }, []);
-
-  const handleAddSegment = useCallback(() => {
-    if (!session) return;
-
-    const startTime = parseTime(addForm.startTime);
-    const endTime = parseTime(addForm.endTime);
-
-    if (endTime <= startTime) {
-      toast({
-        title: 'Invalid time range',
-        description: 'End time must be after start time',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const updated = addSegment(session.id, addForm.text, startTime, endTime);
-
-    if (updated) {
-      setSession(updated);
-      setSegments(updated.segments);
-      setHasChanges(true);
-    }
-
-    setShowAddDialog(false);
-    setAddForm({ text: '', startTime: '', endTime: '' });
-  }, [session, addForm]);
-
-  const handleDeleteSegment = useCallback((segmentId: string) => {
-    if (!session) return;
-
-    const updated = deleteSegment(session.id, segmentId);
-
-    if (updated) {
-      setSession(updated);
-      setSegments(updated.segments);
-      setHasChanges(true);
-    }
-
-    setShowDeleteConfirm(null);
-  }, [session]);
-
-  const handleSplit = useCallback((segment: TeleprompterSegment) => {
-    if (!session) return;
-
-    const splitTime = (segment.startTime + segment.endTime) / 2;
-    const updated = splitSegment(session.id, segment.id, splitTime);
-
-    if (updated) {
-      setSession(updated);
-      setSegments(updated.segments);
-      setHasChanges(true);
-    }
-  }, [session]);
-
-  const handleMerge = useCallback((segment1Id: string, segment2Id: string) => {
-    if (!session) return;
-
-    const updated = mergeSegments(session.id, segment1Id, segment2Id);
-
-    if (updated) {
-      setSession(updated);
-      setSegments(updated.segments);
-      setHasChanges(true);
-    }
-  }, [session]);
-
-  const handleUndo = useCallback(() => {
-    if (!session) return;
-    const undone = undo(session.id);
-    if (undone) {
-      setSession(undone);
-      setSegments(undone.segments);
-    }
-  }, [session]);
-
-  const handleRedo = useCallback(() => {
-    if (!session) return;
-    const redone = redo(session.id);
-    if (redone) {
-      setSession(redone);
-      setSegments(redone.segments);
-    }
-  }, [session]);
-
-  const handleDragStart = useCallback((index: number) => {
-    setDraggedIndex(index);
-  }, []);
-
-  const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
-
-    if (session) {
-      const updated = reorderSegments(session.id, draggedIndex, index);
-      if (updated) {
-        setSession(updated);
-        setSegments(updated.segments);
-        setDraggedIndex(index);
-        setHasChanges(true);
-      }
-    }
-  }, [session, draggedIndex]);
-
-  const handleDragEnd = useCallback(() => {
-    setDraggedIndex(null);
-  }, []);
-
-  const handleSaveAll = useCallback(() => {
-    if (!session) return;
-
-    const updated = updateSessionSegments(session.id, segments);
-    if (updated) {
-      setSession(updated);
-      clearAutosave(session.id);
-      setHasChanges(false);
-      toast({
-        title: 'Saved',
-        description: 'Segments have been saved successfully.',
-      });
-    }
-  }, [session, segments]);
-
-  const handleNavigate = useCallback((path: string) => {
-    if (hasChanges) {
-      setPendingNavigation(path);
-      setShowUnsavedWarning(true);
-    } else {
-      navigate(path);
-    }
-  }, [hasChanges, navigate]);
-
-  const handleRestoreAutosave = useCallback(() => {
-    if (!session) return;
-
-    const autosave = getAutosave(session.id);
-    if (autosave) {
-      setSegments(autosave.segments);
-      setHasChanges(true);
-    }
-    setShowUnsavedWarning(false);
-    setPendingNavigation(null);
-  }, [session]);
+  const editor = useTeleprompterSegmentEditor({
+    pieceId: id ?? '',
+    textContent: piece?.text_content,
+    audioUrl,
+    navigate,
+    enabled: !!editorEnabled,
+    currentTime,
+  });
 
   const handleFinishTask = useCallback(() => {
     if (!id) return;
     finishTeleprompterTask(id);
-    setHasChanges(false);
     toast({
       title: 'Task completed',
       description: 'All teleprompter data for this piece has been deleted.',
     });
     navigate(`/piece/${id}`);
   }, [id, navigate]);
-
-  const handleDiscardAutosave = useCallback(() => {
-    if (session) {
-      clearAutosave(session.id);
-    }
-    setShowUnsavedWarning(false);
-    if (pendingNavigation) {
-      navigate(pendingNavigation);
-    }
-    setPendingNavigation(null);
-  }, [session, pendingNavigation, navigate]);
-
-  const handleGenerateFromText = useCallback(() => {
-    if (!piece?.text_content || !session) return;
-
-    const generatedSegments = parseTextToSegments(piece.text_content);
-    const updated = updateSessionSegments(session.id, generatedSegments);
-    
-    if (updated) {
-      setSession(updated);
-      setSegments(updated.segments);
-      setHasChanges(true);
-      toast({
-        title: 'Segments generated',
-        description: `Created ${generatedSegments.length} segments from text content.`,
-      });
-    }
-  }, [piece, session]);
-
-  const setCurrentTimeAsStart = useCallback(() => {
-    setAddForm(prev => ({ ...prev, startTime: formatTime(currentTime) }));
-  }, [currentTime]);
-
-  const setCurrentTimeAsEnd = useCallback(() => {
-    setAddForm(prev => ({ ...prev, endTime: formatTime(currentTime) }));
-  }, [currentTime]);
-
-  const setEditCurrentTimeAsStart = useCallback(() => {
-    setEditForm(prev => ({ ...prev, startTime: formatTime(currentTime) }));
-  }, [currentTime]);
-
-  const setEditCurrentTimeAsEnd = useCallback(() => {
-    setEditForm(prev => ({ ...prev, endTime: formatTime(currentTime) }));
-  }, [currentTime]);
-
-  const canUndoNow = session ? canUndo(session.id) : false;
-  const canRedoNow = session ? canRedo(session.id) : false;
 
   const handleSelectType = useCallback((type: 'images' | 'text') => {
     setShowTypeSelector(false);
@@ -575,11 +255,7 @@ export default function TeleprompterEditorPage() {
       <div className="min-h-screen bg-background flex flex-col">
         <header className="sticky top-0 z-10 bg-background border-b border-border p-4">
           <div className="flex items-center gap-3 max-w-4xl mx-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(`/piece/${id}/teleprompter`)}
-            >
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/piece/${id}/teleprompter`)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <div>
@@ -602,7 +278,6 @@ export default function TeleprompterEditorPage() {
               {availableTypes.map((option) => {
                 const Icon = option.icon;
                 const isRecommended = option.type === recommendedType;
-                
                 return (
                   <button
                     key={option.type}
@@ -636,8 +311,6 @@ export default function TeleprompterEditorPage() {
                 );
               })}
             </div>
-
-
           </div>
         </main>
       </div>
@@ -649,11 +322,7 @@ export default function TeleprompterEditorPage() {
       <div className="min-h-screen bg-background flex flex-col">
         <header className="sticky top-0 z-10 bg-background border-b border-border p-4">
           <div className="flex items-center gap-3 max-w-4xl mx-auto">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate(`/piece/${id}/teleprompter`)}
-            >
+            <Button variant="ghost" size="icon" onClick={() => navigate(`/piece/${id}/teleprompter`)}>
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <h2 className="text-lg font-semibold">Create Segments</h2>
@@ -668,19 +337,61 @@ export default function TeleprompterEditorPage() {
               This piece doesn't have any images, PDF, or text content to create segments from.
               Add content to the piece first.
             </p>
-            <Button onClick={() => navigate(`/piece/${id}`)}>
-              Go to Piece
-            </Button>
+            <Button onClick={() => navigate(`/piece/${id}`)}>Go to Piece</Button>
           </div>
         </main>
       </div>
     );
   }
 
+  const {
+    segments,
+    editingSegment,
+    editForm,
+    showAddDialog,
+    setShowAddDialog,
+    addForm,
+    showDeleteConfirm,
+    setShowDeleteConfirm,
+    showUnsavedWarning,
+    setShowUnsavedWarning,
+    pendingNavigation,
+    hasChanges,
+    isAutoSaving,
+    lastSaved,
+    draggedIndex,
+    canUndoNow,
+    canRedoNow,
+    handleEdit,
+    handleSaveEdit,
+    handleCancelEdit,
+    handleAddSegment,
+    handleDeleteSegment,
+    handleSplit,
+    handleMerge,
+    handleUndo,
+    handleRedo,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    handleSaveAll,
+    handleNavigate,
+    handleRestoreAutosave,
+    handleDiscardAutosave,
+    handleSaveAndContinue,
+    handleGenerateFromText,
+    setCurrentTimeAsStart,
+    setCurrentTimeAsEnd,
+    setEditCurrentTimeAsStart,
+    setEditCurrentTimeAsEnd,
+    setEditForm,
+    setAddForm,
+  } = editor;
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-        <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
-          <div className="max-w-[1600px] mx-auto px-4 min-h-[5rem] md:min-h-[6rem] py-2 grid grid-cols-3 items-center">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="max-w-[1600px] mx-auto px-4 min-h-[5rem] md:min-h-[6rem] py-2 grid grid-cols-3 items-center">
           <div className="flex items-center gap-4 min-w-0">
             <Button
               variant="ghost"
@@ -690,7 +401,7 @@ export default function TeleprompterEditorPage() {
             >
               <ArrowLeft className="w-5 h-5" />
             </Button>
-            
+
             <div className="flex flex-col min-w-0 hidden lg:flex">
               <div className="flex items-center gap-2 mb-0.5">
                 <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Editor</span>
@@ -715,58 +426,28 @@ export default function TeleprompterEditorPage() {
             </div>
           </div>
 
-            <div className="flex flex-col items-center gap-2 min-w-0 px-2">
-              <h1 
-                className="text-lg md:text-xl font-bold tracking-tight text-center overflow-visible w-full max-w-[400px] py-1"
-                dir="rtl"
-                style={{ 
-                  fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif",
-                  lineHeight: '1.6'
-                }}
-              >
-                {piece.title}
-              </h1>
-            
+          <div className="flex flex-col items-center gap-2 min-w-0 px-2">
+            <h1
+              className="text-lg md:text-xl font-bold tracking-tight text-center overflow-visible w-full max-w-[400px] py-1"
+              dir="rtl"
+              style={{ fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif", lineHeight: '1.6' }}
+            >
+              {piece.title}
+            </h1>
+
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleUndo}
-                disabled={!canUndoNow}
-                className="h-8 w-8 rounded-full"
-                title="Undo (Ctrl+Z)"
-              >
+              <Button variant="ghost" size="icon" onClick={handleUndo} disabled={!canUndoNow} className="h-8 w-8 rounded-full" title="Undo (Ctrl+Z)">
                 <RotateCcw className="w-3.5 h-3.5" />
               </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRedo}
-                disabled={!canRedoNow}
-                className="h-8 w-8 rounded-full"
-                title="Redo (Ctrl+Y)"
-              >
+              <Button variant="ghost" size="icon" onClick={handleRedo} disabled={!canRedoNow} className="h-8 w-8 rounded-full" title="Redo (Ctrl+Y)">
                 <RotateCw className="w-3.5 h-3.5" />
               </Button>
-
               <div className="w-px h-3 bg-border/50 mx-1" />
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddDialog(true)}
-                className="rounded-full px-4 h-8 font-bold text-[10px] uppercase tracking-wider gap-1.5"
-              >
+              <Button variant="outline" size="sm" onClick={() => setShowAddDialog(true)} className="rounded-full px-4 h-8 font-bold text-[10px] uppercase tracking-wider gap-1.5">
                 <Plus className="w-3.5 h-3.5" />
                 Add
               </Button>
-
-              <Button 
-                onClick={handleSaveAll} 
-                disabled={!hasChanges}
-                className="rounded-full px-5 h-8 font-bold text-[10px] uppercase tracking-wider shadow-lg shadow-primary/10"
-              >
+              <Button onClick={handleSaveAll} disabled={!hasChanges} className="rounded-full px-5 h-8 font-bold text-[10px] uppercase tracking-wider shadow-lg shadow-primary/10">
                 <Save className="w-3.5 h-3.5 mr-1.5" />
                 Save All
               </Button>
@@ -775,22 +456,11 @@ export default function TeleprompterEditorPage() {
 
           <div className="flex items-center justify-end gap-1.5">
             {piece.text_content && segments.length === 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleGenerateFromText}
-                className="rounded-full px-3 h-9 font-bold text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground"
-              >
+              <Button variant="ghost" size="sm" onClick={() => handleGenerateFromText(piece.text_content)} className="rounded-full px-3 h-9 font-bold text-[10px] uppercase tracking-wider text-muted-foreground hover:text-foreground">
                 Auto-generate
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 rounded-full hover:bg-green-50 text-green-600 hover:text-green-700"
-              onClick={() => setShowFinishDialog(true)}
-              title="Finish & Cleanup"
-            >
+            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-green-50 text-green-600 hover:text-green-700" onClick={() => setShowFinishDialog(true)} title="Finish & Cleanup">
               <CheckCircle2 className="w-5 h-5" />
             </Button>
           </div>
@@ -798,39 +468,13 @@ export default function TeleprompterEditorPage() {
 
         {audioUrl && (
           <div className="max-w-4xl mx-auto px-4 pb-4">
-            <div className="flex items-center gap-4 p-2 bg-accent/30 backdrop-blur-sm rounded-xl border border-border/50">
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={togglePlayPause}
-                className="h-10 w-10 rounded-full bg-background/50 shadow-sm"
-              >
-                {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-              </Button>
-
-              <div className="flex-1">
-                <div
-                  className="h-1.5 bg-muted rounded-full cursor-pointer group"
-                  onClick={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const percentage = x / rect.width;
-                    seekTo(percentage * duration);
-                  }}
-                >
-                  <div
-                    className="h-full bg-primary rounded-full relative group-hover:bg-primary/80 transition-colors"
-                    style={{ width: `${(currentTime / duration) * 100}%` }}
-                  >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full shadow-md scale-0 group-hover:scale-100 transition-transform" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-[11px] font-mono text-muted-foreground min-w-[90px] text-center bg-background/50 px-2 py-1 rounded-md">
-                {formatTime(currentTime)} <span className="opacity-30">/</span> {formatTime(duration)}
-              </div>
-            </div>
+            <TeleprompterAudioBar
+              isPlaying={isPlaying}
+              currentTime={currentTime}
+              duration={duration}
+              onPlayPause={togglePlayPause}
+              onSeek={seekTo}
+            />
           </div>
         )}
       </header>
@@ -841,12 +485,10 @@ export default function TeleprompterEditorPage() {
             <div className="text-center py-12">
               <Music className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">No Segments Yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Add segments to sync your lyrics with the audio
-              </p>
+              <p className="text-muted-foreground mb-4">Add segments to sync your lyrics with the audio</p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 {piece.text_content && (
-                  <Button variant="outline" onClick={handleGenerateFromText}>
+                  <Button variant="outline" onClick={() => handleGenerateFromText(piece.text_content)}>
                     Auto-generate from Text
                   </Button>
                 )}
@@ -885,7 +527,6 @@ export default function TeleprompterEditorPage() {
                           dir="rtl"
                           style={{ fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif" }}
                         />
-                        
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <Label className="text-xs">Start Time</Label>
@@ -896,12 +537,7 @@ export default function TeleprompterEditorPage() {
                                 placeholder="00:00.00"
                                 className="text-sm"
                               />
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={setEditCurrentTimeAsStart}
-                                title="Use current time"
-                              >
+                              <Button variant="outline" size="icon" onClick={setEditCurrentTimeAsStart} title="Use current time">
                                 <Clock className="w-4 h-4" />
                               </Button>
                             </div>
@@ -915,22 +551,14 @@ export default function TeleprompterEditorPage() {
                                 placeholder="00:00.00"
                                 className="text-sm"
                               />
-                              <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={setEditCurrentTimeAsEnd}
-                                title="Use current time"
-                              >
+                              <Button variant="outline" size="icon" onClick={setEditCurrentTimeAsEnd} title="Use current time">
                                 <Clock className="w-4 h-4" />
                               </Button>
                             </div>
                           </div>
                         </div>
-
                         <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="sm" onClick={handleCancelEdit}>
-                            Cancel
-                          </Button>
+                          <Button variant="ghost" size="sm" onClick={handleCancelEdit}>Cancel</Button>
                           <Button size="sm" onClick={handleSaveEdit}>
                             <CheckCircle className="w-4 h-4 mr-1" />
                             Save
@@ -946,12 +574,7 @@ export default function TeleprompterEditorPage() {
                           </span>
                           <span>({(segment.endTime - segment.startTime).toFixed(1)}s)</span>
                         </div>
-
-                        <div
-                          className="text-base leading-relaxed whitespace-pre-wrap"
-                          dir="rtl"
-                          style={{ fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif" }}
-                        >
+                        <div className="text-base leading-relaxed whitespace-pre-wrap" dir="rtl" style={{ fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif" }}>
                           {segment.text || <span className="text-muted-foreground italic">Empty segment</span>}
                         </div>
                       </>
@@ -961,52 +584,22 @@ export default function TeleprompterEditorPage() {
                   {editingSegment !== segment.id && (
                     <div className="flex flex-col gap-1">
                       {audioUrl && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => playSegment(segment)}
-                          title="Play segment"
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => playSegment(segment)} title="Play segment">
                           <Play className="w-4 h-4" />
                         </Button>
                       )}
-                      
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEdit(segment)}
-                        title="Edit"
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(segment)} title="Edit">
                         <Edit2 className="w-4 h-4" />
                       </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleSplit(segment)}
-                        title="Split segment"
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => handleSplit(segment)} title="Split segment">
                         <Scissors className="w-4 h-4" />
                       </Button>
-
                       {index < segments.length - 1 && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleMerge(segment.id, segments[index + 1].id)}
-                          title="Merge with next"
-                        >
+                        <Button variant="ghost" size="icon" onClick={() => handleMerge(segment.id, segments[index + 1].id)} title="Merge with next">
                           <Merge className="w-4 h-4" />
                         </Button>
                       )}
-
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setShowDeleteConfirm(segment.id)}
-                        className="text-destructive hover:text-destructive"
-                        title="Delete"
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => setShowDeleteConfirm(segment.id)} className="text-destructive hover:text-destructive" title="Delete">
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
@@ -1022,11 +615,8 @@ export default function TeleprompterEditorPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Segment</DialogTitle>
-            <DialogDescription>
-              Create a new segment with text and timing
-            </DialogDescription>
+            <DialogDescription>Create a new segment with text and timing</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4">
             <div>
               <Label>Lyrics / Text</Label>
@@ -1039,7 +629,6 @@ export default function TeleprompterEditorPage() {
                 style={{ fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif" }}
               />
             </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Start Time</Label>
@@ -1049,12 +638,7 @@ export default function TeleprompterEditorPage() {
                     onChange={(e) => setAddForm(prev => ({ ...prev, startTime: e.target.value }))}
                     placeholder="00:00.00"
                   />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={setCurrentTimeAsStart}
-                    title="Use current audio time"
-                  >
+                  <Button variant="outline" size="icon" onClick={setCurrentTimeAsStart} title="Use current audio time">
                     <Clock className="w-4 h-4" />
                   </Button>
                 </div>
@@ -1067,29 +651,18 @@ export default function TeleprompterEditorPage() {
                     onChange={(e) => setAddForm(prev => ({ ...prev, endTime: e.target.value }))}
                     placeholder="00:00.00"
                   />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={setCurrentTimeAsEnd}
-                    title="Use current audio time"
-                  >
+                  <Button variant="outline" size="icon" onClick={setCurrentTimeAsEnd} title="Use current audio time">
                     <Clock className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
             </div>
-
             {audioUrl && (
-              <p className="text-xs text-muted-foreground">
-                Current audio position: {formatTime(currentTime)}
-              </p>
+              <p className="text-xs text-muted-foreground">Current audio position: {formatTime(currentTime)}</p>
             )}
           </div>
-
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setShowAddDialog(false)}>
-              Cancel
-            </Button>
+            <Button variant="ghost" onClick={() => setShowAddDialog(false)}>Cancel</Button>
             <Button onClick={handleAddSegment} disabled={!addForm.text.trim()}>
               <Plus className="w-4 h-4 mr-1" />
               Add Segment
@@ -1102,71 +675,36 @@ export default function TeleprompterEditorPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Segment?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone (but you can undo with Ctrl+Z while editing).
-            </AlertDialogDescription>
+            <AlertDialogDescription>This action cannot be undone (but you can undo with Ctrl+Z while editing).</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => showDeleteConfirm && handleDeleteSegment(showDeleteConfirm)}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={() => showDeleteConfirm && handleDeleteSegment(showDeleteConfirm)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-        <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
-                Unsaved Changes
-              </AlertDialogTitle>
-              <AlertDialogDescription>
-                You have unsaved changes. Would you like to save them before leaving?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={handleDiscardAutosave}>
-                Discard
-              </AlertDialogCancel>
-              <AlertDialogAction onClick={() => {
-                handleSaveAll();
-                setShowUnsavedWarning(false);
-                if (pendingNavigation) {
-                  navigate(pendingNavigation);
-                }
-                setPendingNavigation(null);
-              }}>
-                Save & Continue
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+      <AlertDialog open={showUnsavedWarning} onOpenChange={setShowUnsavedWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+              Unsaved Changes
+            </AlertDialogTitle>
+            <AlertDialogDescription>You have unsaved changes. Would you like to save them before leaving?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleDiscardAutosave}>Discard</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSaveAndContinue}>
+              Save & Continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-        <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Finish Task & Clean Up?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will delete all teleprompter segments, progress, and local data for this piece. 
-                Use this only after the video is created and you no longer need the teleprompter work.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleFinishTask}
-                className="bg-green-600 text-white hover:bg-green-700"
-              >
-                Finish & Delete Data
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
-  }
+      <FinishTaskDialog open={showFinishDialog} onOpenChange={setShowFinishDialog} onConfirm={handleFinishTask} />
+    </div>
+  );
+}

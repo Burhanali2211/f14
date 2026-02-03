@@ -161,7 +161,7 @@ export function useAutoSave({ pieceId, regions, enabled = true }: UseAutoSaveOpt
         .from('piece_image_segments')
         .select('id, version')
         .eq('piece_id', pieceId)
-        .single();
+        .maybeSingle();
 
       const newVersion = (existing?.version || 0) + 1;
 
@@ -299,7 +299,7 @@ export function useAutoSave({ pieceId, regions, enabled = true }: UseAutoSaveOpt
         .from('piece_image_segments')
         .select('regions, version')
         .eq('piece_id', pieceId)
-        .single();
+        .maybeSingle();
 
       if (data) {
         cloudData = {

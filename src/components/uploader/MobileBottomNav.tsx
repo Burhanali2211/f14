@@ -55,10 +55,10 @@ export const UploaderMobileBottomNav = ({
     },
     {
       id: 'add',
-      label: 'Add',
+      label: 'Studio',
       icon: Plus,
-      action: () => navigate('/uploader/piece/new'),
-      isActive: isUploadPage,
+      action: () => navigate('/teleprompter/studio'),
+      isActive: isUploadPage || location.pathname === '/teleprompter/studio',
       isCenter: true,
     },
     {

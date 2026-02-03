@@ -8,35 +8,17 @@ import {
 PlayCircle, X, Timer, ChevronDown, Smartphone, Upload, CheckCircle2, Trash2, Download, Cloud
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Slider } from '@/components/ui/slider';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { cn, normalizeImageUrl } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeleprompterSegment } from '@/lib/teleprompter-types';
@@ -53,6 +35,9 @@ import {
 import { UnifiedTeleprompterPlayer } from '@/components/media/UnifiedTeleprompterPlayer';
 import { AirSendDialog } from '@/components/media/AirSendDialog';
 import { R2AudioUploadDialog } from '@/components/media/R2AudioUploadDialog';
+import { FinishTaskDialog } from '@/components/media/FinishTaskDialog';
+import { TeleprompterDisplaySettings } from '@/components/media/TeleprompterDisplaySettings';
+import { TeleprompterPlaybackControls } from '@/components/media/TeleprompterPlaybackControls';
 import { toast } from '@/hooks/use-toast';
 import type { ImageRegion } from '@/components/media/ImageSegmentEditor';
 import { useR2Audio, AudioFile } from '@/hooks/useR2Audio';
@@ -171,7 +156,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
           .from('piece_image_segments')
           .select('regions')
           .eq('piece_id', id)
-          .single();
+          .maybeSingle();
 
         if (data?.regions) {
           const regions = data.regions as unknown as ImageRegion[];
@@ -720,48 +705,14 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-72" align="end">
-                  <div className="space-y-4">
-                    <h4 className="font-medium">Display Settings</h4>
-                    
-                    <div>
-                      <label className="text-sm text-muted-foreground">Font Size: {fontSize}px</label>
-                      <Slider
-                        value={[fontSize]}
-                        onValueChange={([v]) => setFontSize(v)}
-                        min={16}
-                        max={48}
-                        step={2}
-                        className="mt-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-muted-foreground">Zoom: {imageZoom}%</label>
-                      <Slider
-                        value={[imageZoom]}
-                        onValueChange={([v]) => setImageZoom(v)}
-                        min={50}
-                        max={200}
-                        step={10}
-                        className="mt-2"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-muted-foreground">Highlight Style</label>
-                      <Select value={highlightMode} onValueChange={(v: any) => setHighlightMode(v)}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="background">Background</SelectItem>
-                          <SelectItem value="border">Border</SelectItem>
-                          <SelectItem value="scale">Scale</SelectItem>
-                          <SelectItem value="glow">Glow</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <TeleprompterDisplaySettings
+                    fontSize={fontSize}
+                    onFontSizeChange={setFontSize}
+                    imageZoom={imageZoom}
+                    onImageZoomChange={setImageZoom}
+                    highlightMode={highlightMode}
+                    onHighlightModeChange={setHighlightMode}
+                  />
                 </PopoverContent>
               </Popover>
             </div>
@@ -791,156 +742,30 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
           <footer className="absolute bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none hover:pointer-events-auto">
               <div className="bg-gradient-to-t from-black/80 to-transparent pt-8">
-                <div
-                  className="h-1 bg-white/20 cursor-pointer group mx-4 pointer-events-auto"
-                  onClick={handleProgressClick}
-                >
-                  <div
-                    className="h-full bg-primary relative group-hover:h-2 transition-all"
-                    style={{ width: `${progress}%` }}
-                  >
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                </div>
-
-                <div className="p-2 pointer-events-auto">
-                  <div className="flex items-center justify-center max-w-4xl mx-auto relative">
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2" style={{ contain: 'layout size style', isolation: 'isolate' }}>
-                      <div className="flex items-center gap-1 text-xs text-white/70" style={{ width: '120px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontVariantNumeric: 'tabular-nums' }}>
-                        <Clock className="w-3 h-3 flex-shrink-0" />
-                        <span style={{ minWidth: '40px', display: 'inline-block', textAlign: 'right' }}>{formatTime(currentTimeDisplay)}</span>
-                        <span>/</span>
-                        <span style={{ minWidth: '40px', display: 'inline-block' }}>{formatTime(duration)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 md:gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={goToPreviousSegment}
-                      disabled={currentSegmentIndex <= 0 || segments.length === 0}
-                      className="text-white hover:bg-white/20 h-8 w-8"
-                    >
-                      <SkipBack className="w-4 h-4" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => skipBackward(5)}
-                      className="text-white hover:bg-white/20 h-8 w-8"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                    </Button>
-
-                    <Button
-                      size="default"
-                      className="rounded-full w-10 h-10 bg-white text-black hover:bg-white/90"
-                      onClick={togglePlay}
-                      disabled={!isLoaded}
-                    >
-                      {isPlaying ? (
-                        <Pause className="w-5 h-5" />
-                      ) : (
-                        <Play className="w-5 h-5 ml-0.5" />
-                      )}
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => skipForward(5)}
-                      className="text-white hover:bg-white/20 h-8 w-8"
-                    >
-                      <RotateCw className="w-4 h-4" />
-                    </Button>
-
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={goToNextSegment}
-                      disabled={currentSegmentIndex >= segments.length - 1 || segments.length === 0}
-                      className="text-white hover:bg-white/20 h-8 w-8"
-                    >
-                      <SkipForward className="w-4 h-4" />
-                      </Button>
-                    </div>
-
-                    <div className="absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <Button
-                      variant={isLooping ? "default" : "ghost"}
-                      size="icon"
-                      onClick={isLooping ? clearLoop : loopCurrentSegment}
-                      disabled={segments.length === 0}
-                      className={cn("h-8 w-8", !isLooping && "text-white hover:bg-white/20")}
-                    >
-                      <Repeat className="w-3 h-3" />
-                    </Button>
-
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
-                          {isMuted || volume === 0 ? (
-                            <VolumeX className="w-3 h-3" />
-                          ) : (
-                            <Volume2 className="w-3 h-3" />
-                          )}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-40" align="end">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm">Volume</span>
-                            <span className="text-sm text-muted-foreground">
-                              {Math.round(volume * 100)}%
-                            </span>
-                          </div>
-                          <Slider
-                            value={[volume * 100]}
-                            onValueChange={([v]) => handleVolumeChange(v / 100)}
-                            max={100}
-                            step={1}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full"
-                            onClick={toggleMute}
-                          >
-                            {isMuted ? 'Unmute' : 'Mute'}
-                          </Button>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-white hover:bg-white/20 h-8 w-8">
-                          <Gauge className="w-3 h-3" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-40" align="end">
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium">Speed</span>
-                          <div className="grid grid-cols-3 gap-1">
-                            {speedOptions.map((speed) => (
-                              <Button
-                                key={speed}
-                                variant={playbackSpeed === speed ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handleSetPlaybackSpeed(speed)}
-                              >
-                                {speed}x
-                              </Button>
-                            ))}
-                          </div>
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                </div>
-              </div>
+                <TeleprompterPlaybackControls
+                  currentTime={currentTimeDisplay}
+                  duration={duration}
+                  progress={progress}
+                  isPlaying={isPlaying}
+                  isLoaded={isLoaded}
+                  isLooping={isLooping}
+                  volume={volume}
+                  isMuted={isMuted}
+                  playbackSpeed={playbackSpeed}
+                  segmentsLength={segments.length}
+                  currentSegmentIndex={currentSegmentIndex}
+                  onProgressClick={handleProgressClick}
+                  onTogglePlay={togglePlay}
+                  onPreviousSegment={goToPreviousSegment}
+                  onNextSegment={goToNextSegment}
+                  onSkipBackward={skipBackward}
+                  onSkipForward={skipForward}
+                  onLoopToggle={isLooping ? clearLoop : loopCurrentSegment}
+                  onVolumeChange={handleVolumeChange}
+                  onMuteToggle={toggleMute}
+                  onSpeedChange={handleSetPlaybackSpeed}
+                  variant="playback"
+                />
               </div>
             </footer>
         </>
@@ -1140,68 +965,16 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-72 mt-2" align="end">
-                      <div className="space-y-4">
-                        <div className="flex items-center justify-between border-b pb-2">
-                          <h4 className="font-bold text-sm uppercase tracking-wider">Display Settings</h4>
-                          <Settings className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[11px] font-bold uppercase text-muted-foreground">Font Size</label>
-                            <span className="text-xs font-mono">{fontSize}px</span>
-                          </div>
-                          <Slider
-                            value={[fontSize]}
-                            onValueChange={([v]) => setFontSize(v)}
-                            min={16}
-                            max={48}
-                            step={2}
-                          />
-                        </div>
-  
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <label className="text-[11px] font-bold uppercase text-muted-foreground">Zoom Level</label>
-                            <span className="text-xs font-mono">{imageZoom}%</span>
-                          </div>
-                          <Slider
-                            value={[imageZoom]}
-                            onValueChange={([v]) => setImageZoom(v)}
-                            min={50}
-                            max={200}
-                            step={10}
-                          />
-                        </div>
-  
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-bold uppercase text-muted-foreground">Highlight Style</label>
-                          <Select value={highlightMode} onValueChange={(v: any) => setHighlightMode(v)}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="background">Background</SelectItem>
-                              <SelectItem value="border">Border</SelectItem>
-                              <SelectItem value="scale">Scale</SelectItem>
-                              <SelectItem value="glow">Glow</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-  
-                        <div className="space-y-2">
-                          <label className="text-[11px] font-bold uppercase text-muted-foreground">Scroll Behavior</label>
-                          <Select value={scrollBehavior} onValueChange={(v: any) => setScrollBehavior(v)}>
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="smooth">Smooth</SelectItem>
-                              <SelectItem value="instant">Instant</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                      <TeleprompterDisplaySettings
+                        fontSize={fontSize}
+                        onFontSizeChange={setFontSize}
+                        imageZoom={imageZoom}
+                        onImageZoomChange={setImageZoom}
+                        highlightMode={highlightMode}
+                        onHighlightModeChange={setHighlightMode}
+                        scrollBehavior={scrollBehavior}
+                        onScrollBehaviorChange={setScrollBehavior}
+                      />
                     </PopoverContent>
                   </Popover>
   
@@ -1262,155 +1035,29 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
       {audioUrl && (
         <footer className="sticky bottom-0 bg-background/95 backdrop-blur-md border-t border-border">
-          <div
-            className="h-2 bg-muted cursor-pointer group"
-            onClick={handleProgressClick}
-          >
-            <div
-              className="h-full bg-primary relative group-hover:h-3 transition-all"
-              style={{ width: `${progress}%` }}
-            >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 bg-primary rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-          </div>
-
-          <div className="p-3 md:p-4">
-            <div className="flex items-center justify-between max-w-4xl mx-auto">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground min-w-[100px]">
-                <Clock className="w-4 h-4" />
-                  <span>{formatTime(currentTimeDisplay)}</span>
-                <span>/</span>
-                <span>{formatTime(duration)}</span>
-              </div>
-
-              <div className="flex items-center gap-2 md:gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={goToPreviousSegment}
-                  disabled={currentSegmentIndex <= 0 || segments.length === 0}
-                  title="Previous segment (Shift+Left)"
-                >
-                  <SkipBack className="w-5 h-5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => skipBackward(5)}
-                  title="Rewind 5s (Left)"
-                >
-                  <RotateCcw className="w-5 h-5" />
-                </Button>
-
-                <Button
-                  size="lg"
-                  className="rounded-full w-14 h-14"
-                  onClick={togglePlay}
-                  disabled={!isLoaded}
-                  title="Play/Pause (Space)"
-                >
-                  {isPlaying ? (
-                    <Pause className="w-6 h-6" />
-                  ) : (
-                    <Play className="w-6 h-6 ml-0.5" />
-                  )}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => skipForward(5)}
-                  title="Forward 5s (Right)"
-                >
-                  <RotateCw className="w-5 h-5" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={goToNextSegment}
-                  disabled={currentSegmentIndex >= segments.length - 1 || segments.length === 0}
-                  title="Next segment (Shift+Right)"
-                >
-                  <SkipForward className="w-5 h-5" />
-                </Button>
-              </div>
-
-              <div className="flex items-center gap-2 min-w-[100px] justify-end">
-                <Button
-                  variant={isLooping ? "default" : "ghost"}
-                  size="icon"
-                  onClick={isLooping ? clearLoop : loopCurrentSegment}
-                  disabled={segments.length === 0}
-                  title="Loop segment (L)"
-                >
-                  <Repeat className="w-4 h-4" />
-                </Button>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" title="Volume">
-                      {isMuted || volume === 0 ? (
-                        <VolumeX className="w-4 h-4" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-40" align="end">
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm">Volume</span>
-                        <span className="text-sm text-muted-foreground">
-                          {Math.round(volume * 100)}%
-                        </span>
-                      </div>
-                      <Slider
-                        value={[volume * 100]}
-                        onValueChange={([v]) => handleVolumeChange(v / 100)}
-                        max={100}
-                        step={1}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="w-full"
-                        onClick={toggleMute}
-                      >
-                        {isMuted ? 'Unmute' : 'Mute'}
-                      </Button>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" title="Playback speed">
-                      <Gauge className="w-4 h-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-40" align="end">
-                    <div className="space-y-2">
-                      <span className="text-sm font-medium">Speed</span>
-                      <div className="grid grid-cols-3 gap-1">
-                        {speedOptions.map((speed) => (
-                          <Button
-                            key={speed}
-                            variant={playbackSpeed === speed ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => handleSetPlaybackSpeed(speed)}
-                          >
-                            {speed}x
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
+          <TeleprompterPlaybackControls
+            currentTime={currentTimeDisplay}
+            duration={duration}
+            progress={progress}
+            isPlaying={isPlaying}
+            isLoaded={isLoaded}
+            isLooping={isLooping}
+            volume={volume}
+            isMuted={isMuted}
+            playbackSpeed={playbackSpeed}
+            segmentsLength={segments.length}
+            currentSegmentIndex={currentSegmentIndex}
+            onProgressClick={handleProgressClick}
+            onTogglePlay={togglePlay}
+            onPreviousSegment={goToPreviousSegment}
+            onNextSegment={goToNextSegment}
+            onSkipBackward={skipBackward}
+            onSkipForward={skipForward}
+            onLoopToggle={isLooping ? clearLoop : loopCurrentSegment}
+            onVolumeChange={handleVolumeChange}
+            onMuteToggle={toggleMute}
+            onSpeedChange={handleSetPlaybackSpeed}
+          />
         </footer>
       )}
 
@@ -1432,26 +1079,11 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
           existingAudio={cloudAudio}
         />
 
-        <AlertDialog open={showFinishDialog} onOpenChange={setShowFinishDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Finish Task & Clean Up?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This will delete all teleprompter segments, progress, and local data for this piece. 
-                Use this only after the video is created and you no longer need the teleprompter work.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleFinishTask}
-                className="bg-green-600 text-white hover:bg-green-700"
-              >
-                Finish & Delete Data
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <FinishTaskDialog
+          open={showFinishDialog}
+          onOpenChange={setShowFinishDialog}
+          onConfirm={handleFinishTask}
+        />
         </>
       )}
     </div>

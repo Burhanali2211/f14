@@ -2,8 +2,14 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load .env from project root only (not .env.local)
+dotenv.config({ path: join(__dirname, '..', '.env') });
 
 const app = express();
 app.use(cors());
@@ -17,22 +23,33 @@ const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'kalaam-reader';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+// Log env status at startup (no secrets)
+const hasR2 = !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
+const hasSupabase = !!(SUPABASE_URL && SUPABASE_SERVICE_KEY);
+console.log(`[api] Loaded .env: R2=${hasR2 ? 'ok' : 'MISSING'}, Supabase=${hasSupabase ? 'ok' : 'MISSING'}`);
+
 const supabase = SUPABASE_URL && SUPABASE_SERVICE_KEY 
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
   : null;
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
-const ALLOWED_CONTENT_TYPES = [
-  'audio/mpeg',
-  'audio/mp3',
-  'audio/wav',
-  'audio/ogg',
-  'audio/webm',
-  'audio/aac',
-  'audio/m4a',
-  'audio/x-m4a',
-  'audio/flac',
+
+const AUDIO_EXTENSIONS = [
+  '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
+  '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
+  '.mid', '.midi', '.mp2', '.ra', '.ram', '.ac3', '.caf', '.mka',
+  '.oga', '.spx', '.wv', '.ape', '.alac', '.dts', '.mpc', '.snd', '.au',
 ];
+
+function isValidAudioContentType(contentType, filename) {
+  if (contentType?.startsWith('audio/')) return true;
+  if (contentType === 'video/mp4' || contentType === 'video/3gpp') return true;
+  if (contentType === 'application/octet-stream' || !contentType || contentType === '') {
+    const ext = '.' + (filename || '').split('.').pop()?.toLowerCase();
+    return AUDIO_EXTENSIONS.includes(ext);
+  }
+  return false;
+}
 
 async function hmacSha256(key, message) {
   const crypto = await import('crypto');
@@ -272,8 +289,8 @@ app.post('/api/r2-upload-url', async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields: filename, contentType, fileSize' });
     }
 
-    if (!ALLOWED_CONTENT_TYPES.includes(contentType)) {
-      return res.status(400).json({ error: `Invalid content type. Allowed: ${ALLOWED_CONTENT_TYPES.join(', ')}` });
+    if (!isValidAudioContentType(contentType, filename)) {
+      return res.status(400).json({ error: 'Invalid content type. Please upload an audio file.' });
     }
 
     if (fileSize > MAX_FILE_SIZE) {
@@ -302,7 +319,8 @@ app.post('/api/r2-upload-url', async (req, res) => {
 
       if (insertError) {
         console.error('Failed to create audio record:', insertError);
-        return res.status(500).json({ error: 'Failed to create audio record' });
+        const hint = insertError.code === '42P01' ? ' (user_audio_files table may not exist - run migrations)' : '';
+        return res.status(500).json({ error: `Failed to create audio record${hint}` });
       }
 
       return res.json({
@@ -321,7 +339,16 @@ app.post('/api/r2-upload-url', async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating upload URL:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    const isDev = process.env.NODE_ENV !== 'production';
+    let msg = 'Internal server error';
+    if (error?.message?.includes('credentials') || error?.message?.includes('R2')) {
+      msg = 'R2 credentials invalid or missing. Check .env and restart the dev server.';
+    } else if (error?.message?.includes('42P01') || error?.code === '42P01') {
+      msg = 'user_audio_files table not found. Run: supabase db push';
+    } else if (isDev && error?.message) {
+      msg = error.message;
+    }
+    return res.status(500).json({ error: msg });
   }
 });
 

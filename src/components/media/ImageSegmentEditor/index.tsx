@@ -482,7 +482,7 @@ export function ImageSegmentEditor({
               activeId={activeId}
               hiddenRegionIds={hiddenRegionIds}
               audioUrl={audioUrl}
-              playingRegionId={activeId}
+              playingRegionId={audioPlayer.isPlaying ? activeId : null}
               onPlayRegion={handlePlayRegion}
               onStopPlaying={audioPlayer.stop}
               onRegionCreate={handleRegionCreate}

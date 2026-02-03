@@ -50,6 +50,13 @@
       "short_name": "Noha",
       "url": "/category/noha",
       "icons": [{ "src": "/main.png", "sizes": "512x512" }]
+    },
+    {
+      "name": "Teleprompter Studio",
+      "short_name": "Studio",
+      "description": "Create and edit teleprompter content with images, PDF, and audio",
+      "url": "/teleprompter/studio",
+      "icons": [{ "src": "/main.png", "sizes": "512x512" }]
     }
   ],
   "prefer_related_applications": false,

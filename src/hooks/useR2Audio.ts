@@ -128,7 +128,8 @@ export function useR2Audio(): UseR2AudioReturn {
 
       if (!uploadUrlResponse.ok) {
         const errData = await uploadUrlResponse.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to get upload URL');
+        const msg = errData.error || (uploadUrlResponse.status === 500 ? 'Server error. Check R2 credentials and database.' : 'Failed to get upload URL');
+        throw new Error(msg);
       }
 
       const { uploadUrl, r2Key, audioId } = await uploadUrlResponse.json();

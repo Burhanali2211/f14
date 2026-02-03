@@ -69,7 +69,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
         .from('airsend_sessions')
         .select('session_code')
         .eq('session_code', code)
-        .single();
+        .maybeSingle();
       
       if (!existing) break;
       code = generateSessionCode();

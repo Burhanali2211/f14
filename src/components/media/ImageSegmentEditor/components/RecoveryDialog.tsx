@@ -57,7 +57,7 @@ function RecoveryDialogComponent({
             Unsaved Work Found
           </AlertDialogTitle>
           <AlertDialogDescription asChild>
-            <div className="space-y-4">
+            <div className="space-y-4 min-w-0 overflow-hidden">
               <p className="text-sm text-muted-foreground">
                 We found unsaved work from a previous session. What would you like to do?
               </p>
@@ -96,7 +96,7 @@ function RecoveryDialogComponent({
           </AlertDialogDescription>
         </AlertDialogHeader>
 
-        <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+        <AlertDialogFooter className="flex flex-col sm:flex-row gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"

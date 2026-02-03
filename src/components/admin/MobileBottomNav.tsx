@@ -29,6 +29,7 @@ export const AdminMobileBottomNav = ({
   const isProfilePage = location.pathname === '/profile';
   const isOnAdminPage = location.pathname.startsWith('/admin');
   const isAddPage = location.pathname === '/admin/piece/new' || location.pathname.includes('/admin/piece/');
+  const isStudioPage = location.pathname === '/teleprompter/studio';
 
   const navItems: NavItem[] = [
     {
@@ -50,10 +51,10 @@ export const AdminMobileBottomNav = ({
     },
     {
       id: 'add',
-      label: 'Add',
+      label: 'Studio',
       icon: Plus,
-      action: () => navigate('/admin/piece/new'),
-      isActive: isAddPage,
+      action: () => navigate('/teleprompter/studio'),
+      isActive: isAddPage || isStudioPage,
       isCenter: true,
     },
     {
