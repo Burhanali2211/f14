@@ -73,12 +73,12 @@ export function StudioContentRouter({
 
   if (availableModes.length > 1 && !selectedMode) {
     return (
-      <div className="max-w-lg mx-auto space-y-6 py-8">
+      <div className="max-w-lg mx-auto space-y-4 sm:space-y-6 py-6 sm:py-8 px-4">
         <div className="text-center">
-          <h3 className="text-xl font-semibold mb-2">Choose editor mode</h3>
-          <p className="text-muted-foreground">This piece has multiple content types. Choose which one to create segments for.</p>
+          <h3 className="text-lg sm:text-xl font-semibold mb-2">Choose editor mode</h3>
+          <p className="text-sm sm:text-base text-muted-foreground">This piece has multiple content types. Choose which one to create segments for.</p>
         </div>
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {availableModes.map((option) => {
             const Icon = option.icon;
             return (
@@ -86,7 +86,7 @@ export function StudioContentRouter({
                 key={option.mode}
                 onClick={() => setSelectedMode(option.mode)}
                 className={cn(
-                  "w-full p-6 rounded-xl border-2 text-left transition-all hover:border-primary hover:bg-primary/5",
+                  "w-full p-4 sm:p-6 rounded-xl border-2 text-left transition-all hover:border-primary hover:bg-primary/5",
                   option.recommended ? "border-primary bg-primary/5" : "border-border"
                 )}
               >
@@ -122,17 +122,17 @@ export function StudioContentRouter({
 
   if (effectiveMode === 'images') {
     return (
-      <div className="max-w-lg mx-auto space-y-6 py-8">
-        <div className="text-center space-y-4">
-          <h3 className="text-xl font-semibold">Image / PDF Segment Editor</h3>
-          <p className="text-muted-foreground">
+      <div className="max-w-lg mx-auto space-y-4 sm:space-y-6 py-6 sm:py-8 px-4">
+        <div className="text-center space-y-3 sm:space-y-4">
+          <h3 className="text-lg sm:text-xl font-semibold">Image / PDF Segment Editor</h3>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Create regions on your {pdfUrl ? 'PDF pages' : 'images'} synced with audio for the teleprompter.
           </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-3">
             <Button
               size="lg"
               onClick={() => navigate(`/piece/${pieceId}/teleprompter/image-edit`)}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
             >
               <Edit2 className="w-5 h-5" />
               Open Image Editor
@@ -142,7 +142,7 @@ export function StudioContentRouter({
                 size="lg"
                 variant="outline"
                 onClick={() => setShowExtractDialog(true)}
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
               >
                 <Scissors className="w-5 h-5" />
                 Extract page(s)
@@ -168,16 +168,16 @@ export function StudioContentRouter({
 
   if (effectiveMode === 'text') {
     return (
-      <div className="max-w-lg mx-auto space-y-6 py-8">
-        <div className="text-center space-y-4">
-          <h3 className="text-xl font-semibold">Text Segment Editor</h3>
-          <p className="text-muted-foreground">
+      <div className="max-w-lg mx-auto space-y-4 sm:space-y-6 py-6 sm:py-8 px-4">
+        <div className="text-center space-y-3 sm:space-y-4">
+          <h3 className="text-lg sm:text-xl font-semibold">Text Segment Editor</h3>
+          <p className="text-sm sm:text-base text-muted-foreground">
             Create text segments synced with audio for the teleprompter.
           </p>
           <Button
             size="lg"
             onClick={() => navigate(`/piece/${pieceId}/teleprompter/edit`)}
-            className="gap-2"
+            className="gap-2 w-full sm:w-auto"
           >
             <Edit2 className="w-5 h-5" />
             Open Text Editor

@@ -184,8 +184,8 @@ export function StudioPiecesList() {
   }
 
   return (
-    <section aria-labelledby="studio-pieces-heading" className="max-w-2xl mx-auto">
-      <h2 id="studio-pieces-heading" className="text-lg font-semibold mb-4">
+    <section aria-labelledby="studio-pieces-heading" className="max-w-2xl mx-auto w-full">
+      <h2 id="studio-pieces-heading" className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
         Open existing piece
       </h2>
       <div className="space-y-3">

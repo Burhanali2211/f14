@@ -31,18 +31,18 @@ const FEATURES = [
 
 export function StudioFeaturesOverview() {
   return (
-    <section aria-labelledby="studio-features-heading" className="max-w-2xl mx-auto">
-      <h2 id="studio-features-heading" className="text-lg font-semibold mb-4">
+    <section aria-labelledby="studio-features-heading" className="max-w-2xl mx-auto w-full">
+      <h2 id="studio-features-heading" className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">
         What you can do
       </h2>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-2 sm:gap-3 grid-cols-1 sm:grid-cols-2">
         {FEATURES.map((feature) => {
           const Icon = feature.icon;
           return (
             <div
               key={feature.title}
               className={cn(
-                'flex gap-3 p-4 rounded-xl border border-border bg-card',
+                'flex gap-2 sm:gap-3 p-3 sm:p-4 rounded-xl border border-border bg-card',
                 'hover:border-primary/30 transition-colors'
               )}
             >

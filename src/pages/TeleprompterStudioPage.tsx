@@ -78,15 +78,15 @@ export default function TeleprompterStudioPage() {
       <OfflineBanner />
       <StudioHeader
         title={isNewDraft ? 'Teleprompter Studio' : 'Edit Teleprompter'}
-        pieceId={id}
+        pieceId={id ?? null}
         onBack={() => (isNewDraft ? navigate('/') : navigate(`/piece/${id}/teleprompter`))}
       />
-      <main className="flex-1 p-4 space-y-10">
+      <main className="flex-1 p-3 sm:p-4 md:p-6 space-y-6 sm:space-y-8 md:space-y-10 max-w-4xl mx-auto w-full">
         {isNewDraft ? (
           <>
             <StudioFeaturesOverview />
             <div className="space-y-2">
-              <h2 className="text-lg font-semibold">Create new piece</h2>
+              <h2 className="text-base sm:text-lg font-semibold">Create new piece</h2>
               <StudioUploadZone
                 pieceId={null}
                 onContentReady={handleContentReady}
@@ -129,7 +129,7 @@ function StudioUploadZoneWithRouter({ pieceId, onContentReady, createPieceFromEx
 
   if (error || (!isLoading && !piece)) {
     return (
-      <div className="max-w-md mx-auto py-12 text-center space-y-4">
+      <div className="max-w-md mx-auto py-8 sm:py-12 px-4 text-center space-y-4">
         <h3 className="text-lg font-semibold">Piece not found</h3>
         <p className="text-muted-foreground text-sm">
           This piece may have been deleted or you don't have access to it.
@@ -161,7 +161,7 @@ function StudioUploadZoneWithRouter({ pieceId, onContentReady, createPieceFromEx
 
   if (hasVisualContent || hasTextContent) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6 sm:space-y-8">
         <StudioUploadZone
           pieceId={pieceId}
           onContentReady={onContentReady}

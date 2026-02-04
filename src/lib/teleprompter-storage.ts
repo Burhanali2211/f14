@@ -88,7 +88,6 @@ export function finishTeleprompterTask(pieceId: string): void {
     deleteSession(session.id);
   }
   localStorage.removeItem(`image-regions-${pieceId}`);
-  localStorage.removeItem(`airsend-audio-${pieceId}`);
 }
 
 export function updateSessionSegments(

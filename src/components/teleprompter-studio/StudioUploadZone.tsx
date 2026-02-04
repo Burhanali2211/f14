@@ -495,7 +495,7 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft, createP
   const showDraftStatus = !pieceId && (offlineDraftId || syncStatus !== 'synced') && hasContent;
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="w-full max-w-2xl mx-auto space-y-4 sm:space-y-6">
       {showDraftStatus && (
         <DraftStatusBar
           status={syncStatus}
@@ -523,7 +523,7 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft, createP
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
         className={cn(
-          "border-2 border-dashed rounded-xl p-8 text-center transition-colors",
+          "border-2 border-dashed rounded-xl p-4 sm:p-6 md:p-8 text-center transition-colors",
           isDragging ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
         )}
       >
@@ -537,16 +537,16 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft, createP
         />
         <label
           htmlFor="studio-file-input"
-          className="cursor-pointer flex flex-col items-center gap-3 min-h-[120px] justify-center touch-manipulation"
+          className="cursor-pointer flex flex-col items-center gap-2 sm:gap-3 min-h-[100px] sm:min-h-[120px] justify-center touch-manipulation"
         >
           {uploadingType ? (
-            <Loader2 className="w-12 h-12 animate-spin text-primary" />
+            <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 animate-spin text-primary" />
           ) : (
-            <Upload className="w-12 h-12 text-muted-foreground" />
+            <Upload className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground" />
           )}
-          <div>
-            <p className="font-medium">Drop files here or click to upload</p>
-            <p className="text-sm text-muted-foreground mt-1">
+          <div className="text-center px-2">
+            <p className="font-medium text-sm sm:text-base">Drop files here or click to upload</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Images (JPEG, PNG, WebP), PDF, or Audio (MP3, WAV, etc.)
             </p>
           </div>
@@ -557,13 +557,13 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft, createP
       </div>
 
       {(currentImageUrls.length > 0 || currentPdfUrl || currentAudioUrl) && (
-        <div className="space-y-4">
-          <h3 className="font-medium">Uploaded content</h3>
-          <div className="flex flex-wrap gap-3">
+        <div className="space-y-3 sm:space-y-4">
+          <h3 className="font-medium text-sm sm:text-base">Uploaded content</h3>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {currentImageUrls.map((url, i) => (
               <div
                 key={url}
-                className="relative group rounded-lg overflow-hidden border border-border w-20 h-20"
+                className="relative group rounded-lg overflow-hidden border border-border w-16 h-16 sm:w-20 sm:h-20 shrink-0"
               >
                 <img src={url} alt="" className="w-full h-full object-cover" />
                 {!pieceId && (

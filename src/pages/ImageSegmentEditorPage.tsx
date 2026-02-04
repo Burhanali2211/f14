@@ -227,6 +227,15 @@ export default function ImageSegmentEditorPage() {
     try {
       const response = await fetch(localUrl);
       const blob = await response.blob();
+      const isAudio = blob.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|webm|aac)$/i.test(fileName);
+      if (!isAudio) {
+        toast({
+          title: 'Audio required',
+          description: 'Please send an audio file. The Image Editor uses AirSend for audio uploads.',
+          variant: 'destructive',
+        });
+        return;
+      }
       const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' });
       
       const audioFile = await uploadAudio(file, id);

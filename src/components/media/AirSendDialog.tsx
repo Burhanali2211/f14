@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Smartphone, Wifi, CheckCircle, RefreshCw, Music, Copy, Check, Download, FolderOpen, Loader2, Play, Cloud } from 'lucide-react';
+import { Smartphone, Wifi, CheckCircle, RefreshCw, File, Copy, Check, Download, FolderOpen, Loader2, Play, Cloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { airsendSupabase } from '@/integrations/supabase/airsend-client';
 import { AirSendP2P, AirSendFile } from '@/lib/airsend-p2p';
+import { getAirSendUrl, AIRSEND_SESSION_EXPIRY_MINUTES } from '@/lib/airsend-constants';
 import { toast } from 'sonner';
 import { useR2Audio, AudioFile } from '@/hooks/useR2Audio';
 import { Progress } from '@/components/ui/progress';
@@ -18,8 +19,9 @@ import { Progress } from '@/components/ui/progress';
 interface AirSendDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  pieceId: string;
-  onAudioReceived: (audioUrl: string, audioName: string) => void;
+  pieceId?: string | null;
+  mode?: 'audio' | 'download-only';
+  onAudioReceived?: (audioUrl: string, audioName: string) => void;
   onCloudAudioUploaded?: (audioFile: AudioFile) => void;
 }
 
@@ -32,7 +34,8 @@ function generateSessionCode(): string {
   return code;
 }
 
-export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, onCloudAudioUploaded }: AirSendDialogProps) {
+export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audio', onAudioReceived, onCloudAudioUploaded }: AirSendDialogProps) {
+  const isDownloadOnly = mode === 'download-only';
   const [sessionCode, setSessionCode] = useState<string | null>(null);
   const [status, setStatus] = useState<'waiting' | 'connecting' | 'receiving' | 'saving' | 'completed' | 'uploading' | 'error'>('waiting');
   const [p2pStatus, setP2PStatus] = useState<string>('');
@@ -46,8 +49,9 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
   const directoryHandleRef = useRef<FileSystemDirectoryHandle | null>(null);
   const receivedUrlRef = useRef<string | null>(null);
   const receivedFileRef = useRef<AirSendFile | null>(null);
+  const saveFileHandlerRef = useRef<(file: AirSendFile) => void>(() => {});
 
-  const { uploadAudio, uploadProgress, isUploading } = useR2Audio();
+  const { uploadAudio, uploadProgress } = useR2Audio();
 
   const cleanupObjectUrl = useCallback(() => {
     if (receivedUrlRef.current) {
@@ -80,9 +84,9 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
       .from('airsend_sessions')
       .insert({
         session_code: code,
-        piece_id: pieceId,
+        piece_id: pieceId || null,
         status: 'pending',
-        expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+        expires_at: new Date(Date.now() + AIRSEND_SESSION_EXPIRY_MINUTES * 60 * 1000).toISOString()
       });
 
     if (error) {
@@ -95,7 +99,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
     setStatus('waiting');
     setReceivedFile(null);
     receivedFileRef.current = null;
-    setExpiresIn(30 * 60);
+    setExpiresIn(AIRSEND_SESSION_EXPIRY_MINUTES * 60);
     setProgress(0);
     setSavedToDisk(false);
 
@@ -125,10 +129,10 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
       onFileReceived: (file) => {
         setReceivedFile(file);
         receivedFileRef.current = file;
-        handleSaveReceivedFile(file);
+        saveFileHandlerRef.current(file);
       }
     });
-  }, [pieceId, cleanupObjectUrl]);
+  }, [pieceId ?? null, cleanupObjectUrl]);
 
   const handleSaveReceivedFile = async (file: AirSendFile) => {
     setStatus('saving');
@@ -142,6 +146,14 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
     };
     
     try {
+      if (isDownloadOnly) {
+        createBlobUrl();
+        setSavedToDisk(false);
+        setStatus('completed');
+        toast.success('File received. Download it below.');
+        return;
+      }
+      
       if (!directoryHandleRef.current) {
         if (!('showDirectoryPicker' in window)) {
           createBlobUrl();
@@ -186,9 +198,33 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
     }
   };
 
+  useEffect(() => {
+    saveFileHandlerRef.current = handleSaveReceivedFile;
+  });
+
+  const handleClose = useCallback(() => {
+    if (sessionCode) {
+      airsendSupabase
+        .from('airsend_sessions')
+        .delete()
+        .eq('session_code', sessionCode)
+        .then(() => {});
+    }
+    if (p2pRef.current) {
+      p2pRef.current.destroy();
+      p2pRef.current = null;
+    }
+    cleanupObjectUrl();
+    setSessionCode(null);
+    setStatus('waiting');
+    setReceivedFile(null);
+    receivedFileRef.current = null;
+    onOpenChange(false);
+  }, [sessionCode, cleanupObjectUrl, onOpenChange]);
+
   const handleUploadToCloud = useCallback(async () => {
     const file = receivedFileRef.current;
-    if (!file) return;
+    if (!file || !pieceId) return;
 
     setStatus('uploading');
     
@@ -210,7 +246,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
       toast.error('Failed to upload to cloud');
       setStatus('completed');
     }
-  }, [pieceId, uploadAudio, onCloudAudioUploaded]);
+  }, [pieceId, uploadAudio, onCloudAudioUploaded, handleClose]);
 
   useEffect(() => {
     if (open && !sessionCode) {
@@ -239,26 +275,6 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
     return () => clearInterval(timer);
   }, [open]);
 
-  const handleClose = useCallback(async () => {
-    if (sessionCode) {
-      airsendSupabase
-        .from('airsend_sessions')
-        .delete()
-        .eq('session_code', sessionCode)
-        .then(() => {});
-    }
-    if (p2pRef.current) {
-      p2pRef.current.destroy();
-      p2pRef.current = null;
-    }
-    cleanupObjectUrl();
-    setSessionCode(null);
-    setStatus('waiting');
-    setReceivedFile(null);
-    receivedFileRef.current = null;
-    onOpenChange(false);
-  }, [sessionCode, cleanupObjectUrl, onOpenChange]);
-
   const handleRefresh = useCallback(async () => {
     if (sessionCode) {
       await airsendSupabase
@@ -272,13 +288,13 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
 
   const copyLink = useCallback(async () => {
     if (!sessionCode) return;
-    const url = `${window.location.origin}/airsend?session=${sessionCode}`;
+    const url = getAirSendUrl(sessionCode);
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [sessionCode]);
 
-  const qrUrl = sessionCode ? `${window.location.origin}/airsend?session=${sessionCode}` : '';
+  const qrUrl = sessionCode ? getAirSendUrl(sessionCode) : '';
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -286,16 +302,27 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleOpenChange = useCallback(
+    (nextOpen: boolean) => {
+      if (nextOpen) return;
+      if (status === 'uploading') return;
+      handleClose();
+    },
+    [status, handleClose]
+  );
+
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md mx-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Smartphone className="w-5 h-5" />
-            Direct AirSend Audio
+            {isDownloadOnly ? 'Direct AirSend' : 'Direct AirSend Audio'}
           </DialogTitle>
           <DialogDescription>
-            Transfer audio files directly between your devices using local Wi-Fi.
+            {isDownloadOnly
+              ? 'Transfer any file directly between your devices using local Wi-Fi.'
+              : 'Transfer audio files directly between your devices using local Wi-Fi.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -303,7 +330,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
           <div className="space-y-6">
             <div className="text-center">
               <p className="text-sm text-muted-foreground mb-4">
-                Scan this QR code with your phone to send audio directly via Wi-Fi
+                Scan this QR code with your phone to send {isDownloadOnly ? 'any file' : 'audio'} directly via Wi-Fi
               </p>
               
               {sessionCode && (
@@ -357,7 +384,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
               <div>
                 <h3 className="font-semibold text-lg">
                   {status === 'saving' ? 'Saving to directory...' : 
-                   status === 'receiving' ? 'Receiving audio...' : 
+                   status === 'receiving' ? `Receiving ${isDownloadOnly ? 'file' : 'audio'}...` : 
                    'Connected & Ready'}
                 </h3>
 
@@ -403,7 +430,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
                 <div className="w-20 h-20 rounded-full bg-green-500/10 flex items-center justify-center">
                   <CheckCircle className="w-10 h-10 text-green-500 animate-in zoom-in duration-300" />
                 </div>
-                {savedToDisk && (
+                {savedToDisk && !isDownloadOnly && (
                   <div className="absolute -bottom-1 -right-1 bg-background rounded-full p-1 border shadow-sm">
                     <FolderOpen className="w-4 h-4 text-primary" />
                   </div>
@@ -413,66 +440,100 @@ export function AirSendDialog({ open, onOpenChange, pieceId, onAudioReceived, on
               <div className="space-y-1 px-4">
                 <h3 className="font-bold text-xl">Transfer Complete!</h3>
                 <div className="flex items-center justify-center gap-2 py-2 px-3 bg-muted rounded-lg border border-border/50">
-                  <Music className="w-4 h-4 text-primary" />
+                  <File className="w-4 h-4 text-primary" />
                   <span className="text-sm font-semibold truncate max-w-[200px]">
                     {receivedFile.name}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground pt-2">
-                  {savedToDisk 
-                    ? "File saved to your selected folder and ready to use." 
-                    : "File received. You can download it or upload to cloud."}
+                  {isDownloadOnly
+                    ? 'File received. Download it to save to your device.'
+                    : savedToDisk 
+                      ? "File saved to your selected folder and ready to use." 
+                      : "File received. You can download it or upload to cloud."}
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 w-full px-2">
-                <Button
-                  variant="outline"
-                  className="gap-2 h-11"
-                  onClick={() => {
-                    if (receivedUrl) {
-                      const a = document.createElement('a');
-                      a.href = receivedUrl;
-                      a.download = receivedFile.name;
-                      a.click();
-                    }
-                  }}
-                >
-                  <Download className="w-4 h-4" />
-                  Download
-                </Button>
-                <Button
-                  className="gap-2 h-11 shadow-md shadow-primary/20"
-                  onClick={() => {
-                    if (receivedUrl) {
-                      onAudioReceived(receivedUrl, receivedFile.name);
-                      handleClose();
-                    }
-                  }}
-                >
-                  <Play className="w-4 h-4" />
-                  Use Now
-                </Button>
-              </div>
-              
-              <Button
-                variant="secondary"
-                className="gap-2 w-full mx-2"
-                onClick={handleUploadToCloud}
-              >
-                <Cloud className="w-4 h-4" />
-                Upload to Cloud Storage
-              </Button>
-              
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-muted-foreground hover:text-foreground"
-                onClick={handleRefresh}
-              >
-                <RefreshCw className="w-3 h-3 mr-2" />
-                Send Another
-              </Button>
+              {isDownloadOnly ? (
+                <div className="w-full px-2 space-y-3">
+                  <Button
+                    className="gap-2 w-full h-11"
+                    onClick={() => {
+                      if (receivedUrl) {
+                        const a = document.createElement('a');
+                        a.href = receivedUrl;
+                        a.download = receivedFile.name;
+                        a.click();
+                      }
+                    }}
+                  >
+                    <Download className="w-4 h-4" />
+                    Download File
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={handleRefresh}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-2" />
+                    Send Another
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 w-full px-2">
+                    <Button
+                      variant="outline"
+                      className="gap-2 h-11"
+                      onClick={() => {
+                        if (receivedUrl) {
+                          const a = document.createElement('a');
+                          a.href = receivedUrl;
+                          a.download = receivedFile.name;
+                          a.click();
+                        }
+                      }}
+                    >
+                      <Download className="w-4 h-4" />
+                      Download
+                    </Button>
+                    <Button
+                      className="gap-2 h-11 shadow-md shadow-primary/20"
+                      onClick={() => {
+                        if (receivedUrl && onAudioReceived) {
+                          onAudioReceived(receivedUrl, receivedFile.name);
+                          handleClose();
+                        }
+                      }}
+                    >
+                      <Play className="w-4 h-4" />
+                      Use Now
+                    </Button>
+                  </div>
+                  
+                  {pieceId && (
+                    <Button
+                      variant="secondary"
+                      className="gap-2 w-full mx-2"
+                      onClick={handleUploadToCloud}
+                    >
+                      <Cloud className="w-4 h-4" />
+                      Upload to Cloud Storage
+                    </Button>
+                  )}
+                  
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={handleRefresh}
+                  >
+                    <RefreshCw className="w-3 h-3 mr-2" />
+                    Send Another
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         )}

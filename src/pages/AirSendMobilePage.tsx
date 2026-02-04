@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Upload, CheckCircle, Music, Loader2, AlertCircle, Smartphone, Wifi } from 'lucide-react';
+import { Upload, CheckCircle, File, Loader2, AlertCircle, Smartphone, Wifi } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { airsendSupabase } from '@/integrations/supabase/airsend-client';
 import { cn } from '@/lib/utils';
@@ -9,19 +9,6 @@ import { toast } from 'sonner';
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
-const AUDIO_EXTENSIONS = [
-  '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
-  '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
-  '.mid', '.midi', '.mp2', '.ra', '.ram', '.ac3', '.caf', '.mka',
-  '.oga', '.spx', '.wv', '.ape', '.alac', '.dts', '.mpc', '.snd', '.au'
-];
-
-function isValidAudioFile(file: File): boolean {
-  if (file.type.startsWith('audio/')) return true;
-  if (file.type === 'video/mp4' || file.type === 'video/3gpp') return true;
-  const ext = '.' + file.name.split('.').pop()?.toLowerCase();
-  return AUDIO_EXTENSIONS.includes(ext);
-}
 
 export default function AirSendMobilePage() {
   const [searchParams] = useSearchParams();
@@ -111,10 +98,6 @@ export default function AirSendMobilePage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!isValidAudioFile(file)) {
-        setError('Please select an audio file');
-        return;
-      }
       if (file.size > MAX_FILE_SIZE) {
         setError(`File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
         return;
@@ -141,7 +124,7 @@ export default function AirSendMobilePage() {
       await p2pRef.current.sendFile(selectedFile);
       if (mounted.current) {
         setStatus('success');
-        toast.success('Audio sent successfully!');
+        toast.success('File sent successfully!');
       }
     } catch (err) {
       console.error('P2P send error:', err);
@@ -167,7 +150,7 @@ export default function AirSendMobilePage() {
         <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
         <h1 className="text-2xl font-bold mb-2">Invalid or Expired Session</h1>
         <p className="text-muted-foreground">
-          This QR code has expired or is invalid. Please scan a new QR code from the teleprompter page.
+          This QR code has expired or is invalid. Please scan a new QR code from the Studio or Teleprompter page.
         </p>
       </div>
     );
@@ -182,7 +165,7 @@ export default function AirSendMobilePage() {
           </div>
           <CheckCircle className="w-20 h-20 text-green-500 relative" />
         </div>
-        <h1 className="text-2xl font-bold mb-2">Audio Sent!</h1>
+        <h1 className="text-2xl font-bold mb-2">File Sent!</h1>
         <p className="text-muted-foreground mb-4">
           {selectedFile?.name} has been sent directly to your computer.
         </p>
@@ -200,7 +183,7 @@ export default function AirSendMobilePage() {
           <Smartphone className="w-6 h-6 text-primary" />
           <h1 className="text-xl font-bold">Direct AirSend</h1>
         </div>
-        <p className="text-muted-foreground text-sm">Send audio directly via Wi-Fi</p>
+        <p className="text-muted-foreground text-sm">Send any file directly via Wi-Fi</p>
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center gap-6 max-w-md mx-auto w-full">
@@ -220,7 +203,7 @@ export default function AirSendMobilePage() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="audio/*"
+          accept="*"
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -236,12 +219,12 @@ export default function AirSendMobilePage() {
             )}
           >
             <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-              <Music className="w-10 h-10 text-primary" />
+              <File className="w-10 h-10 text-primary" />
             </div>
             <div className="text-center">
-              <p className="font-semibold mb-1">Select Audio File</p>
+              <p className="font-semibold mb-1">Select File</p>
               <p className="text-sm text-muted-foreground">
-                Tap to browse (max 500MB)
+                Tap to browse any file (max 500MB)
               </p>
             </div>
           </button>
@@ -249,7 +232,7 @@ export default function AirSendMobilePage() {
           <div className="w-full max-w-[320px] bg-card rounded-2xl p-6 border shadow-sm">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <Music className="w-7 h-7 text-primary" />
+                <File className="w-7 h-7 text-primary" />
               </div>
               <div className="flex-1 min-w-0">
                 <p className="font-medium truncate">{selectedFile.name}</p>
