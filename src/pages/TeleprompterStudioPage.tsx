@@ -91,6 +91,7 @@ export default function TeleprompterStudioPage() {
                 pieceId={null}
                 onContentReady={handleContentReady}
                 onSaveDraft={user ? createPieceFromDraft : undefined}
+                createPieceFromExtract={user ? (draft) => createPieceFromDraft({ ...draft, pdfUrl: null }) : undefined}
               />
             </div>
             <StudioPiecesList />
@@ -99,6 +100,7 @@ export default function TeleprompterStudioPage() {
           <StudioUploadZoneWithRouter
             pieceId={id!}
             onContentReady={handleContentReady}
+            createPieceFromExtract={user ? createPieceFromDraft : undefined}
           />
         )}
       </main>
@@ -109,9 +111,15 @@ export default function TeleprompterStudioPage() {
 interface StudioUploadZoneWithRouterProps {
   pieceId: string;
   onContentReady: (content: { imageUrls: string[]; pdfUrl: string | null; audioUrl: string | null }) => void;
+  createPieceFromExtract?: (draft: {
+    title: string;
+    imageUrls: string[];
+    pdfUrl: null;
+    audioUrl: string | null;
+  }) => Promise<string>;
 }
 
-function StudioUploadZoneWithRouter({ pieceId, onContentReady }: StudioUploadZoneWithRouterProps) {
+function StudioUploadZoneWithRouter({ pieceId, onContentReady, createPieceFromExtract }: StudioUploadZoneWithRouterProps) {
   const navigate = useNavigate();
   const { data: piece, isLoading, error } = useQuery({
     queryKey: ['piece', pieceId],
@@ -154,7 +162,11 @@ function StudioUploadZoneWithRouter({ pieceId, onContentReady }: StudioUploadZon
   if (hasVisualContent || hasTextContent) {
     return (
       <div className="space-y-8">
-        <StudioUploadZone pieceId={pieceId} onContentReady={onContentReady} />
+        <StudioUploadZone
+          pieceId={pieceId}
+          onContentReady={onContentReady}
+          createPieceFromExtract={createPieceFromExtract}
+        />
         <StudioContentRouter
           pieceId={pieceId}
           pieceTitle={piece.title}
@@ -162,6 +174,7 @@ function StudioUploadZoneWithRouter({ pieceId, onContentReady }: StudioUploadZon
           pdfUrl={pdfUrl}
           audioUrl={audioUrl}
           textContent={piece.text_content}
+          createPieceFromExtract={createPieceFromExtract}
         />
       </div>
     );

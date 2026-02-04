@@ -102,6 +102,7 @@ export function TeleprompterEditor({
   }, []);
 
   const editor = useTeleprompterSegmentEditor({
+    audioDuration: duration,
     pieceId,
     textContent,
     audioUrl,

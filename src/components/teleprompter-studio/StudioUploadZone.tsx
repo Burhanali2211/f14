@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { Upload, FileText, Music, Loader2, X } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Upload, FileText, Music, Loader2, X, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +17,7 @@ import {
 } from '@/lib/piece-media-upload';
 import { saveDraft } from '@/lib/teleprompter-studio-storage';
 import { DraftStatusBar } from './DraftStatusBar';
+import { PDFPageExtractorDialog } from './PDFPageExtractorDialog';
 import { logger } from '@/lib/logger';
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -48,6 +49,12 @@ interface StudioUploadZoneProps {
   pieceId?: string | null;
   onContentReady: (content: { imageUrls: string[]; pdfUrl: string | null; audioUrl: string | null }) => void;
   onSaveDraft?: (draft: StudioDraft) => Promise<string>; // Returns new piece id
+  createPieceFromExtract?: (draft: {
+    title: string;
+    imageUrls: string[];
+    pdfUrl: null;
+    audioUrl: string | null;
+  }) => Promise<string>;
 }
 
 async function fetchPiece(id: string) {
@@ -60,7 +67,7 @@ async function fetchPiece(id: string) {
   return data;
 }
 
-export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft }: StudioUploadZoneProps) {
+export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft, createPieceFromExtract }: StudioUploadZoneProps) {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -77,6 +84,8 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft }: Studi
     }
   });
   const [syncStatus, setSyncStatus] = useState<'synced' | 'saving' | 'offline' | 'pending-sync'>('synced');
+  const [showExtractDialog, setShowExtractDialog] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (offlineDraftId) {
@@ -573,6 +582,19 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft }: Studi
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-muted/50">
                 <FileText className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm truncate max-w-[120px]">PDF</span>
+                {(createPieceFromExtract || onSaveDraft) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-2 gap-1 text-xs"
+                    onClick={() => setShowExtractDialog(true)}
+                    title="Extract page(s) as separate piece"
+                  >
+                    <Scissors className="w-3 h-3" />
+                    Extract
+                  </Button>
+                )}
                 {!pieceId && (
                   <button
                     type="button"
@@ -603,6 +625,26 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft }: Studi
             )}
           </div>
         </div>
+      )}
+
+      {(createPieceFromExtract || onSaveDraft) && currentPdfUrl && (
+        <PDFPageExtractorDialog
+          open={showExtractDialog}
+          onOpenChange={setShowExtractDialog}
+          pdfUrl={currentPdfUrl}
+          sourcePieceTitle={pieceId && piece ? piece.title : title || undefined}
+          onExtractComplete={(newPieceId) => {
+            navigate(`/piece/${newPieceId}/teleprompter/studio`);
+          }}
+          createPieceFromExtract={
+            createPieceFromExtract ??
+            (onSaveDraft
+              ? async (draft) => onSaveDraft({ ...draft, pdfUrl: null })
+              : async () => {
+                  throw new Error('Sign in to create pieces');
+                })
+          }
+        />
       )}
 
       {hasContent && (

@@ -205,6 +205,7 @@ export default function TeleprompterEditorPage() {
     pieceId: id ?? '',
     textContent: piece?.text_content,
     audioUrl,
+    audioDuration: duration,
     navigate,
     enabled: !!editorEnabled,
     currentTime,

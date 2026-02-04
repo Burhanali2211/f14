@@ -2,10 +2,9 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-    Play, Pause, SkipBack, SkipForward, Volume2, VolumeX,
-    Repeat, Maximize2, Minimize2, Settings, Clock,
-    RotateCcw, RotateCw, Gauge, Home, Edit2, ArrowLeft, Loader2,
-PlayCircle, X, Timer, ChevronDown, Smartphone, Upload, CheckCircle2, Trash2, Download, Cloud
+  Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Settings, Clock,
+  Home, Edit2, ArrowLeft, Loader2, PlayCircle, X, Timer, ChevronDown,
+  Smartphone, CheckCircle2, Trash2, Download, Cloud
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -66,6 +65,7 @@ export default function TeleprompterPage() {
   });
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const sessionRef = useRef<ReturnType<typeof getSession>>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const animationFrameRef = useRef<number | null>(null);
   const practiceStartRef = useRef<number | null>(null);
@@ -139,11 +139,12 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
   useEffect(() => {
     if (!id) return;
-    
+
     let existingSession = getSession(id);
     if (!existingSession) {
       existingSession = createSession(id, audioUrl);
     }
+    sessionRef.current = existingSession;
     setSession(existingSession);
   }, [id, audioUrl]);
 
@@ -205,9 +206,12 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
     const handleEnded = () => {
       setIsPlaying(false);
-      if (practiceStartRef.current && session) {
-        const practiceTime = Math.floor((Date.now() - practiceStartRef.current) / 1000);
-        incrementPracticeCount(session.id, practiceTime);
+      if (practiceStartRef.current) {
+        const sid = sessionRef.current?.id;
+        if (sid) {
+          const practiceTime = Math.floor((Date.now() - practiceStartRef.current) / 1000);
+          incrementPracticeCount(sid, practiceTime);
+        }
         practiceStartRef.current = null;
       }
     };
@@ -227,7 +231,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
       audio.src = '';
       audioRef.current = null;
     };
-  }, [audioUrl, session]);
+  }, [audioUrl]);
 
   const updateCurrentSegment = useCallback((time: number) => {
     if (!segments.length) return;
@@ -406,6 +410,25 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     }
   }, []);
 
+  const stopPlayback = useCallback(() => {
+    pause();
+    setIsCountingDown(false);
+    setCountdown(null);
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+  }, [pause]);
+
+  const navigateAway = useCallback((path: string) => {
+    stopPlayback();
+    navigate(path);
+  }, [stopPlayback, navigate]);
+
   const handleFinishTask = useCallback(() => {
     if (!id) return;
     finishTeleprompterTask(id);
@@ -413,8 +436,8 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
       title: 'Task completed',
       description: 'All teleprompter data for this piece has been deleted.',
     });
-    navigate(`/piece/${id}`);
-  }, [id, navigate]);
+    navigateAway(`/piece/${id}`);
+  }, [id, navigateAway]);
 
   const enterPlaybackMode = useCallback(async (delaySeconds?: number) => {
     setIsPlaybackMode(true);
@@ -463,6 +486,12 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     }
     setIsFullscreen(false);
   }, [pause]);
+
+  useEffect(() => {
+    return () => {
+      stopPlayback();
+    };
+  }, [stopPlayback]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -519,7 +548,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
           } else if (isFullscreen) {
             toggleFullscreen();
           } else {
-            navigate(`/piece/${id}`);
+            navigateAway(`/piece/${id}`);
           }
           break;
       }
@@ -527,7 +556,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [volume, isLooping, isFullscreen, isPlaybackMode, id, exitPlaybackMode, toggleFullscreen, navigate, togglePlay, goToPreviousSegment, goToNextSegment, skipBackward, skipForward, handleVolumeChange, toggleMute, loopCurrentSegment, clearLoop]);
+  }, [volume, isLooping, isFullscreen, isPlaybackMode, id, exitPlaybackMode, toggleFullscreen, navigateAway, togglePlay, goToPreviousSegment, goToNextSegment, skipBackward, skipForward, handleVolumeChange, toggleMute, loopCurrentSegment, clearLoop, stopPlayback]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -535,11 +564,12 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
       setIsFullscreen(isFs);
       if (!isFs && isPlaybackMode) {
         setIsPlaybackMode(false);
+        stopPlayback();
       }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-  }, [isPlaybackMode]);
+  }, [isPlaybackMode, stopPlayback]);
 
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -553,24 +583,31 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     setAirSendAudioName(name);
   }, []);
 
+  const lastCloudAudioPieceRef = useRef<string | null>(null);
   useEffect(() => {
     if (!id) return;
-    
+    if (lastCloudAudioPieceRef.current === id) return;
+    lastCloudAudioPieceRef.current = id;
+
+    let cancelled = false;
     const loadCloudAudio = async () => {
       try {
         const audioFiles = await getUserAudioFiles(id);
+        if (cancelled) return;
         if (audioFiles.length > 0) {
           const latestAudio = audioFiles[0];
           setCloudAudio(latestAudio);
           const streamUrl = await getStreamUrl(latestAudio.id);
+          if (cancelled) return;
           setCloudAudioStreamUrl(streamUrl);
         }
       } catch (err) {
-        console.error('Failed to load cloud audio:', err);
+        if (!cancelled) console.error('Failed to load cloud audio:', err);
       }
     };
-    
+
     loadCloudAudio();
+    return () => { cancelled = true; };
   }, [id, getUserAudioFiles, getStreamUrl]);
 
   const handleCloudAudioUploaded = useCallback(async (audioFile: AudioFile) => {
@@ -583,19 +620,18 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     }
   }, [getStreamUrl]);
 
+  const autoplayTriggeredRef = useRef(false);
   useEffect(() => {
-    if (autoplayRequested && isLoaded && audioUrl && !isPlaybackMode) {
-      enterPlaybackMode();
-      navigate(`/piece/${id}/teleprompter`, { replace: true });
-    }
+    if (!autoplayRequested || !isLoaded || !audioUrl || isPlaybackMode || autoplayTriggeredRef.current) return;
+    autoplayTriggeredRef.current = true;
+    enterPlaybackMode();
+    navigate(`/piece/${id}/teleprompter`, { replace: true });
   }, [autoplayRequested, isLoaded, audioUrl, isPlaybackMode, enterPlaybackMode, navigate, id]);
 
   const progress = useMemo(() => {
     if (!duration) return 0;
     return (currentTimeDisplay / duration) * 100;
   }, [currentTimeDisplay, duration]);
-
-  const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
   if (pieceLoading) {
     return (
@@ -736,7 +772,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
                       scrollBehavior={scrollBehavior}
                       highlightMode={highlightMode}
                       onSeekToSegment={seekToSegment}
-                      onNavigateToImageEditor={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
+                      onNavigateToImageEditor={() => navigateAway(`/piece/${id}/teleprompter/image-edit`)}
                     />
           </main>
 
@@ -778,7 +814,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => navigate(`/piece/${id}`)}
+                    onClick={() => navigateAway(`/piece/${id}`)}
                     className="h-10 w-10 rounded-full hover:bg-accent/50 shrink-0"
                   >
                     <ArrowLeft className="w-5 h-5" />
@@ -982,7 +1018,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
                     variant="ghost"
                     size="icon"
                     className="h-10 w-10 rounded-full hover:bg-accent"
-                    onClick={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
+                    onClick={() => navigateAway(`/piece/${id}/teleprompter/image-edit`)}
                   >
                     <Edit2 className="w-5 h-5 text-muted-foreground" />
                   </Button>
@@ -1028,8 +1064,8 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
           scrollBehavior={scrollBehavior}
           highlightMode={highlightMode}
           onSeekToSegment={seekToSegment}
-          onNavigateToEditor={() => navigate(`/piece/${id}/teleprompter/edit`)}
-          onNavigateToImageEditor={() => navigate(`/piece/${id}/teleprompter/image-edit`)}
+          onNavigateToEditor={() => navigateAway(`/piece/${id}/teleprompter/edit`)}
+          onNavigateToImageEditor={() => navigateAway(`/piece/${id}/teleprompter/image-edit`)}
         />
       </main>
 

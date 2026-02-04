@@ -11,6 +11,7 @@ import {
   mergeSegments,
   reorderSegments,
   parseTextToSegments,
+  clipSegmentsToDuration,
   formatTime,
   parseTime,
   undo,
@@ -28,6 +29,7 @@ export interface UseTeleprompterSegmentEditorOptions {
   pieceId: string;
   textContent?: string;
   audioUrl?: string | null;
+  audioDuration?: number;
   navigate: (path: string) => void;
   enabled: boolean;
   currentTime: number;
@@ -83,6 +85,7 @@ export function useTeleprompterSegmentEditor({
   pieceId,
   textContent,
   audioUrl,
+  audioDuration,
   navigate,
   enabled,
   currentTime,
@@ -103,20 +106,29 @@ export function useTeleprompterSegmentEditor({
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
 
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isDraggingRef = useRef(false);
+  const segmentsRef = useRef<TeleprompterSegment[]>([]);
+  segmentsRef.current = segments;
 
   useEffect(() => {
     if (!enabled || !pieceId) return;
 
     const existingSession = getSession(pieceId);
-    const sessionToUse = existingSession ?? createSession(pieceId, audioUrl, textContent ? parseTextToSegments(textContent) : []);
+    const initialSegments = textContent ? parseTextToSegments(textContent, 5, audioDuration) : [];
+    const sessionToUse = existingSession ?? createSession(pieceId, audioUrl, initialSegments);
 
-    setSession(sessionToUse);
-    setSegments(sessionToUse.segments);
+    let segmentsToUse = sessionToUse.segments;
+    if (audioDuration != null && audioDuration > 0) {
+      segmentsToUse = clipSegmentsToDuration(segmentsToUse, audioDuration);
+    }
+
+    setSession({ ...sessionToUse, segments: segmentsToUse });
+    setSegments(segmentsToUse);
 
     if (getAutosave(sessionToUse.id) && hasUnsavedChanges(sessionToUse.id)) {
       setShowUnsavedWarning(true);
     }
-  }, [enabled, pieceId, textContent, audioUrl]);
+  }, [enabled, pieceId, textContent, audioUrl, audioDuration]);
 
   useEffect(() => {
     if (!session || !hasChanges) return;
@@ -175,11 +187,18 @@ export function useTeleprompterSegmentEditor({
       return;
     }
 
+    if (audioDuration != null && audioDuration > 0 && endTime > audioDuration) {
+      toast({
+        title: 'Time adjusted',
+        description: 'End time was capped to audio duration for better sync.',
+      });
+    }
+
     const updated = updateSegment(session.id, editingSegment, {
       text: editForm.text,
       startTime,
       endTime,
-    });
+    }, audioDuration);
 
     if (updated) {
       setSession(updated);
@@ -188,7 +207,7 @@ export function useTeleprompterSegmentEditor({
     }
 
     setEditingSegment(null);
-  }, [session, editingSegment, editForm]);
+  }, [session, editingSegment, editForm, audioDuration]);
 
   const handleCancelEdit = useCallback(() => {
     setEditingSegment(null);
@@ -210,7 +229,14 @@ export function useTeleprompterSegmentEditor({
       return;
     }
 
-    const updated = addSegment(session.id, addForm.text, startTime, endTime);
+    if (audioDuration != null && audioDuration > 0 && endTime > audioDuration) {
+      toast({
+        title: 'Time adjusted',
+        description: 'End time was capped to audio duration for better sync.',
+      });
+    }
+
+    const updated = addSegment(session.id, addForm.text, startTime, endTime, undefined, audioDuration);
 
     if (updated) {
       setSession(updated);
@@ -220,7 +246,7 @@ export function useTeleprompterSegmentEditor({
 
     setShowAddDialog(false);
     setAddForm({ text: '', startTime: '', endTime: '' });
-  }, [session, addForm]);
+  }, [session, addForm, audioDuration]);
 
   const handleDeleteSegment = useCallback((segmentId: string) => {
     if (!session) return;
@@ -240,26 +266,26 @@ export function useTeleprompterSegmentEditor({
     if (!session) return;
 
     const splitTime = (segment.startTime + segment.endTime) / 2;
-    const updated = splitSegment(session.id, segment.id, splitTime);
+    const updated = splitSegment(session.id, segment.id, splitTime, audioDuration);
 
     if (updated) {
       setSession(updated);
       setSegments(updated.segments);
       setHasChanges(true);
     }
-  }, [session]);
+  }, [session, audioDuration]);
 
   const handleMerge = useCallback((segment1Id: string, segment2Id: string) => {
     if (!session) return;
 
-    const updated = mergeSegments(session.id, segment1Id, segment2Id);
+    const updated = mergeSegments(session.id, segment1Id, segment2Id, audioDuration);
 
     if (updated) {
       setSession(updated);
       setSegments(updated.segments);
       setHasChanges(true);
     }
-  }, [session]);
+  }, [session, audioDuration]);
 
   const handleUndo = useCallback(() => {
     if (!session) return;
@@ -280,6 +306,7 @@ export function useTeleprompterSegmentEditor({
   }, [session]);
 
   const handleDragStart = useCallback((index: number) => {
+    isDraggingRef.current = true;
     setDraggedIndex(index);
   }, []);
 
@@ -288,24 +315,34 @@ export function useTeleprompterSegmentEditor({
     if (draggedIndex === null || draggedIndex === index) return;
 
     if (session) {
-      const updated = reorderSegments(session.id, draggedIndex, index);
-      if (updated) {
-        setSession(updated);
-        setSegments(updated.segments);
-        setDraggedIndex(index);
-        setHasChanges(true);
-      }
+      const reordered = [...session.segments];
+      const [moved] = reordered.splice(draggedIndex, 1);
+      reordered.splice(index, 0, moved);
+      const withIndex = reordered.map((seg, idx) => ({ ...seg, index: idx }));
+      segmentsRef.current = withIndex;
+      setSession({ ...session, segments: withIndex });
+      setSegments(withIndex);
+      setDraggedIndex(index);
+      setHasChanges(true);
     }
   }, [session, draggedIndex]);
 
   const handleDragEnd = useCallback(() => {
+    if (session && isDraggingRef.current) {
+      const updated = updateSessionSegments(session.id, segmentsRef.current, audioDuration);
+      if (updated) {
+        setSession(updated);
+        setSegments(updated.segments);
+      }
+    }
+    isDraggingRef.current = false;
     setDraggedIndex(null);
-  }, []);
+  }, [session, audioDuration]);
 
   const handleSaveAll = useCallback(() => {
     if (!session) return;
 
-    const updated = updateSessionSegments(session.id, segments);
+    const updated = updateSessionSegments(session.id, segments, audioDuration);
     if (updated) {
       setSession(updated);
       setSegments(updated.segments);
@@ -317,7 +354,7 @@ export function useTeleprompterSegmentEditor({
       });
       onSave?.(updated);
     }
-  }, [session, segments, onSave]);
+  }, [session, segments, audioDuration, onSave]);
 
   const handleNavigate = useCallback((path: string) => {
     if (hasChanges) {
@@ -353,7 +390,7 @@ export function useTeleprompterSegmentEditor({
 
   const handleSaveAndContinue = useCallback(() => {
     if (!session) return;
-    const updated = updateSessionSegments(session.id, segments);
+    const updated = updateSessionSegments(session.id, segments, audioDuration);
     if (updated) {
       setSession(updated);
       setSegments(updated.segments);
@@ -370,13 +407,13 @@ export function useTeleprompterSegmentEditor({
         setPendingNavigation(null);
       }
     }
-  }, [session, segments, pendingNavigation, navigate, onSave]);
+  }, [session, segments, audioDuration, pendingNavigation, navigate, onSave]);
 
   const handleGenerateFromText = useCallback((content: string) => {
     if (!content || !session) return;
 
-    const generatedSegments = parseTextToSegments(content);
-    const updated = updateSessionSegments(session.id, generatedSegments);
+    const generatedSegments = parseTextToSegments(content, 5, audioDuration);
+    const updated = updateSessionSegments(session.id, generatedSegments, audioDuration);
 
     if (updated) {
       setSession(updated);
@@ -387,7 +424,7 @@ export function useTeleprompterSegmentEditor({
         description: `Created ${generatedSegments.length} segments from text content.`,
       });
     }
-  }, [session]);
+  }, [session, audioDuration]);
 
   return {
     session,

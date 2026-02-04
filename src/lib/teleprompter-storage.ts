@@ -93,12 +93,17 @@ export function finishTeleprompterTask(pieceId: string): void {
 
 export function updateSessionSegments(
   sessionId: string, 
-  segments: TeleprompterSegment[]
+  segments: TeleprompterSegment[],
+  audioDuration?: number
 ): TeleprompterSession | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
-  
-  session.segments = segments.map((seg, idx) => ({ ...seg, index: idx }));
+
+  const finalSegments = audioDuration != null && audioDuration > 0
+    ? clipSegmentsToDuration(segments, audioDuration)
+    : segments;
+
+  session.segments = finalSegments.map((seg, idx) => ({ ...seg, index: idx }));
   return saveSession(session);
 }
 
@@ -118,16 +123,21 @@ export function addSegment(
   text: string,
   startTime: number,
   endTime: number,
-  insertAtIndex?: number
+  insertAtIndex?: number,
+  audioDuration?: number
 ): TeleprompterSession | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
 
+  const clippedStart = audioDuration != null ? clipTime(startTime, audioDuration) : startTime;
+  const clippedEnd = audioDuration != null ? clipTime(endTime, audioDuration) : endTime;
+  const finalEnd = clippedEnd > clippedStart ? clippedEnd : Math.min(clippedStart + 0.5, audioDuration ?? clippedStart + 1);
+
   const newSegment: TeleprompterSegment = {
     id: generateId(),
     text,
-    startTime,
-    endTime,
+    startTime: clippedStart,
+    endTime: finalEnd,
     index: insertAtIndex ?? session.segments.length,
   };
 
@@ -144,7 +154,8 @@ export function addSegment(
 export function updateSegment(
   sessionId: string,
   segmentId: string,
-  updates: Partial<Omit<TeleprompterSegment, 'id' | 'index'>>
+  updates: Partial<Omit<TeleprompterSegment, 'id' | 'index'>>,
+  audioDuration?: number
 ): TeleprompterSession | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
@@ -152,9 +163,23 @@ export function updateSegment(
   const segmentIndex = session.segments.findIndex(s => s.id === segmentId);
   if (segmentIndex === -1) return null;
 
+  let finalUpdates = { ...updates };
+  if (audioDuration != null && (updates.startTime !== undefined || updates.endTime !== undefined)) {
+    const start = updates.startTime ?? session.segments[segmentIndex]!.startTime;
+    const end = updates.endTime ?? session.segments[segmentIndex]!.endTime;
+    finalUpdates = {
+      ...finalUpdates,
+      startTime: clipTime(start, audioDuration),
+      endTime: Math.min(clipTime(end, audioDuration), audioDuration),
+    };
+    if ((finalUpdates.endTime ?? end) <= (finalUpdates.startTime ?? start)) {
+      finalUpdates.endTime = Math.min((finalUpdates.startTime ?? start) + 0.5, audioDuration);
+    }
+  }
+
   session.segments[segmentIndex] = {
     ...session.segments[segmentIndex],
-    ...updates,
+    ...finalUpdates,
   };
 
   return saveSession(session);
@@ -174,7 +199,8 @@ export function deleteSegment(sessionId: string, segmentId: string): Teleprompte
 export function splitSegment(
   sessionId: string,
   segmentId: string,
-  splitTime: number
+  splitTime: number,
+  audioDuration?: number
 ): TeleprompterSession | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
@@ -183,18 +209,21 @@ export function splitSegment(
   if (segmentIndex === -1) return null;
 
   const segment = session.segments[segmentIndex];
-  if (splitTime <= segment.startTime || splitTime >= segment.endTime) return null;
+  const clampedSplit = audioDuration != null ? clipTime(splitTime, audioDuration) : splitTime;
+  if (clampedSplit <= segment.startTime || clampedSplit >= segment.endTime) return null;
+
+  const maxEnd = audioDuration != null ? Math.min(segment.endTime, audioDuration) : segment.endTime;
 
   const firstPart: TeleprompterSegment = {
     ...segment,
-    endTime: splitTime,
+    endTime: clampedSplit,
   };
 
   const secondPart: TeleprompterSegment = {
     id: generateId(),
     text: '',
-    startTime: splitTime,
-    endTime: segment.endTime,
+    startTime: clampedSplit,
+    endTime: maxEnd,
     index: segmentIndex + 1,
   };
 
@@ -207,7 +236,8 @@ export function splitSegment(
 export function mergeSegments(
   sessionId: string,
   segmentId1: string,
-  segmentId2: string
+  segmentId2: string,
+  audioDuration?: number
 ): TeleprompterSession | null {
   const session = getSessionById(sessionId);
   if (!session) return null;
@@ -220,17 +250,21 @@ export function mergeSegments(
     ? [session.segments[idx1], session.segments[idx2]]
     : [session.segments[idx2], session.segments[idx1]];
 
+  const mergedEnd = audioDuration != null
+    ? Math.min(second!.endTime, audioDuration)
+    : second!.endTime;
+
   const merged: TeleprompterSegment = {
-    id: first.id,
-    text: `${first.text}\n${second.text}`.trim(),
-    startTime: first.startTime,
-    endTime: second.endTime,
+    id: first!.id,
+    text: `${first!.text}\n${second!.text}`.trim(),
+    startTime: first!.startTime,
+    endTime: mergedEnd,
     index: Math.min(idx1, idx2),
-    isHeader: first.isHeader || second.isHeader,
+    isHeader: first!.isHeader || second!.isHeader,
   };
 
   session.segments = session.segments
-    .filter(s => s.id !== first.id && s.id !== second.id);
+    .filter(s => s.id !== first!.id && s.id !== second!.id);
   session.segments.splice(merged.index, 0, merged);
   session.segments = session.segments.map((seg, idx) => ({ ...seg, index: idx }));
 
@@ -462,17 +496,51 @@ export function clearUndoHistory(sessionId: string): void {
   localStorage.removeItem(`${UNDO_HISTORY_KEY}_${sessionId}`);
 }
 
+/**
+ * Clips segment times to fit within [0, audioDuration].
+ * Ensures total segment duration does not exceed audio length for accessibility.
+ */
+export function clipSegmentsToDuration(
+  segments: TeleprompterSegment[],
+  audioDuration: number
+): TeleprompterSegment[] {
+  if (!Number.isFinite(audioDuration) || audioDuration <= 0) return segments;
+
+  const maxEnd = Math.max(0, audioDuration);
+
+  return segments.map((seg, idx) => ({
+    ...seg,
+    index: idx,
+    startTime: Math.max(0, Math.min(seg.startTime, maxEnd)),
+    endTime: Math.max(0, Math.min(seg.endTime, maxEnd)),
+  })).map(seg => {
+    if (seg.endTime <= seg.startTime) {
+      return { ...seg, endTime: Math.min(seg.startTime + 0.5, maxEnd) };
+    }
+    return seg;
+  });
+}
+
+/**
+ * Clips a single time value to [0, audioDuration].
+ */
+function clipTime(time: number, audioDuration: number): number {
+  if (!Number.isFinite(audioDuration) || audioDuration <= 0) return time;
+  return Math.max(0, Math.min(time, audioDuration));
+}
+
 export function parseTextToSegments(
   text: string,
-  defaultSegmentDuration: number = 5
+  defaultSegmentDuration: number = 5,
+  audioDuration?: number
 ): TeleprompterSegment[] {
   const paragraphs = text.split('|').filter(p => p.trim());
   let currentTime = 0;
 
-  return paragraphs.map((para, index) => {
+  let segments = paragraphs.map((para, index) => {
     const lines = para.split('\n').filter(l => l.trim());
     const estimatedDuration = Math.max(defaultSegmentDuration, lines.length * 2);
-    
+
     const segment: TeleprompterSegment = {
       id: generateId(),
       text: lines.join('\n'),
@@ -485,6 +553,25 @@ export function parseTextToSegments(
     currentTime += estimatedDuration;
     return segment;
   });
+
+  if (Number.isFinite(audioDuration) && audioDuration > 0 && segments.length > 0) {
+    const totalDuration = segments[segments.length - 1]!.endTime;
+    if (totalDuration > audioDuration) {
+      const scale = audioDuration / totalDuration;
+      segments = segments.map((seg, idx) => ({
+        ...seg,
+        index: idx,
+        startTime: seg.startTime * scale,
+        endTime: Math.min(seg.endTime * scale, audioDuration),
+      }));
+      segments[segments.length - 1] = {
+        ...segments[segments.length - 1]!,
+        endTime: audioDuration,
+      };
+    }
+  }
+
+  return segments;
 }
 
 export function findSegmentAtTime(

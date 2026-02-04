@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Image as ImageIcon, FileText, Star, Edit2 } from 'lucide-react';
+import { Image as ImageIcon, FileText, Star, Edit2, Scissors } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { PDFPageExtractorDialog } from './PDFPageExtractorDialog';
 
 export type EditorMode = 'images' | 'text';
 
@@ -14,6 +15,12 @@ interface StudioContentRouterProps {
   pdfUrl: string | null;
   audioUrl: string | null;
   textContent?: string;
+  createPieceFromExtract?: (draft: {
+    title: string;
+    imageUrls: string[];
+    pdfUrl: null;
+    audioUrl: string | null;
+  }) => Promise<string>;
 }
 
 export function StudioContentRouter({
@@ -23,9 +30,11 @@ export function StudioContentRouter({
   pdfUrl,
   audioUrl,
   textContent = '',
+  createPieceFromExtract,
 }: StudioContentRouterProps) {
   const navigate = useNavigate();
   const [selectedMode, setSelectedMode] = useState<EditorMode | null>(null);
+  const [showExtractDialog, setShowExtractDialog] = useState(false);
 
   const hasImages = imageUrls.length > 0 || !!pdfUrl;
   const hasText = !!textContent?.trim();
@@ -119,15 +128,40 @@ export function StudioContentRouter({
           <p className="text-muted-foreground">
             Create regions on your {pdfUrl ? 'PDF pages' : 'images'} synced with audio for the teleprompter.
           </p>
-          <Button
-            size="lg"
-            onClick={() => navigate(`/piece/${pieceId}/teleprompter/image-edit`)}
-            className="gap-2"
-          >
-            <Edit2 className="w-5 h-5" />
-            Open Image Editor
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button
+              size="lg"
+              onClick={() => navigate(`/piece/${pieceId}/teleprompter/image-edit`)}
+              className="gap-2"
+            >
+              <Edit2 className="w-5 h-5" />
+              Open Image Editor
+            </Button>
+            {pdfUrl && createPieceFromExtract && (
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setShowExtractDialog(true)}
+                className="gap-2"
+              >
+                <Scissors className="w-5 h-5" />
+                Extract page(s)
+              </Button>
+            )}
+          </div>
         </div>
+        {pdfUrl && createPieceFromExtract && (
+          <PDFPageExtractorDialog
+            open={showExtractDialog}
+            onOpenChange={setShowExtractDialog}
+            pdfUrl={pdfUrl}
+            sourcePieceTitle={pieceTitle}
+            onExtractComplete={(newPieceId) => {
+              navigate(`/piece/${newPieceId}/teleprompter/studio`);
+            }}
+            createPieceFromExtract={createPieceFromExtract}
+          />
+        )}
       </div>
     );
   }
