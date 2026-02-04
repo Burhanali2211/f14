@@ -2,10 +2,10 @@ export const config = {
   runtime: 'edge',
 };
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://ysacmemkrnmczmtkfqad.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const SITE_URL = 'https://followerof14.vercel.app';
+const SITE_URL = process.env.SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://followerof14.vercel.app');
 const SITE_NAME = 'Followers of 14';
 const SITE_ALT_NAME = 'Islamic Poetry & Recitation';
 const DEFAULT_IMAGE = `${SITE_URL}/main.png`;
@@ -25,13 +25,19 @@ function truncateText(text: string, maxLength: number): string {
   return text.substring(0, maxLength - 3) + '...';
 }
 
-async function supabaseQuery(table: string, select: string, filter: { column: string; value: string }) {
-  const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&${filter.column}=eq.${encodeURIComponent(filter.value)}&limit=1`;
+async function supabaseQuery(
+  baseUrl: string,
+  anonKey: string,
+  table: string,
+  select: string,
+  filter: { column: string; value: string }
+) {
+  const url = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(select)}&${filter.column}=eq.${encodeURIComponent(filter.value)}&limit=1`;
   
   const response = await fetch(url, {
     headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey': anonKey,
+      'Authorization': `Bearer ${anonKey}`,
       'Content-Type': 'application/json',
     },
   });
@@ -42,6 +48,12 @@ async function supabaseQuery(table: string, select: string, filter: { column: st
 }
 
 export default async function handler(request: Request) {
+  const supabaseUrl = SUPABASE_URL;
+  const supabaseKey = SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return new Response('Missing Supabase configuration', { status: 500 });
+  }
+
   const url = new URL(request.url);
 
   const pieceMatch = url.pathname.match(/^\/piece\/([a-zA-Z0-9-]+)/);
@@ -57,6 +69,8 @@ export default async function handler(request: Request) {
     if (pieceMatch) {
       const pieceId = pieceMatch[1];
       const piece = await supabaseQuery(
+        supabaseUrl,
+        supabaseKey,
         'pieces',
         'id,title,text_content,image_url,reciter,category:categories(name),imam:imams(name)',
         { column: 'id', value: pieceId }
@@ -89,6 +103,8 @@ export default async function handler(request: Request) {
     } else if (categoryMatch) {
       const categorySlug = categoryMatch[1];
       const category = await supabaseQuery(
+        supabaseUrl,
+        supabaseKey,
         'categories',
         'name,description',
         { column: 'slug', value: categorySlug }
@@ -101,6 +117,8 @@ export default async function handler(request: Request) {
     } else if (figureMatch) {
       const figureSlug = figureMatch[1];
       const imam = await supabaseQuery(
+        supabaseUrl,
+        supabaseKey,
         'imams',
         'name,title,description',
         { column: 'slug', value: figureSlug }

@@ -158,6 +158,14 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.5" },
         },
+        "cue-glow": {
+          "0%": { boxShadow: "0 0 24px 4px hsl(var(--primary) / 0.5), 0 0 48px 8px hsl(var(--primary) / 0.2)" },
+          "100%": { boxShadow: "0 0 0 0 transparent" },
+        },
+        "cue-glow-bright": {
+          "0%": { boxShadow: "0 0 32px 8px rgba(255,255,255,0.6), 0 0 64px 16px rgba(255,255,255,0.25)" },
+          "100%": { boxShadow: "0 0 0 0 transparent" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -168,6 +176,8 @@ export default {
         "scale-in": "scale-in 0.4s ease-out forwards",
         "float": "float 6s ease-in-out infinite",
         "pulse-slow": "pulse-slow 3s ease-in-out infinite",
+        "cue-glow": "cue-glow 1s ease-out forwards",
+        "cue-glow-bright": "cue-glow-bright 1s ease-out forwards",
       },
     },
   },

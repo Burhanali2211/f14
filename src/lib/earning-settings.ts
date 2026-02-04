@@ -5,7 +5,6 @@ const SETTINGS_STORAGE_KEY = 'earning_settings_v1';
 const SESSION_KEY = 'earning_settings_session';
 const SESSION_DURATION = 30 * 60 * 1000;
 
-const SECURE_PASSWORD_HASH = '7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f';
 
 export interface MilestoneConfig {
   id: string;
@@ -52,8 +51,9 @@ async function hashPassword(password: string): Promise<string> {
 }
 
 export async function verifySettingsPassword(password: string): Promise<boolean> {
-  const correctPassword = 'PA$$WORD221188114logout';
-  
+  const correctPassword = import.meta.env.VITE_EARNINGS_ACCESS_PASSWORD || '';
+  if (!correctPassword) return false;
+
   if (password === correctPassword) {
     const session = {
       verified: true,

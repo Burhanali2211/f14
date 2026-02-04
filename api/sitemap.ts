@@ -2,10 +2,9 @@ export const config = {
   runtime: 'edge',
 };
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://ysacmemkrnmczmtkfqad.supabase.co';
-const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-
-const SITE_URL = 'https://followerof14.vercel.app';
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SITE_URL = process.env.SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://followerof14.vercel.app');
 
 function escapeXml(text: string): string {
   return text
@@ -16,13 +15,13 @@ function escapeXml(text: string): string {
     .replace(/'/g, '&apos;');
 }
 
-async function supabaseQuery(table: string, select: string) {
-  const url = `${SUPABASE_URL}/rest/v1/${table}?select=${encodeURIComponent(select)}&order=updated_at.desc`;
+async function supabaseQuery(baseUrl: string, anonKey: string, table: string, select: string) {
+  const url = `${baseUrl}/rest/v1/${table}?select=${encodeURIComponent(select)}&order=updated_at.desc`;
   
   const response = await fetch(url, {
     headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'apikey': anonKey,
+      'Authorization': `Bearer ${anonKey}`,
       'Content-Type': 'application/json',
     },
   });
@@ -32,14 +31,20 @@ async function supabaseQuery(table: string, select: string) {
 }
 
 export default async function handler(request: Request) {
+  const supabaseUrl = SUPABASE_URL;
+  const supabaseKey = SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    return new Response('Missing Supabase configuration', { status: 500 });
+  }
+
   try {
     const now = new Date().toISOString();
 
     const [pieces, categories, imams, artists] = await Promise.all([
-      supabaseQuery('pieces', 'id,title,updated_at,created_at'),
-      supabaseQuery('categories', 'id,name,slug,updated_at'),
-      supabaseQuery('imams', 'id,name,slug,updated_at'),
-      supabaseQuery('artists', 'id,name,slug,updated_at'),
+      supabaseQuery(supabaseUrl, supabaseKey, 'pieces', 'id,title,updated_at,created_at'),
+      supabaseQuery(supabaseUrl, supabaseKey, 'categories', 'id,name,slug,updated_at'),
+      supabaseQuery(supabaseUrl, supabaseKey, 'imams', 'id,name,slug,updated_at'),
+      supabaseQuery(supabaseUrl, supabaseKey, 'artists', 'id,name,slug,updated_at'),
     ]);
 
     let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';

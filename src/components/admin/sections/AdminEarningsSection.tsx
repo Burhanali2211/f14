@@ -5,7 +5,7 @@ import { Lock, Eye, EyeOff, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-const EARNINGS_ACCESS_KEY = 'PA$$WORD221188114logout';
+const EARNINGS_ACCESS_KEY = import.meta.env.VITE_EARNINGS_ACCESS_PASSWORD || '';
 
 export const AdminEarningsSection = memo(() => {
   const [isUnlocked, setIsUnlocked] = useState(false);

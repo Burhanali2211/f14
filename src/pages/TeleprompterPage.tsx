@@ -2,9 +2,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Play, Pause, SkipBack, SkipForward, Maximize2, Minimize2, Settings, Clock,
-  Home, Edit2, ArrowLeft, Loader2, PlayCircle, X, Timer, ChevronDown,
-  Smartphone, CheckCircle2, Trash2, Download, Cloud
+  Play, Pause, SkipBack, SkipForward, Settings, Clock,
+  Home, Edit2, ArrowLeft, Loader2, PlayCircle, X, Timer, ChevronDown
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,22 +23,14 @@ import type { TeleprompterSegment } from '@/lib/teleprompter-types';
 import {
   getSession,
   createSession,
-  updateProgress,
-    markSegmentCompleted,
-    incrementPracticeCount,
-    findSegmentIndexAtTime,
-    formatTime,
-    finishTeleprompterTask,
-  } from '@/lib/teleprompter-storage';
+  resetProgress,
+  findSegmentIndexAtTime,
+  formatTime,
+} from '@/lib/teleprompter-storage';
 import { UnifiedTeleprompterPlayer } from '@/components/media/UnifiedTeleprompterPlayer';
-import { AirSendDialog } from '@/components/media/AirSendDialog';
-import { R2AudioUploadDialog } from '@/components/media/R2AudioUploadDialog';
-import { FinishTaskDialog } from '@/components/media/FinishTaskDialog';
 import { TeleprompterDisplaySettings } from '@/components/media/TeleprompterDisplaySettings';
 import { TeleprompterPlaybackControls } from '@/components/media/TeleprompterPlaybackControls';
-import { toast } from '@/hooks/use-toast';
 import type { ImageRegion } from '@/components/media/ImageSegmentEditor';
-import { useR2Audio, AudioFile } from '@/hooks/useR2Audio';
 
 async function fetchPiece(id: string) {
   const { data, error } = await supabase
@@ -67,8 +58,8 @@ export default function TeleprompterPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const sessionRef = useRef<ReturnType<typeof getSession>>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<{ scrollToCurrentSegment: () => void; container: HTMLDivElement | null } | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const practiceStartRef = useRef<number | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const currentTimeRef = useRef(0);
@@ -77,9 +68,6 @@ export default function TeleprompterPage() {
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [playbackSpeed, setPlaybackSpeedState] = useState(1);
-  const [isLooping, setIsLooping] = useState(false);
-  const [loopStart, setLoopStart] = useState<number | null>(null);
-  const [loopEnd, setLoopEnd] = useState<number | null>(null);
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(-1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPlaybackMode, setIsPlaybackMode] = useState(false);
@@ -94,36 +82,23 @@ export default function TeleprompterPage() {
   const [highlightMode, setHighlightMode] = useState<'background' | 'border' | 'scale' | 'glow'>('background');
   const [scrollBehavior, setScrollBehavior] = useState<'smooth' | 'instant'>('smooth');
   const [showSettings, setShowSettings] = useState(false);
-  const [showFinishDialog, setShowFinishDialog] = useState(false);
 
   const [session, setSession] = useState<ReturnType<typeof getSession>>(null);
   const segments = useMemo(() => session?.segments || [], [session]);
 
   const [imageRegions, setImageRegions] = useState<ImageRegion[]>([]);
-  const [showAirSend, setShowAirSend] = useState(false);
-  const [showR2Upload, setShowR2Upload] = useState(false);
-  const [airSendAudioUrl, setAirSendAudioUrl] = useState<string | null>(null);
-  const [airSendAudioName, setAirSendAudioName] = useState<string | null>(null);
-  const [cloudAudio, setCloudAudio] = useState<AudioFile | null>(null);
-  const [cloudAudioStreamUrl, setCloudAudioStreamUrl] = useState<string | null>(null);
 
-const { getStreamUrl, getUserAudioFiles } = useR2Audio();
-    
-    const [pieceAudioStreamUrl, setPieceAudioStreamUrl] = useState<string | null>(null);
-
-    useEffect(() => {
-      const audioR2Key = piece?.audio_url;
-      if (audioR2Key && audioR2Key.startsWith('audio/')) {
-        const proxyUrl = `/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`;
-        setPieceAudioStreamUrl(proxyUrl);
-      } else if (audioR2Key && (audioR2Key.startsWith('http://') || audioR2Key.startsWith('https://'))) {
-        setPieceAudioStreamUrl(audioR2Key);
-      } else {
-        setPieceAudioStreamUrl(null);
-      }
-    }, [piece?.audio_url]);
-
-    const audioUrl = cloudAudioStreamUrl || airSendAudioUrl || pieceAudioStreamUrl;
+  const audioUrl = useMemo(() => {
+    const audioR2Key = piece?.audio_url;
+    if (!audioR2Key) return null;
+    if (audioR2Key.startsWith('audio/')) {
+      return `/api/r2-audio-proxy?key=${encodeURIComponent(audioR2Key)}`;
+    }
+    if (audioR2Key.startsWith('http://') || audioR2Key.startsWith('https://')) {
+      return audioR2Key;
+    }
+    return null;
+  }, [piece?.audio_url]);
 
   const pdfUrl = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);
@@ -146,7 +121,25 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     }
     sessionRef.current = existingSession;
     setSession(existingSession);
+
+    // Always start from the beginning when opening the teleprompter page
+    resetProgress(existingSession.id);
   }, [id, audioUrl]);
+
+  // Reset playback state and scroll to top when opening the page
+  useEffect(() => {
+    if (!id) return;
+    setCurrentTimeDisplay(0);
+    setCurrentSegmentIndex(-1);
+    currentTimeRef.current = 0;
+    // Scroll player content to top (will run after player mounts)
+    const scrollToTop = () => {
+      playerRef.current?.container?.scrollTo({ top: 0, behavior: 'auto' });
+    };
+    scrollToTop();
+    const t = setTimeout(scrollToTop, 100);
+    return () => clearTimeout(t);
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -197,6 +190,8 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
       setDuration(audio.duration);
       setIsLoaded(true);
       setError(null);
+      // Ensure we always start from the beginning
+      audio.currentTime = 0;
     };
 
     const handleError = () => {
@@ -205,15 +200,8 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     };
 
     const handleEnded = () => {
-      setIsPlaying(false);
-      if (practiceStartRef.current) {
-        const sid = sessionRef.current?.id;
-        if (sid) {
-          const practiceTime = Math.floor((Date.now() - practiceStartRef.current) / 1000);
-          incrementPracticeCount(sid, practiceTime);
-        }
-        practiceStartRef.current = null;
-      }
+      // Don't setIsPlaying(false) here - the playback loop handles stop/continuation
+      // (auto-stop at last segment end, or continue until segment end if audio ended first)
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
@@ -240,53 +228,13 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     
     if (newIndex !== currentSegmentIndex) {
       setCurrentSegmentIndex(newIndex);
-      
-      if (session) {
-        updateProgress(session.id, {
-          currentTime: time,
-          currentSegment: newIndex,
-        });
-      }
     }
-  }, [segments, currentSegmentIndex, session]);
+  }, [segments, currentSegmentIndex]);
 
   const currentTimeDisplayRef = useRef(0);
 
-  const updatePlaybackLoop = useCallback(() => {
-    const audio = audioRef.current;
-    if (!audio || !isPlaying) return;
-
-    const time = audio.currentTime;
-    currentTimeRef.current = time;
-    
-    if (isLooping && loopEnd !== null && time >= loopEnd) {
-      audio.currentTime = loopStart || 0;
-      currentTimeRef.current = loopStart || 0;
-    }
-
-    if (Math.abs(time - currentTimeDisplayRef.current) >= 0.05) {
-      currentTimeDisplayRef.current = time;
-      setCurrentTimeDisplay(time);
-    }
-    
-    updateCurrentSegment(time);
-
-    animationFrameRef.current = requestAnimationFrame(updatePlaybackLoop);
-  }, [isPlaying, isLooping, loopStart, loopEnd, updateCurrentSegment]);
-
-  useEffect(() => {
-    if (isPlaying) {
-      animationFrameRef.current = requestAnimationFrame(updatePlaybackLoop);
-    } else if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isPlaying, updatePlaybackLoop]);
+  const postAudioContinuationRef = useRef<number | null>(null);
+  const postAudioStartRef = useRef<number | null>(null);
 
   const play = useCallback(() => {
     const audio = audioRef.current;
@@ -294,9 +242,6 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
     audio.play().then(() => {
       setIsPlaying(true);
-      if (!practiceStartRef.current) {
-        practiceStartRef.current = Date.now();
-      }
     }).catch(err => {
       console.error('Playback failed:', err);
       setError('Playback failed. Please try again.');
@@ -329,26 +274,67 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     updateCurrentSegment(clampedTime);
   }, [duration, updateCurrentSegment]);
 
+  const sortedImageRegions = useMemo(
+    () => [...imageRegions].sort((a, b) => a.startTime - b.startTime),
+    [imageRegions]
+  );
+
+  const currentRegionIndex = useMemo(() => {
+    if (!sortedImageRegions.length) return -1;
+    const time = currentTimeDisplay;
+    for (let i = 0; i < sortedImageRegions.length; i++) {
+      if (time >= sortedImageRegions[i].startTime && time < sortedImageRegions[i].endTime) return i;
+    }
+    if (time < sortedImageRegions[0].startTime) return -1;
+    return sortedImageRegions.length - 1;
+  }, [sortedImageRegions, currentTimeDisplay]);
+
+  const hasSegments = segments.length > 0;
+  const hasImageRegions = sortedImageRegions.length > 0;
+  const navigableCount = hasSegments ? segments.length : hasImageRegions ? sortedImageRegions.length : 0;
+  const activeIndex = hasSegments ? currentSegmentIndex : hasImageRegions ? currentRegionIndex : -1;
+
+  const lastSegmentEndTime = useMemo(() => {
+    if (hasSegments && segments.length > 0) {
+      return segments[segments.length - 1].endTime;
+    }
+    if (hasImageRegions && sortedImageRegions.length > 0) {
+      return sortedImageRegions[sortedImageRegions.length - 1].endTime;
+    }
+    return null;
+  }, [hasSegments, hasImageRegions, segments, sortedImageRegions]);
+
+  const segmentTimeRemaining = useMemo(() => {
+    if (activeIndex < 0 || navigableCount === 0) return null;
+    const endTime = hasSegments && segments[activeIndex]
+      ? segments[activeIndex].endTime
+      : hasImageRegions && sortedImageRegions[activeIndex]
+        ? sortedImageRegions[activeIndex].endTime
+        : null;
+    if (endTime == null) return null;
+    const remaining = endTime - currentTimeDisplay;
+    return Math.max(0, remaining);
+  }, [activeIndex, navigableCount, hasSegments, hasImageRegions, segments, sortedImageRegions, currentTimeDisplay]);
+
   const seekToSegment = useCallback((index: number) => {
-    if (!segments[index]) return;
-    seek(segments[index].startTime);
-  }, [segments, seek]);
+    if (hasSegments && segments[index]) {
+      seek(segments[index].startTime);
+    } else if (hasImageRegions && sortedImageRegions[index]) {
+      seek(sortedImageRegions[index].startTime);
+    }
+  }, [segments, sortedImageRegions, hasSegments, hasImageRegions, seek]);
 
   const goToNextSegment = useCallback(() => {
-    if (!segments.length) return;
-    const nextIndex = Math.min(currentSegmentIndex + 1, segments.length - 1);
+    if (navigableCount === 0) return;
+    const nextIndex = Math.min(activeIndex + 1, navigableCount - 1);
     seekToSegment(nextIndex);
-    
-    if (currentSegmentIndex >= 0 && session) {
-      markSegmentCompleted(session.id, currentSegmentIndex);
-    }
-  }, [segments, currentSegmentIndex, seekToSegment, session]);
+  }, [navigableCount, activeIndex, seekToSegment]);
 
   const goToPreviousSegment = useCallback(() => {
-    if (!segments.length) return;
-    const prevIndex = Math.max(currentSegmentIndex - 1, 0);
+    if (navigableCount === 0) return;
+    const prevIndex = Math.max(activeIndex - 1, 0);
     seekToSegment(prevIndex);
-  }, [segments, currentSegmentIndex, seekToSegment]);
+  }, [navigableCount, activeIndex, seekToSegment]);
 
   const handleVolumeChange = useCallback((newVolume: number) => {
     const audio = audioRef.current;
@@ -378,20 +364,6 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     setPlaybackSpeedState(clampedSpeed);
   }, []);
 
-  const loopCurrentSegment = useCallback(() => {
-    if (!segments[currentSegmentIndex]) return;
-    const segment = segments[currentSegmentIndex];
-    setLoopStart(segment.startTime);
-    setLoopEnd(segment.endTime);
-    setIsLooping(true);
-  }, [segments, currentSegmentIndex]);
-
-  const clearLoop = useCallback(() => {
-    setIsLooping(false);
-    setLoopStart(null);
-    setLoopEnd(null);
-  }, []);
-
   const skipForward = useCallback((seconds: number = 5) => {
     seek(currentTimeRef.current + seconds);
   }, [seek]);
@@ -412,6 +384,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
   const stopPlayback = useCallback(() => {
     pause();
+    postAudioStartRef.current = null;
     setIsCountingDown(false);
     setCountdown(null);
     if (countdownIntervalRef.current) {
@@ -422,22 +395,89 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
       cancelAnimationFrame(animationFrameRef.current);
       animationFrameRef.current = null;
     }
-  }, [pause]);
+    if (postAudioContinuationRef.current) {
+      cancelAnimationFrame(postAudioContinuationRef.current);
+      postAudioContinuationRef.current = null;
+    }
+    // Reset to beginning so next start begins from the start
+    seek(0);
+  }, [pause, seek]);
+
+  const lastSegmentEndTimeRef = useRef<number | null>(null);
+  lastSegmentEndTimeRef.current = lastSegmentEndTime;
+
+  const updatePlaybackLoop = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || !isPlaying) return;
+
+    const lastEnd = lastSegmentEndTimeRef.current;
+    let time: number;
+
+    // If audio ended before last segment end, continue advancing time until segment end
+    if (
+      audio.ended &&
+      lastEnd != null &&
+      audio.duration < lastEnd
+    ) {
+      if (postAudioStartRef.current == null) {
+        postAudioStartRef.current = performance.now();
+      }
+      const elapsed = (performance.now() - postAudioStartRef.current) / 1000;
+      time = Math.min(audio.duration + elapsed, lastEnd);
+      currentTimeRef.current = time;
+
+      if (time >= lastEnd) {
+        postAudioStartRef.current = null;
+        stopPlayback();
+        return;
+      }
+      currentTimeDisplayRef.current = time;
+      setCurrentTimeDisplay(time);
+      updateCurrentSegment(time);
+    } else {
+      // Normal playback from audio
+      postAudioStartRef.current = null;
+      time = audio.currentTime;
+      currentTimeRef.current = time;
+
+      // Stop when audio ends and we have no segments, or when past last segment end
+      if (audio.ended && lastEnd == null) {
+        stopPlayback();
+        return;
+      }
+      if (lastEnd != null && time >= lastEnd) {
+        stopPlayback();
+        return;
+      }
+
+      if (Math.abs(time - currentTimeDisplayRef.current) >= 0.05) {
+        currentTimeDisplayRef.current = time;
+        setCurrentTimeDisplay(time);
+      }
+      updateCurrentSegment(time);
+    }
+
+    animationFrameRef.current = requestAnimationFrame(updatePlaybackLoop);
+  }, [isPlaying, updateCurrentSegment, stopPlayback]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      animationFrameRef.current = requestAnimationFrame(updatePlaybackLoop);
+    } else if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isPlaying, updatePlaybackLoop]);
 
   const navigateAway = useCallback((path: string) => {
     stopPlayback();
     navigate(path);
   }, [stopPlayback, navigate]);
-
-  const handleFinishTask = useCallback(() => {
-    if (!id) return;
-    finishTeleprompterTask(id);
-    toast({
-      title: 'Task completed',
-      description: 'All teleprompter data for this piece has been deleted.',
-    });
-    navigateAway(`/piece/${id}`);
-  }, [id, navigateAway]);
 
   const enterPlaybackMode = useCallback(async (delaySeconds?: number) => {
     setIsPlaybackMode(true);
@@ -478,14 +518,14 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
-    pause();
+    stopPlayback();
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen?.();
       } catch {}
     }
     setIsFullscreen(false);
-  }, [pause]);
+  }, [stopPlayback]);
 
   useEffect(() => {
     return () => {
@@ -505,17 +545,17 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
         case 'ArrowLeft':
           e.preventDefault();
           if (e.shiftKey) {
-            goToPreviousSegment();
-          } else {
             skipBackward(5);
+          } else {
+            goToPreviousSegment();
           }
           break;
         case 'ArrowRight':
           e.preventDefault();
           if (e.shiftKey) {
-            goToNextSegment();
-          } else {
             skipForward(5);
+          } else {
+            goToNextSegment();
           }
           break;
         case 'ArrowUp':
@@ -529,14 +569,6 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
         case 'KeyM':
           e.preventDefault();
           toggleMute();
-          break;
-        case 'KeyL':
-          e.preventDefault();
-          if (isLooping) {
-            clearLoop();
-          } else {
-            loopCurrentSegment();
-          }
           break;
         case 'KeyF':
           e.preventDefault();
@@ -556,7 +588,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [volume, isLooping, isFullscreen, isPlaybackMode, id, exitPlaybackMode, toggleFullscreen, navigateAway, togglePlay, goToPreviousSegment, goToNextSegment, skipBackward, skipForward, handleVolumeChange, toggleMute, loopCurrentSegment, clearLoop, stopPlayback]);
+  }, [volume, isFullscreen, isPlaybackMode, id, exitPlaybackMode, toggleFullscreen, navigateAway, togglePlay, goToPreviousSegment, goToNextSegment, skipBackward, skipForward, handleVolumeChange, toggleMute, stopPlayback]);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -577,48 +609,6 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
     const percentage = x / rect.width;
     seek(percentage * duration);
   };
-
-  const handleAirSendAudioReceived = useCallback((url: string, name: string) => {
-    setAirSendAudioUrl(url);
-    setAirSendAudioName(name);
-  }, []);
-
-  const lastCloudAudioPieceRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!id) return;
-    if (lastCloudAudioPieceRef.current === id) return;
-    lastCloudAudioPieceRef.current = id;
-
-    let cancelled = false;
-    const loadCloudAudio = async () => {
-      try {
-        const audioFiles = await getUserAudioFiles(id);
-        if (cancelled) return;
-        if (audioFiles.length > 0) {
-          const latestAudio = audioFiles[0];
-          setCloudAudio(latestAudio);
-          const streamUrl = await getStreamUrl(latestAudio.id);
-          if (cancelled) return;
-          setCloudAudioStreamUrl(streamUrl);
-        }
-      } catch (err) {
-        if (!cancelled) console.error('Failed to load cloud audio:', err);
-      }
-    };
-
-    loadCloudAudio();
-    return () => { cancelled = true; };
-  }, [id, getUserAudioFiles, getStreamUrl]);
-
-  const handleCloudAudioUploaded = useCallback(async (audioFile: AudioFile) => {
-    setCloudAudio(audioFile);
-    try {
-      const streamUrl = await getStreamUrl(audioFile.id);
-      setCloudAudioStreamUrl(streamUrl);
-    } catch (err) {
-      console.error('Failed to get stream URL:', err);
-    }
-  }, [getStreamUrl]);
 
   const autoplayTriggeredRef = useRef(false);
   useEffect(() => {
@@ -712,6 +702,17 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
                 </div>
               </div>
             )}
+            {!isCountingDown && segmentTimeRemaining != null && (
+              <div
+                className="absolute top-3 left-3 z-40 flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/60 backdrop-blur-sm border border-white/10"
+                title="Time left in this segment"
+              >
+                <Clock className="w-3 h-3 text-white/80 shrink-0" />
+                <span className="text-[11px] font-medium tabular-nums text-white/90">
+                  {formatTime(segmentTimeRemaining)}
+                </span>
+              </div>
+            )}
             <header className="absolute top-0 left-0 right-0 z-50 p-4 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300">
             <Button
               variant="ghost"
@@ -756,6 +757,7 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
 
           <main className="absolute inset-0 overflow-hidden">
                     <UnifiedTeleprompterPlayer
+                      ref={playerRef}
                       pieceId={id!}
                       title={piece.title}
                       imageUrls={imageUrls}
@@ -784,19 +786,19 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
                   progress={progress}
                   isPlaying={isPlaying}
                   isLoaded={isLoaded}
-                  isLooping={isLooping}
+                  isLooping={false}
                   volume={volume}
                   isMuted={isMuted}
                   playbackSpeed={playbackSpeed}
-                  segmentsLength={segments.length}
-                  currentSegmentIndex={currentSegmentIndex}
+                  segmentsLength={navigableCount}
+                  currentSegmentIndex={activeIndex}
                   onProgressClick={handleProgressClick}
                   onTogglePlay={togglePlay}
                   onPreviousSegment={goToPreviousSegment}
                   onNextSegment={goToNextSegment}
                   onSkipBackward={skipBackward}
                   onSkipForward={skipForward}
-                  onLoopToggle={isLooping ? clearLoop : loopCurrentSegment}
+                  onLoopToggle={() => {}}
                   onVolumeChange={handleVolumeChange}
                   onMuteToggle={toggleMute}
                   onSpeedChange={handleSetPlaybackSpeed}
@@ -807,319 +809,121 @@ const { getStreamUrl, getUserAudioFiles } = useR2Audio();
         </>
       ) : (
         <>
-            <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
-              <div className="max-w-[1600px] mx-auto px-4 min-h-[5rem] md:min-h-[6rem] py-2 grid grid-cols-3 items-center">
-                {/* Left: Navigation & Info */}
-                <div className="flex items-center gap-4 min-w-0">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigateAway(`/piece/${id}`)}
-                    className="h-10 w-10 rounded-full hover:bg-accent/50 shrink-0"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </Button>
-                  
-                    <div className="flex flex-col min-w-0 hidden lg:flex">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-primary/60">Teleprompter</span>
-                        {audioUrl && (
-                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-green-500/10 rounded-full border border-green-500/20">
-                            <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[9px] font-bold text-green-600 uppercase tracking-tighter">Active</span>
-                          </div>
-                        )}
-                      </div>
-                      {audioUrl && (
-                          <div className="flex items-center gap-2 group max-w-[280px]">
-                            <div className="flex items-center gap-2 px-2 py-0.5 bg-accent/30 rounded-md border border-border/50 transition-colors group-hover:bg-accent/50 overflow-hidden min-w-0">
-                              {cloudAudioStreamUrl ? (
-                                <Cloud className="w-3 h-3 text-blue-500 shrink-0" />
-                              ) : (
-                                <Smartphone className="w-3 h-3 text-muted-foreground shrink-0" />
-                              )}
-                              <span className="text-[10px] font-semibold text-foreground/70 truncate">
-                                {cloudAudio?.filename ? 
-                                  (cloudAudio.filename.length > 15 ? `${cloudAudio.filename.substring(0, 10)}...${cloudAudio.filename.split('.').pop()}` : cloudAudio.filename) :
-                                  airSendAudioName ? 
-                                  (airSendAudioName.length > 15 ? `${airSendAudioName.substring(0, 10)}...${airSendAudioName.split('.').pop()}` : airSendAudioName) : 
-                                  (typeof audioUrl === 'string' ? 
-                                    (() => {
-                                      const name = decodeURIComponent(audioUrl.split('/').pop() || '').replace(/^\d+-\d+\./, '');
-                                      return name.length > 15 ? `${name.substring(0, 10)}...${name.split('.').pop()}` : name;
-                                    })() : 'Active Audio'
-                                  )
-                                }
-                              </span>
-                              {cloudAudioStreamUrl && (
-                                <span className="text-[8px] px-1 py-0.5 bg-blue-500/10 text-blue-600 rounded font-bold">CLOUD</span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 rounded-md hover:bg-accent"
-                                onClick={() => {
-                                  if (audioUrl) {
-                                    const a = document.createElement('a');
-                                    a.href = audioUrl;
-                                    a.download = cloudAudio?.filename || airSendAudioName || 'audio-file';
-                                    a.click();
-                                  }
-                                }}
-                                title="Download audio"
-                              >
-                                <Download className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 rounded-md hover:bg-red-50 text-red-500"
-                                onClick={() => {
-                                  if (cloudAudioStreamUrl) {
-                                    setCloudAudioStreamUrl(null);
-                                    setCloudAudio(null);
-                                  } else {
-                                    setAirSendAudioUrl(null);
-                                    setAirSendAudioName(null);
-                                  }
-                                  toast({ title: 'Audio cleared' });
-                                }}
-                                title="Clear audio"
-                              >
-                                <X className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 rounded-md hover:bg-blue-50 text-blue-600"
-                                onClick={() => setShowR2Upload(true)}
-                                title="Upload to cloud"
-                              >
-                                <Cloud className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6 rounded-md hover:bg-accent"
-                                onClick={() => setShowAirSend(true)}
-                                title="AirSend from phone"
-                              >
-                                <Smartphone className="w-3 h-3" />
-                              </Button>
-                            </div>
-                          </div>
-                      )}
-                      {!audioUrl && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 gap-1.5 text-xs"
-                            onClick={() => setShowR2Upload(true)}
-                          >
-                            <Cloud className="w-3 h-3" />
-                            Cloud
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 px-2 gap-1.5 text-xs"
-                            onClick={() => setShowAirSend(true)}
-                          >
-                            <Smartphone className="w-3 h-3" />
-                            AirSend
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                </div>
-  
-                {/* Center: Title & Main Control */}
-                  <div className="flex flex-col items-center gap-2 min-w-0 px-2">
-                    <h1 
-                      className="text-lg md:text-xl font-bold tracking-tight text-center overflow-visible w-full max-w-[400px] py-1"
-                      dir="rtl"
-                      style={{ 
-                        fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif",
-                        lineHeight: '1.6'
-                      }}
+          <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50">
+            <div className="max-w-[1600px] mx-auto px-4 min-h-[5rem] py-2 flex items-center justify-between gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigateAway(`/piece/${id}`)}
+                className="h-10 w-10 rounded-full hover:bg-accent/50 shrink-0"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+
+              <h1
+                className="text-lg md:text-xl font-bold tracking-tight text-center overflow-hidden flex-1 min-w-0 truncate px-2"
+                dir="rtl"
+                style={{ fontFamily: "'Noto Nastaliq Urdu', 'Cairo', sans-serif", lineHeight: '1.6' }}
+              >
+                {piece.title}
+              </h1>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {((audioUrl && isLoaded) || segments.length > 0 || imageRegions.length > 0) && (
+                  <div className="flex items-center shadow-lg shadow-primary/10 rounded-full bg-primary overflow-hidden h-9">
+                    <Button
+                      size="sm"
+                      className="rounded-none h-full px-5 hover:bg-primary/90 transition-colors font-bold text-[11px] uppercase tracking-wider"
+                      onClick={() => enterPlaybackMode()}
                     >
-                      {piece.title}
-                    </h1>
-                  
-                  {audioUrl && isLoaded && (
-                    <div className="flex items-center shadow-lg shadow-primary/10 rounded-full bg-primary overflow-hidden h-9">
-                      <Button
-                        size="sm"
-                        className="rounded-none h-full px-5 hover:bg-primary/90 transition-colors font-bold text-[11px] uppercase tracking-wider"
-                        onClick={() => enterPlaybackMode()}
-                      >
-                        <PlayCircle className="w-3.5 h-3.5 mr-2" />
-                        Start
-                      </Button>
-                      <div className="w-px h-4 bg-primary-foreground/20" />
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            className="rounded-none h-full px-2 hover:bg-primary/90 transition-colors"
-                          >
-                            <ChevronDown className="w-3.5 h-3.5" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="center" className="w-48">
-                          <DropdownMenuItem onClick={() => enterPlaybackMode()} className="gap-2">
-                            <Play className="w-4 h-4" />
-                            <span>Start Now</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => enterPlaybackMode(3)} className="gap-2">
-                            <Timer className="w-4 h-4" />
-                            <span>Start in 3s</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => enterPlaybackMode(5)} className="gap-2">
-                            <Timer className="w-4 h-4" />
-                            <span>Start in 5s</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => enterPlaybackMode(10)} className="gap-2">
-                            <Timer className="w-4 h-4" />
-                            <span>Start in 10s</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  )}
-                </div>
-  
-                {/* Right: Actions */}
-                <div className="flex items-center justify-end gap-1">
-                  <Popover open={showSettings} onOpenChange={setShowSettings}>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-accent">
-                        <Settings className="w-5 h-5 text-muted-foreground" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-72 mt-2" align="end">
-                      <TeleprompterDisplaySettings
-                        fontSize={fontSize}
-                        onFontSizeChange={setFontSize}
-                        imageZoom={imageZoom}
-                        onImageZoomChange={setImageZoom}
-                        highlightMode={highlightMode}
-                        onHighlightModeChange={setHighlightMode}
-                        scrollBehavior={scrollBehavior}
-                        onScrollBehaviorChange={setScrollBehavior}
-                      />
-                    </PopoverContent>
-                  </Popover>
-  
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 rounded-full hover:bg-accent"
-                    onClick={() => navigateAway(`/piece/${id}/teleprompter/image-edit`)}
-                  >
-                    <Edit2 className="w-5 h-5 text-muted-foreground" />
-                  </Button>
-  
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 rounded-full hover:bg-green-50 text-green-600 hover:text-green-700"
-                    onClick={() => setShowFinishDialog(true)}
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                  </Button>
-  
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 rounded-full hover:bg-accent hidden md:flex"
-                    onClick={toggleFullscreen}
-                  >
-                    {isFullscreen ? (
-                      <Minimize2 className="w-5 h-5 text-muted-foreground" />
-                    ) : (
-                      <Maximize2 className="w-5 h-5 text-muted-foreground" />
+                      <PlayCircle className="w-3.5 h-3.5 mr-2" />
+                      Start
+                    </Button>
+                    {audioUrl && isLoaded && (
+                      <>
+                        <div className="w-px h-4 bg-primary-foreground/20" />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" className="rounded-none h-full px-2 hover:bg-primary/90 transition-colors">
+                              <ChevronDown className="w-3.5 h-3.5" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => enterPlaybackMode()} className="gap-2">
+                              <Play className="w-4 h-4" />
+                              <span>Start Now</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => enterPlaybackMode(3)} className="gap-2">
+                              <Timer className="w-4 h-4" />
+                              <span>Start in 3s</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => enterPlaybackMode(5)} className="gap-2">
+                              <Timer className="w-4 h-4" />
+                              <span>Start in 5s</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => enterPlaybackMode(10)} className="gap-2">
+                              <Timer className="w-4 h-4" />
+                              <span>Start in 10s</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </>
                     )}
-                  </Button>
-                </div>
+                  </div>
+                )}
+                <Popover open={showSettings} onOpenChange={setShowSettings}>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-accent">
+                      <Settings className="w-5 h-5 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 mt-2" align="end">
+                    <TeleprompterDisplaySettings
+                      fontSize={fontSize}
+                      onFontSizeChange={setFontSize}
+                      imageZoom={imageZoom}
+                      onImageZoomChange={setImageZoom}
+                      highlightMode={highlightMode}
+                      onHighlightModeChange={setHighlightMode}
+                      scrollBehavior={scrollBehavior}
+                      onScrollBehaviorChange={setScrollBehavior}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full hover:bg-accent"
+                  onClick={() => navigateAway(`/piece/${id}/teleprompter/image-edit`)}
+                  title="Edit image regions"
+                >
+                  <Edit2 className="w-5 h-5 text-muted-foreground" />
+                </Button>
               </div>
-            </header>
+            </div>
+          </header>
 
-      <main className="flex-1 overflow-hidden">
-        <UnifiedTeleprompterPlayer
-          pieceId={id!}
-          title={piece.title}
-          imageUrls={imageUrls}
-          pdfUrl={pdfUrl}
-          textContent={textContent}
-          segments={segments}
-          imageRegions={imageRegions}
-          currentTime={currentTimeDisplay}
-          isPlaying={isPlaying}
-          fontSize={fontSize}
-          imageZoom={imageZoom}
-          scrollBehavior={scrollBehavior}
-          highlightMode={highlightMode}
-          onSeekToSegment={seekToSegment}
-          onNavigateToEditor={() => navigateAway(`/piece/${id}/teleprompter/edit`)}
-          onNavigateToImageEditor={() => navigateAway(`/piece/${id}/teleprompter/image-edit`)}
-        />
-      </main>
-
-      {audioUrl && (
-        <footer className="sticky bottom-0 bg-background/95 backdrop-blur-md border-t border-border">
-          <TeleprompterPlaybackControls
-            currentTime={currentTimeDisplay}
-            duration={duration}
-            progress={progress}
-            isPlaying={isPlaying}
-            isLoaded={isLoaded}
-            isLooping={isLooping}
-            volume={volume}
-            isMuted={isMuted}
-            playbackSpeed={playbackSpeed}
-            segmentsLength={segments.length}
-            currentSegmentIndex={currentSegmentIndex}
-            onProgressClick={handleProgressClick}
-            onTogglePlay={togglePlay}
-            onPreviousSegment={goToPreviousSegment}
-            onNextSegment={goToNextSegment}
-            onSkipBackward={skipBackward}
-            onSkipForward={skipForward}
-            onLoopToggle={isLooping ? clearLoop : loopCurrentSegment}
-            onVolumeChange={handleVolumeChange}
-            onMuteToggle={toggleMute}
-            onSpeedChange={handleSetPlaybackSpeed}
-          />
-        </footer>
-      )}
-
-
-
-        <AirSendDialog
-          open={showAirSend}
-          onOpenChange={setShowAirSend}
-          pieceId={id!}
-          onAudioReceived={handleAirSendAudioReceived}
-          onCloudAudioUploaded={handleCloudAudioUploaded}
-        />
-
-        <R2AudioUploadDialog
-          open={showR2Upload}
-          onOpenChange={setShowR2Upload}
-          pieceId={id!}
-          onAudioUploaded={handleCloudAudioUploaded}
-          existingAudio={cloudAudio}
-        />
-
-        <FinishTaskDialog
-          open={showFinishDialog}
-          onOpenChange={setShowFinishDialog}
-          onConfirm={handleFinishTask}
-        />
+          <main className="flex-1 overflow-hidden">
+            <UnifiedTeleprompterPlayer
+              ref={playerRef}
+              pieceId={id!}
+              title={piece.title}
+              imageUrls={imageUrls}
+              pdfUrl={pdfUrl}
+              textContent={textContent}
+              segments={segments}
+              imageRegions={imageRegions}
+              currentTime={currentTimeDisplay}
+              isPlaying={isPlaying}
+              fontSize={fontSize}
+              imageZoom={imageZoom}
+              scrollBehavior={scrollBehavior}
+              highlightMode={highlightMode}
+              onSeekToSegment={seekToSegment}
+              onNavigateToEditor={() => navigateAway(`/piece/${id}/teleprompter/edit`)}
+              onNavigateToImageEditor={() => navigateAway(`/piece/${id}/teleprompter/image-edit`)}
+            />
+          </main>
         </>
       )}
     </div>

@@ -110,7 +110,7 @@ export function TeleprompterPlaybackControls({
               onClick={onPreviousSegment}
               disabled={currentSegmentIndex <= 0 || segmentsLength === 0}
               className={buttonClass}
-              title="Previous segment (Shift+Left)"
+              title="Previous segment (Left)"
             >
               <SkipBack className={iconSize} />
             </Button>
@@ -119,7 +119,7 @@ export function TeleprompterPlaybackControls({
               size="icon"
               onClick={() => onSkipBackward(5)}
               className={buttonClass}
-              title="Rewind 5s (Left)"
+              title="Rewind 5s (Shift+Left)"
             >
               <RotateCcw className={iconSize} />
             </Button>
@@ -141,7 +141,7 @@ export function TeleprompterPlaybackControls({
               size="icon"
               onClick={() => onSkipForward(5)}
               className={buttonClass}
-              title="Forward 5s (Right)"
+              title="Forward 5s (Shift+Right)"
             >
               <RotateCw className={iconSize} />
             </Button>
@@ -151,7 +151,7 @@ export function TeleprompterPlaybackControls({
               onClick={onNextSegment}
               disabled={currentSegmentIndex >= segmentsLength - 1 || segmentsLength === 0}
               className={buttonClass}
-              title="Next segment (Shift+Right)"
+              title="Next segment (Right)"
             >
               <SkipForward className={iconSize} />
             </Button>

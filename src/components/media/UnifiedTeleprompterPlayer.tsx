@@ -63,6 +63,16 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
   const [currentSegmentIndex, setCurrentSegmentIndex] = useState(-1);
   const [imageDimensions, setImageDimensions] = useState<Map<number, {width: number, height: number}>>(new Map());
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [cueGlowSegmentIndex, setCueGlowSegmentIndex] = useState(-1);
+  const [cueGlowRegionIndex, setCueGlowRegionIndex] = useState(-1);
+  const prevSegmentIndexRef = useRef(-1);
+  const prevRegionIndexRef = useRef(-1);
+  const prevPlaybackModeRef = useRef(false);
+  const prevIsPlayingRef = useRef(false);
+  const currentSegmentIndexRef = useRef(currentSegmentIndex);
+  const currentRegionIndexRef = useRef(currentRegionIndex);
+  currentSegmentIndexRef.current = currentSegmentIndex;
+  currentRegionIndexRef.current = currentRegionIndex;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -203,6 +213,67 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
     }
   }, [currentRegionIndex, isPlaying, scrollToRegion, contentType]);
 
+  // Reset cue refs when playback stops so first segment glows on next start
+  useEffect(() => {
+    if (!isPlaying) {
+      prevSegmentIndexRef.current = -1;
+      prevRegionIndexRef.current = -1;
+    }
+  }, [isPlaying]);
+
+  // Cue glow: brief glow when segment/region becomes active — ONLY in fullscreen playback mode
+  useEffect(() => {
+    if (!isPlaybackMode) return;
+    if (contentType === 'segments' && currentSegmentIndex >= 0 && currentSegmentIndex !== prevSegmentIndexRef.current) {
+      prevSegmentIndexRef.current = currentSegmentIndex;
+      setCueGlowSegmentIndex(currentSegmentIndex);
+      const t = setTimeout(() => setCueGlowSegmentIndex(-1), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [isPlaybackMode, contentType, currentSegmentIndex]);
+
+  useEffect(() => {
+    if (!isPlaybackMode) return;
+    if (contentType === 'images' && currentRegionIndex >= 0 && currentRegionIndex !== prevRegionIndexRef.current) {
+      prevRegionIndexRef.current = currentRegionIndex;
+      setCueGlowRegionIndex(currentRegionIndex);
+      const t = setTimeout(() => setCueGlowRegionIndex(-1), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [isPlaybackMode, contentType, currentRegionIndex]);
+
+  // Trigger glow when entering fullscreen playback or when playback starts (first segment)
+  useEffect(() => {
+    if (!isPlaybackMode) return;
+    const justEnteredPlayback = !prevPlaybackModeRef.current;
+    const justStartedPlaying = isPlaying && !prevIsPlayingRef.current;
+    prevPlaybackModeRef.current = true;
+    prevIsPlayingRef.current = !!isPlaying;
+    const shouldTrigger = isPlaying && (justEnteredPlayback || justStartedPlaying);
+    if (shouldTrigger) {
+      let cancelled = false;
+      const triggerGlow = (attempt = 0) => {
+        if (cancelled) return;
+        const segIdx = currentSegmentIndexRef.current;
+        const regIdx = currentRegionIndexRef.current;
+        if (contentType === 'segments' && segIdx >= 0) {
+          setCueGlowSegmentIndex(segIdx);
+          setTimeout(() => !cancelled && setCueGlowSegmentIndex(-1), 1000);
+        } else if (contentType === 'images' && regIdx >= 0) {
+          setCueGlowRegionIndex(regIdx);
+          setTimeout(() => !cancelled && setCueGlowRegionIndex(-1), 1000);
+        } else if (attempt < 8) {
+          setTimeout(() => triggerGlow(attempt + 1), 80);
+        }
+      };
+      const t = setTimeout(() => triggerGlow(0), 200);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
+    }
+  }, [isPlaybackMode, isPlaying, contentType, currentSegmentIndex, currentRegionIndex]);
+
   useImperativeHandle(ref, () => ({
     scrollToCurrentSegment: () => {
       if (currentSegmentIndex >= 0) {
@@ -307,9 +378,13 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                   <div 
                     className={cn(
                       "relative w-full overflow-hidden transition-all duration-500",
-                      isPlaybackMode ? "h-full bg-black rounded-none border-0 shadow-none" : "aspect-[3/4] bg-white shadow-2xl rounded-lg border"
+                      isPlaybackMode ? "h-full bg-black rounded-none border-0 shadow-none" : "aspect-[3/4] bg-white shadow-2xl rounded-lg border",
+                      isPlaybackMode && currentRegionIndex === cueGlowRegionIndex && "animate-cue-glow-bright"
                     )}
                   >
+                    {isPlaybackMode && currentRegionIndex === cueGlowRegionIndex && (
+                      <div className="absolute inset-0 pointer-events-none animate-cue-glow-bright" />
+                    )}
                   {imageUrls.map((url, idx) => (
                     <div
                       key={idx}
@@ -381,20 +456,21 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                               "absolute transition-all duration-500 pointer-events-none",
                                 highlightMode === 'background' && cn(
                                   "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.8)]",
-                                  !isPlaybackMode && "border-2 border-primary"
+                                  "border-2 border-primary"
                                 ),
                                 highlightMode === 'border' && cn(
                                   "shadow-[0_0_20px_rgba(var(--primary),0.5)]",
-                                  !isPlaybackMode && "border-4 border-primary"
+                                  "border-4 border-primary"
                                 ),
                                 highlightMode === 'glow' && cn(
                                   "shadow-[0_0_40px_rgba(var(--primary),0.3),0_0_0_9999px_rgba(0,0,0,0.7)]",
-                                  !isPlaybackMode && "border-2 border-primary"
+                                  "border-2 border-primary"
                                 ),
                                 highlightMode === 'scale' && cn(
                                   "bg-primary/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.6)] scale-110",
-                                  !isPlaybackMode && "border-2 border-primary"
+                                  "border-2 border-primary"
                                 )
+                                // cue glow only in fullscreen playback, not in preview
                               )}
                             style={{
                               left: `${currentRegion.x}%`,
@@ -518,7 +594,8 @@ export const UnifiedTeleprompterPlayer = memo(forwardRef<UnifiedPlayerHandle, Un
                       "relative p-4 md:p-6 rounded-xl transition-all duration-300 cursor-pointer border",
                       getHighlightClass(isActive),
                       isPast && "opacity-50",
-                      !isActive && !isPast && "hover:bg-muted/50"
+                      !isActive && !isPast && "hover:bg-muted/50",
+                      isPlaybackMode && isActive && index === cueGlowSegmentIndex && "animate-cue-glow-bright"
                     )}
                     style={{ fontSize: `${fontSize}px` }}
                   >

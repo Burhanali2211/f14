@@ -188,12 +188,12 @@ class NotificationService {
       let subscription = await this.serviceWorkerRegistration.pushManager.getSubscription();
       
       if (!subscription) {
-        // Create new subscription
-        // Note: For production, you need VAPID keys. For now, we'll use a placeholder
-        // In production, get VAPID public key from your backend
-        const applicationServerKey = this.urlBase64ToUint8Array(
-          'BEl62iUYgUivxIkv69yViEuiBIa40HI2vO0g8bWnQz8' // Placeholder - replace with your VAPID public key
-        );
+        const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+        if (!vapidPublicKey) {
+          logger.warn('VITE_VAPID_PUBLIC_KEY not set - push subscriptions disabled');
+          return;
+        }
+        const applicationServerKey = this.urlBase64ToUint8Array(vapidPublicKey);
         
         try {
           subscription = await this.serviceWorkerRegistration.pushManager.subscribe({

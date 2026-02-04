@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const AIRSEND_SUPABASE_URL = 'https://ysacmemkrnmczmtkfqad.supabase.co';
-const AIRSEND_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNtZW1rcm5tY3ptdGtmcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUzNjE3OTgsImV4cCI6MjA4MDkzNzc5OH0.qCvfISmTCwJkBnfQnwTBfpjohAnTwt5VWuZHOR_HhZY';
+const AIRSEND_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const AIRSEND_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+if (!AIRSEND_SUPABASE_URL || !AIRSEND_SUPABASE_KEY) {
+  throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY/VITE_SUPABASE_PUBLISHABLE_KEY for AirSend client');
+}
 
 export const airsendSupabase = createClient(AIRSEND_SUPABASE_URL, AIRSEND_SUPABASE_KEY, {
   realtime: {

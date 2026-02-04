@@ -7,6 +7,8 @@ interface PaginationProps {
   totalItems: number;
   itemsPerPage: number;
   onPageChange: (page: number) => void;
+  /** Label for items (e.g. "recitations", "pieces"). Default: "recitations" */
+  itemLabel?: string;
 }
 
 export const Pagination = ({ 
@@ -14,7 +16,8 @@ export const Pagination = ({
   totalPages, 
   totalItems, 
   itemsPerPage,
-  onPageChange 
+  onPageChange,
+  itemLabel = 'recitations',
 }: PaginationProps) => {
   if (totalPages <= 1) return null;
   
@@ -26,7 +29,7 @@ export const Pagination = ({
       <div className="text-sm text-muted-foreground text-center sm:text-left" aria-live="polite">
         Showing <span className="font-medium">{startItem}</span> to{' '}
         <span className="font-medium">{endItem}</span> of{' '}
-        <span className="font-medium">{totalItems}</span> recitations
+        <span className="font-medium">{totalItems}</span> {itemLabel}
       </div>
       <div className="flex items-center gap-2">
         <Button 
