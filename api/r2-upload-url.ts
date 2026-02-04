@@ -60,9 +60,11 @@ async function createPresignedUrl(
   contentType: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
   const region = 'auto';
   const service = 's3';
+  // Virtual-hosted style (Cloudflare R2 preferred): bucket.accountid.r2.cloudflarestorage.com/key
+  const host = `${bucket}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const endpoint = `https://${host}`;
   
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
@@ -71,7 +73,7 @@ async function createPresignedUrl(
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
   const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
   
-  const canonicalUri = `/${bucket}/${key}`;
+  const canonicalUri = `/${key}`;
   
   const queryParams = new URLSearchParams({
     'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
@@ -83,7 +85,6 @@ async function createPresignedUrl(
   
   const canonicalQueryString = queryParams.toString().split('&').sort().join('&');
   
-  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
   const canonicalHeaders = `content-type:${contentType}\nhost:${host}\n`;
   const signedHeaders = 'content-type;host';
   
@@ -168,7 +169,7 @@ export default async function handler(request: Request) {
     const userId = auth?.userId || 'anonymous';
 
     const body = await request.json();
-    const { filename, contentType, fileSize, pieceId } = body;
+    const { filename, contentType, fileSize, pieceId, useProxy } = body;
 
     if (!filename || !contentType || !fileSize) {
       return new Response(JSON.stringify({ error: 'Missing required fields: filename, contentType, fileSize' }), {
@@ -194,6 +195,63 @@ export default async function handler(request: Request) {
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = Date.now();
     const r2Key = `audio/${userId}/${timestamp}_${sanitizedFilename}`;
+
+    if (useProxy) {
+      if (userId !== 'anonymous') {
+        const insertResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_audio_files`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_SERVICE_KEY!,
+            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
+            'Prefer': 'return=representation',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            r2_key: r2Key,
+            filename: sanitizedFilename,
+            content_type: contentType,
+            size_bytes: fileSize,
+            piece_id: pieceId || null,
+          }),
+        });
+
+        if (!insertResponse.ok) {
+          const errorText = await insertResponse.text();
+          console.error('Failed to create audio record:', errorText);
+          return new Response(JSON.stringify({ error: 'Failed to create audio record' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+
+        const [audioRecord] = await insertResponse.json();
+
+        return new Response(JSON.stringify({
+          r2Key,
+          audioId: audioRecord.id,
+          useProxy: true,
+        }), {
+          status: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+          },
+        });
+      }
+
+      return new Response(JSON.stringify({
+        r2Key,
+        audioId: `anon_${timestamp}`,
+        useProxy: true,
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
 
     const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME!, r2Key, 'PUT', contentType, 3600);
 

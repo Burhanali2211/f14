@@ -29,6 +29,8 @@ interface UseR2AudioReturn {
 }
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
+/** Proxy upload avoids CORS; Vercel serverless body limit ~4.5MB */
+const PROXY_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 const AUDIO_EXTENSIONS = [
   '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
   '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
@@ -105,6 +107,7 @@ export function useR2Audio(): UseR2AudioReturn {
 
       setIsUploading(true);
       const contentType = getAudioMimeType(file);
+      const useProxy = file.size <= PROXY_UPLOAD_MAX_BYTES;
 
         try {
           const token = await getAuthToken();
@@ -123,6 +126,7 @@ export function useR2Audio(): UseR2AudioReturn {
               contentType: contentType,
               fileSize: file.size,
               pieceId,
+              useProxy,
             }),
           });
 
@@ -132,47 +136,98 @@ export function useR2Audio(): UseR2AudioReturn {
         throw new Error(msg);
       }
 
-      const { uploadUrl, r2Key, audioId } = await uploadUrlResponse.json();
+      const { uploadUrl, r2Key, audioId, useProxy: proxyMode } = await uploadUrlResponse.json();
 
-      abortControllerRef.current = new AbortController();
+      if (proxyMode) {
+        abortControllerRef.current = new AbortController();
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('r2Key', r2Key);
 
-      await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            setUploadProgress({
-              loaded: event.loaded,
-              total: event.total,
-              percentage: Math.round((event.loaded / event.total) * 100),
-            });
+        await new Promise<void>((resolve, reject) => {
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              setUploadProgress({
+                loaded: event.loaded,
+                total: event.total,
+                percentage: Math.round((event.loaded / event.total) * 100),
+              });
+            }
+          });
+
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              try {
+                const errData = JSON.parse(xhr.responseText || '{}');
+                reject(new Error(errData.error || `Upload failed with status ${xhr.status}`));
+              } catch {
+                reject(new Error(`Upload failed with status ${xhr.status}`));
+              }
+            }
+          });
+
+          xhr.addEventListener('error', () => {
+            reject(new Error('Upload failed due to network error'));
+          });
+
+          xhr.addEventListener('abort', () => {
+            reject(new Error('Upload was cancelled'));
+          });
+
+          abortControllerRef.current?.signal.addEventListener('abort', () => {
+            xhr.abort();
+          });
+
+          xhr.open('POST', '/api/r2-audio-upload');
+          if (token) {
+            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
           }
+          xhr.send(formData);
         });
+      } else {
+        abortControllerRef.current = new AbortController();
 
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            reject(new Error(`Upload failed with status ${xhr.status}`));
-          }
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              setUploadProgress({
+                loaded: event.loaded,
+                total: event.total,
+                percentage: Math.round((event.loaded / event.total) * 100),
+              });
+            }
+          });
+
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`Upload failed with status ${xhr.status}. For large files, configure CORS on your R2 bucket.`));
+            }
+          });
+
+          xhr.addEventListener('error', () => {
+            reject(new Error('Upload failed. Configure CORS on your R2 bucket - see R2_CORS_SETUP.md'));
+          });
+
+          xhr.addEventListener('abort', () => {
+            reject(new Error('Upload was cancelled'));
+          });
+
+          abortControllerRef.current?.signal.addEventListener('abort', () => {
+            xhr.abort();
+          });
+
+          xhr.open('PUT', uploadUrl);
+          xhr.setRequestHeader('Content-Type', contentType);
+          xhr.send(file);
         });
-
-        xhr.addEventListener('error', () => {
-          reject(new Error('Upload failed due to network error'));
-        });
-
-        xhr.addEventListener('abort', () => {
-          reject(new Error('Upload was cancelled'));
-        });
-
-        abortControllerRef.current?.signal.addEventListener('abort', () => {
-          xhr.abort();
-        });
-
-        xhr.open('PUT', uploadUrl);
-        xhr.setRequestHeader('Content-Type', contentType);
-        xhr.send(file);
-      });
+      }
 
       const audioFile: AudioFile = {
         id: audioId,

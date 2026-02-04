@@ -1,0 +1,14 @@
+[
+  {
+    "AllowedOrigins": [
+      "https://followersof14.vercel.app",
+      "https://www.followersof14.vercel.app",
+      "http://localhost:5173",
+      "http://localhost:8000"
+    ],
+    "AllowedMethods": ["GET", "PUT", "HEAD"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": ["ETag"],
+    "MaxAgeSeconds": 3600
+  }
+]
