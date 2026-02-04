@@ -265,26 +265,21 @@ const checkViewportMismatch = (): boolean => {
 // Initialize performance monitoring
 performanceMonitor.measurePageLoad();
 
-// Register service worker for update detection (even if notifications aren't enabled)
+// Register service worker - auto-updates when new version is deployed
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js', { scope: '/' })
       .then((registration) => {
-        setInterval(() => {
-          registration.update();
-        }, 5 * 60 * 1000);
-        
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          if (newWorker) {
-            newWorker.addEventListener('statechange', () => {
-            });
-          }
+        // Periodic check for new SW
+        setInterval(() => registration.update(), 5 * 60 * 1000);
+        // When new SW takes control, reload to use fresh assets
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
         });
+        // With registerType: autoUpdate, new SW calls skipWaiting when installed
       })
-      .catch(() => {
-      });
+      .catch(() => {});
   });
 }
 

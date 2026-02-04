@@ -3,7 +3,6 @@ const CACHE_NAME = 'sacred-recitations-v1';
 const NOTIFICATION_TITLE = 'Upcoming Event';
 const UPDATE_NOTIFICATION_TITLE = 'Update Available';
 const VERSION_FILE = '/version.json';
-const VERSION_CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
 
 // Get app version from version.json
 async function getAppVersion() {
@@ -25,16 +24,20 @@ async function getAppVersion() {
   return null;
 }
 
-// Store last known version in IndexedDB
+// Store last known version in IndexedDB (with proper error handling)
 async function getStoredVersion() {
   try {
     const db = await openDB();
     const tx = db.transaction(['versions'], 'readonly');
     const store = tx.objectStore('versions');
-    const result = await store.get('current');
+    const result = await new Promise((resolve, reject) => {
+      const req = store.get('current');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
     return result ? result.value : null;
   } catch (error) {
-    console.error('Error getting stored version:', error);
+    console.warn('[SW] IndexedDB getStoredVersion failed (quota/private mode):', error?.name);
     return null;
   }
 }
@@ -44,9 +47,13 @@ async function storeVersion(version) {
     const db = await openDB();
     const tx = db.transaction(['versions'], 'readwrite');
     const store = tx.objectStore('versions');
-    await store.put({ key: 'current', value: version, timestamp: Date.now() });
+    await new Promise((resolve, reject) => {
+      const req = store.put({ key: 'current', value: version, timestamp: Date.now() });
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
   } catch (error) {
-    console.error('Error storing version:', error);
+    console.warn('[SW] IndexedDB storeVersion failed:', error?.name);
   }
 }
 
@@ -56,10 +63,14 @@ async function getShownVersions() {
     const db = await openDB();
     const tx = db.transaction(['versions'], 'readonly');
     const store = tx.objectStore('versions');
-    const result = await store.get('shown');
+    const result = await new Promise((resolve, reject) => {
+      const req = store.get('shown');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
     return result ? result.value : [];
   } catch (error) {
-    console.error('Error getting shown versions:', error);
+    console.warn('[SW] IndexedDB getShownVersions failed:', error?.name);
     return [];
   }
 }
@@ -69,33 +80,32 @@ async function markVersionAsShown(version) {
   try {
     const shownVersions = await getShownVersions();
     const versionId = version.buildHash || `v${version.version}-${version.buildTime}`;
-    
     if (!shownVersions.includes(versionId)) {
       shownVersions.push(versionId);
-      // Keep only last 10 versions
-      if (shownVersions.length > 10) {
-        shownVersions.shift();
-      }
-      
+      if (shownVersions.length > 10) shownVersions.shift();
       const db = await openDB();
       const tx = db.transaction(['versions'], 'readwrite');
       const store = tx.objectStore('versions');
-      await store.put({ key: 'shown', value: shownVersions, timestamp: Date.now() });
+      await new Promise((resolve, reject) => {
+        const req = store.put({ key: 'shown', value: shownVersions, timestamp: Date.now() });
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
     }
   } catch (error) {
-    console.error('Error marking version as shown:', error);
+    console.warn('[SW] IndexedDB markVersionAsShown failed:', error?.name);
   }
 }
 
-// Check if version has been shown
+// Check if version has been shown. On IndexedDB failure, return TRUE to avoid spam.
 async function hasVersionBeenShown(version) {
   try {
     const shownVersions = await getShownVersions();
     const versionId = version.buildHash || `v${version.version}-${version.buildTime}`;
     return shownVersions.includes(versionId);
   } catch (error) {
-    console.error('Error checking if version shown:', error);
-    return false;
+    console.warn('[SW] IndexedDB hasVersionBeenShown failed, assuming shown to prevent spam:', error?.name);
+    return true; // Conservative: assume shown to avoid notification spam
   }
 }
 
@@ -126,76 +136,58 @@ function hasVersionChanged(current, stored) {
   return false;
 }
 
-// Send update notification to all clients (only if not already shown)
+// Notify about update - send to ONE client only to avoid duplicate notifications.
+// If app has focused tab: notify that client. If app in background: show browser notification.
 async function notifyClientsAboutUpdate(version) {
-  // Check if this version has already been shown
   const alreadyShown = await hasVersionBeenShown(version);
   if (alreadyShown) {
-    console.log('[Service Worker] Version already shown, skipping notification:', version);
+    console.log('[SW] Version already shown, skipping');
     return;
   }
 
-  const clients = await self.clients.matchAll({ includeUncontrolled: true });
-  
-  // Send message to all clients (they will check if already shown)
-  clients.forEach((client) => {
-    client.postMessage({
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const focusedClient = clients.find((c) => c.focused);
+  const visibleClient = clients.find((c) => c.visibilityState === 'visible');
+
+  // Prefer focused client, then any visible client
+  const targetClient = focusedClient || visibleClient || clients[0];
+
+  if (targetClient) {
+    // App has at least one tab open - notify ONLY that one client (no browser notification)
+    targetClient.postMessage({
       type: 'APP_UPDATE_AVAILABLE',
       version: version,
       timestamp: Date.now(),
     });
-  });
-  
-  // Show browser notification if permission granted (only once per version)
-  try {
-    // Try to show notification (will fail if permission not granted)
+    await markVersionAsShown(version);
+    console.log('[SW] Update sent to single client');
+  } else {
+    // App in background - show ONE browser notification
     try {
-      // Format version info
-      const versionInfo = version.buildHash 
+      const versionInfo = version.buildHash
         ? `v${version.version} (${version.buildHash.substring(0, 8)})`
         : `v${version.version}`;
-      
       await self.registration.showNotification(UPDATE_NOTIFICATION_TITLE, {
-        body: `New version ${versionInfo} is available. Click to update now!`,
+        body: `New version ${versionInfo} is available. Click to update.`,
         icon: '/main.png',
         badge: '/main.png',
-        tag: 'app-update', // Same tag ensures only one notification shows
-        data: {
-          type: 'app-update',
-          version: version,
-          url: '/',
-        },
+        tag: 'app-update',
+        data: { type: 'app-update', version: version, url: '/' },
         requireInteraction: true,
         vibrate: [200, 100, 200],
         silent: false,
         actions: [
-          {
-            action: 'update',
-            title: 'Update Now',
-            icon: '/main.png'
-          },
-          {
-            action: 'later',
-            title: 'Later',
-            icon: '/main.png'
-          }
+          { action: 'update', title: 'Update Now', icon: '/main.png' },
+          { action: 'later', title: 'Later', icon: '/main.png' }
         ]
       });
-      
-      // Mark as shown
       await markVersionAsShown(version);
-      console.log('[Service Worker] Update notification shown for version:', versionInfo);
-    } catch (notifError) {
-      // Permission might not be granted, that's okay - client will show dialog instead
-      console.log('[Service Worker] Could not show notification (permission may not be granted):', notifError);
+      console.log('[SW] Update notification shown (app in background)');
+    } catch (err) {
+      console.warn('[SW] Could not show notification:', err?.message);
     }
-  } catch (error) {
-    console.error('[Service Worker] Error showing update notification:', error);
   }
 }
-
-// Periodic version check
-let versionCheckInterval = null;
 
 async function checkForUpdates() {
   try {
@@ -254,15 +246,10 @@ self.addEventListener('activate', (event) => {
       
       await Promise.all(deletePromises);
       
-      // Check for updates immediately
+      // Check for updates once on activate (no interval - SW is killed when idle, intervals don't persist)
+      // Main app (UpdateNotification) handles periodic checks every 5 min and on tab focus
       await checkForUpdates();
-      
-      // Set up periodic version checks
-      if (versionCheckInterval) {
-        clearInterval(versionCheckInterval);
-      }
-      versionCheckInterval = setInterval(checkForUpdates, VERSION_CHECK_INTERVAL);
-      
+
       // Notify clients about activation
       const clients = await self.clients.matchAll();
       clients.forEach((client) => {
@@ -352,7 +339,7 @@ self.addEventListener('notificationclick', (event) => {
         await Promise.all(cacheNames.map(cacheName => caches.delete(cacheName)));
         
         // Notify clients to update
-        const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+        const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
@@ -371,8 +358,8 @@ self.addEventListener('notificationclick', (event) => {
         }
         
         // Open new window if no existing window
-        if (clients.openWindow) {
-          return clients.openWindow('/');
+        if (self.clients.openWindow) {
+          return self.clients.openWindow('/');
         }
       })()
     );
@@ -382,7 +369,7 @@ self.addEventListener('notificationclick', (event) => {
   // Handle Subscribe action
   if (action === 'subscribe') {
     event.waitUntil(
-      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
         // Find existing window or open new one
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && 'focus' in client) {
@@ -397,8 +384,8 @@ self.addEventListener('notificationclick', (event) => {
           }
         }
         // Open new window to settings page for subscription
-        if (clients.openWindow) {
-          return clients.openWindow('/settings?subscribe=true');
+        if (self.clients.openWindow) {
+          return self.clients.openWindow('/settings?subscribe=true');
         }
       })
     );
@@ -420,7 +407,7 @@ self.addEventListener('notificationclick', (event) => {
   }
   
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // If a window is already open, focus it and navigate
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
@@ -435,8 +422,8 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
       // Otherwise, open a new window
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
       }
     })
   );
@@ -465,53 +452,18 @@ async function syncEvents() {
   }
 }
 
-// Message handler for scheduled notifications and announcements
+// Message handler - SCHEDULE_NOTIFICATION removed: setTimeout does NOT work in service workers.
+// SW is event-driven and killed when idle; timers are cleared on termination.
+// Use server-side push notifications or Notification Triggers API for scheduled notifications.
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SCHEDULE_NOTIFICATION') {
-    const { title, body, delay, data } = event.data;
-    
-    console.log(`[Service Worker] Scheduling notification: ${title} in ${delay}ms`);
-    
-    // Use a more reliable scheduling method that persists
-    const scheduledTime = Date.now() + delay;
-    
-    // Store in IndexedDB for persistence (fallback to setTimeout for now)
-    // Schedule notification using setTimeout
-    const timeoutId = setTimeout(() => {
-      console.log(`[Service Worker] Sending notification: ${title}`);
-      self.registration.showNotification(title, {
-        body,
-        icon: '/main.png',
-        badge: '/main.png',
-        tag: `event-${data?.eventId || Date.now()}`,
-        data: data || {},
-        requireInteraction: false,
-        vibrate: [200, 100, 200],
-        silent: false,
-        actions: [
-          {
-            action: 'view',
-            title: 'View Recitations',
-            icon: '/main.png'
-          },
-          {
-            action: 'subscribe',
-            title: 'Subscribe',
-            icon: '/main.png'
-          }
-        ]
-      }).catch((error) => {
-        console.error('[Service Worker] Error showing notification:', error);
-      });
-    }, delay);
-    
-    // Store timeout ID for potential cleanup
-    if (!self.scheduledTimeouts) {
-      self.scheduledTimeouts = new Map();
+    // Reply to client: SW cannot schedule - use push or keep app open
+    const port = event.ports && event.ports[0];
+    if (port) {
+      port.postMessage({ success: false, reason: 'Service workers cannot persist timers. Use push notifications.' });
     }
-    self.scheduledTimeouts.set(scheduledTime, timeoutId);
   }
-  
+
   // Handle manual update check request from client
   if (event.data && event.data.type === 'CHECK_FOR_UPDATES') {
     checkForUpdates().then(() => {

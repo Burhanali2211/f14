@@ -22,6 +22,10 @@ enum PacketType {
 const CHUNK_SIZE = 64 * 1024;
 const BUFFER_THRESHOLD = CHUNK_SIZE * 8;
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
+/** Connection timeout - allow time for user to browse files (e.g. open file manager) */
+const CONNECTION_TIMEOUT_MS = 90_000;
+/** Grace period for 'disconnected' - often recovers when user returns to app */
+const DISCONNECTED_GRACE_MS = 30_000;
 
 export class AirSendP2P {
   private pc: RTCPeerConnection | null = null;
@@ -37,8 +41,9 @@ export class AirSendP2P {
   private remoteDescriptionSet = false;
   private isSubscribed = false;
   private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+  private disconnectedGraceTimeout: ReturnType<typeof setTimeout> | null = null;
   private readyInterval: ReturnType<typeof setInterval> | null = null;
-  private maxRetries = 3;
+  private maxRetries = 15;
   private currentRetry = 0;
   private destroyed = false;
 
@@ -113,13 +118,15 @@ export class AirSendP2P {
       if (this.destroyed) return;
       const state = this.pc?.connectionState;
       if (state === 'connected') {
+        this.clearDisconnectedGraceTimeout();
         this.onStatusChange?.('Connected');
         this.clearConnectionTimeout();
         if (this.readyInterval) {
           clearInterval(this.readyInterval);
           this.readyInterval = null;
         }
-      } else if (state === 'failed' || state === 'disconnected') {
+      } else if (state === 'failed') {
+        this.clearDisconnectedGraceTimeout();
         if (!this.isReceiver && this.currentRetry < this.maxRetries) {
           this.currentRetry++;
           this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
@@ -127,7 +134,30 @@ export class AirSendP2P {
         } else {
           this.onStatusChange?.('Connection failed. Please refresh.');
         }
+      } else if (state === 'disconnected') {
+        this.onStatusChange?.('Connection paused - take your time selecting a file');
+        if (!this.isReceiver && this.currentRetry < this.maxRetries) {
+          this.clearDisconnectedGraceTimeout();
+          this.disconnectedGraceTimeout = setTimeout(() => {
+            if (!this.destroyed && this.pc?.connectionState === 'disconnected') {
+              this.disconnectedGraceTimeout = null;
+              this.currentRetry++;
+              this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
+              this.restartIce();
+            }
+          }, DISCONNECTED_GRACE_MS);
+        } else if (this.isReceiver) {
+          this.clearDisconnectedGraceTimeout();
+          this.onStatusChange?.('Connection paused - sender may be selecting a file');
+          this.disconnectedGraceTimeout = setTimeout(() => {
+            if (!this.destroyed && this.pc?.connectionState === 'disconnected') {
+              this.disconnectedGraceTimeout = null;
+              this.onStatusChange?.('Connection lost. Please refresh the QR code.');
+            }
+          }, DISCONNECTED_GRACE_MS);
+        }
       } else if (state === 'connecting') {
+        this.clearDisconnectedGraceTimeout();
         this.onStatusChange?.('Connecting...');
       }
     };
@@ -294,7 +324,7 @@ export class AirSendP2P {
         this.onStatusChange?.('Connection timeout. Retrying...');
         this.restartIce();
       }
-    }, 15000);
+    }, CONNECTION_TIMEOUT_MS);
   }
 
   private async processQueuedIceCandidates() {
@@ -391,6 +421,7 @@ export class AirSendP2P {
     if (!this.pc || this.isReceiver || this.destroyed) return;
     try {
       this.clearConnectionTimeout();
+      this.clearDisconnectedGraceTimeout();
       this.iceCandidatesQueue = [];
       this.remoteDescriptionSet = false;
       const offer = await this.pc.createOffer({ iceRestart: true });
@@ -401,9 +432,16 @@ export class AirSendP2P {
           this.onStatusChange?.('Connection timeout. Retrying...');
           this.restartIce();
         }
-      }, 15000);
+      }, CONNECTION_TIMEOUT_MS);
     } catch (err) {
       console.error('ICE restart failed:', err);
+    }
+  }
+
+  private clearDisconnectedGraceTimeout() {
+    if (this.disconnectedGraceTimeout) {
+      clearTimeout(this.disconnectedGraceTimeout);
+      this.disconnectedGraceTimeout = null;
     }
   }
 
@@ -417,6 +455,7 @@ export class AirSendP2P {
   destroy() {
     this.destroyed = true;
     this.clearConnectionTimeout();
+    this.clearDisconnectedGraceTimeout();
     if (this.readyInterval) {
       clearInterval(this.readyInterval);
       this.readyInterval = null;

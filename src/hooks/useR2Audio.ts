@@ -31,6 +31,8 @@ interface UseR2AudioReturn {
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 /** Proxy upload avoids CORS; Vercel serverless body limit ~4.5MB */
 const PROXY_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
+/** Timeout for upload - production can be slower than localhost */
+const UPLOAD_TIMEOUT_MS = 90_000;
 const AUDIO_EXTENSIONS = [
   '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
   '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
@@ -145,7 +147,7 @@ export function useR2Audio(): UseR2AudioReturn {
         formData.append('r2Key', r2Key);
 
         const xhr = new XMLHttpRequest();
-        await new Promise<void>((resolve, reject) => {
+        const uploadPromise = new Promise<void>((resolve, reject) => {
           xhr.upload.addEventListener('progress', (event) => {
             if (event.lengthComputable) {
               setUploadProgress({
@@ -187,10 +189,14 @@ export function useR2Audio(): UseR2AudioReturn {
           }
           xhr.send(formData);
         });
+        const timeoutPromise = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('Upload timed out. Try a smaller file or check your connection.')), UPLOAD_TIMEOUT_MS)
+        );
+        await Promise.race([uploadPromise, timeoutPromise]);
       } else {
         abortControllerRef.current = new AbortController();
 
-        await new Promise<void>((resolve, reject) => {
+        const directUploadPromise = new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           
           xhr.upload.addEventListener('progress', (event) => {
@@ -230,6 +236,10 @@ export function useR2Audio(): UseR2AudioReturn {
           xhr.setRequestHeader('Content-Type', contentType);
           xhr.send(file);
         });
+        const directTimeoutPromise = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error('Upload timed out. Try a smaller file or check your connection.')), UPLOAD_TIMEOUT_MS)
+        );
+        await Promise.race([directUploadPromise, directTimeoutPromise]);
       }
 
       const audioFile: AudioFile = {

@@ -65,7 +65,7 @@ export default function AirSendMobilePage() {
               setIsChannelReady(true);
               setStatus('idle');
             }
-            if (s.includes('failed') || s.includes('timeout')) {
+            if (s.includes('failed') || s.includes('timeout') || s.includes('Connection lost')) {
               setStatus('error');
               setError(s);
               setIsChannelReady(false);

@@ -1,5 +1,7 @@
+// Node.js runtime for reliable multipart handling; Edge can timeout on large uploads
 export const config = {
-  runtime: 'edge',
+  runtime: 'nodejs',
+  maxDuration: 60,
 };
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;

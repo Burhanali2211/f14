@@ -169,6 +169,7 @@ export default function ImageSegmentEditorPage() {
       if (updateError) throw updateError;
 
       await queryClient.invalidateQueries({ queryKey: ['piece', id] });
+      await queryClient.refetchQueries({ queryKey: ['piece', id] });
 
       toast({
         title: 'Audio uploaded',
@@ -248,6 +249,7 @@ export default function ImageSegmentEditorPage() {
       if (updateError) throw updateError;
 
       await queryClient.invalidateQueries({ queryKey: ['piece', id] });
+      await queryClient.refetchQueries({ queryKey: ['piece', id] });
 
       toast({
         title: 'Audio synced',

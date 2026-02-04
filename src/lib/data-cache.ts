@@ -3,6 +3,18 @@
  */
 
 import { logger } from './logger';
+
+/** Fast byte size for UTF-8 strings (avoids slow Blob creation) */
+function getByteSize(str: string): number {
+  return new TextEncoder().encode(str).length;
+}
+
+/** Escape regex special chars so pattern matches literally (except * as wildcard) */
+function escapeRegexPattern(pattern: string): string {
+  const withPlaceholder = pattern.replace(/\*/g, '\u0000');
+  const escaped = withPlaceholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escaped.replace(/\u0000/g, '.*');
+}
 import { getCachePolicy, CACHE_KEY_PREFIX, MAX_TOTAL_CACHE_SIZE } from './cache-config';
 import { getCurrentUser } from './auth-utils';
 
@@ -112,7 +124,7 @@ export function setCachedData<T = any>(
     };
     
     const serialized = JSON.stringify(entry);
-    const size = new Blob([serialized]).size;
+    const size = getByteSize(serialized);
     
     // Check if we're exceeding total cache size
     const currentStats = getCacheStats();
@@ -184,8 +196,8 @@ export function invalidateCache(pattern: string): number {
       
       // Check if key matches pattern
       if (pattern.includes('*')) {
-        // Wildcard pattern
-        const regex = new RegExp('^' + pattern.replace(/\*/g, '.*').replace(/:/g, '\\:'));
+        // Wildcard pattern (properly escaped for regex special chars)
+        const regex = new RegExp('^' + escapeRegexPattern(pattern));
         if (regex.test(key)) {
           keysToRemove.push(key);
         }
@@ -271,9 +283,10 @@ export function clearExpiredCache(): number {
 function clearOldestCacheEntries(minBytesToFree?: number): void {
   try {
     const entries: Array<{ key: string; timestamp: number; size: number }> = [];
+    const corruptedKeys: string[] = [];
     let totalSize = 0;
     
-    // Collect all cache entries with their sizes
+    // Collect all cache entries with their sizes (collect corrupted keys for removal after)
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key || !key.startsWith(CACHE_KEY_PREFIX)) continue;
@@ -282,7 +295,7 @@ function clearOldestCacheEntries(minBytesToFree?: number): void {
         const cached = localStorage.getItem(key);
         if (!cached) continue;
         
-        const size = new Blob([cached]).size;
+        const size = getByteSize(cached);
         const entry: CacheEntry = JSON.parse(cached);
         
         entries.push({
@@ -293,10 +306,11 @@ function clearOldestCacheEntries(minBytesToFree?: number): void {
         
         totalSize += size;
       } catch (error) {
-        // Corrupted entry - remove it
-        localStorage.removeItem(key);
+        corruptedKeys.push(key);
       }
     }
+    
+    corruptedKeys.forEach((k) => localStorage.removeItem(k));
     
     // Sort by timestamp (oldest first)
     entries.sort((a, b) => a.timestamp - b.timestamp);
@@ -340,7 +354,7 @@ export function getCacheStats(): CacheStats {
         const cached = localStorage.getItem(key);
         if (!cached) continue;
         
-        const size = new Blob([cached]).size;
+        const size = getByteSize(cached);
         const entry: CacheEntry = JSON.parse(cached);
         
         stats.totalKeys++;

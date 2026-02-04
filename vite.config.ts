@@ -8,7 +8,7 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      registerType: 'prompt', // Changed to prompt to allow custom service worker handling
+      registerType: 'autoUpdate', // Auto-apply updates without manual refresh
       injectRegister: false, // Disable auto-registration, we'll handle it manually
       includeAssets: ['favicon.ico', 'main.png', 'robots.txt', 'pdf.worker.min.mjs'],
       manifest: {
@@ -53,6 +53,14 @@ export default defineConfig({
         // Exclude version.json from precaching - it should always be fetched fresh
         globIgnores: ['**/version.json'],
         runtimeCaching: [
+          {
+            // API routes must never be cached - ensures upload/stream responses are fresh
+            urlPattern: /\/api\/.*/i,
+            handler: 'NetworkOnly',
+            options: {
+              cacheName: 'api-no-cache',
+            }
+          },
           {
             // Always fetch version.json fresh (no cache)
             urlPattern: /\/version\.json/i,

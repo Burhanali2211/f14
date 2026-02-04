@@ -9,23 +9,34 @@ import { invalidateCachesForTable } from './cache-change-detector';
 let cacheChannel: ReturnType<typeof supabase.channel> | null = null;
 let isSubscribed = false;
 let reconnectAttempts = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 const MAX_RECONNECT_ATTEMPTS = 5;
+
+function cleanupChannel(): void {
+  if (reconnectTimer !== null) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  if (cacheChannel) {
+    supabase.removeChannel(cacheChannel);
+    cacheChannel = null;
+  }
+  isSubscribed = false;
+  reconnectAttempts = 0;
+}
 
 /**
  * Initialize Realtime subscriptions for cache invalidation
  */
 export function initializeCacheRealtimeSubscriptions(): () => void {
+  // ALWAYS cleanup existing channel first (fixes memory leak / duplicate handlers)
   if (cacheChannel) {
-    // Already initialized
-    return () => {
-      if (cacheChannel) {
-        supabase.removeChannel(cacheChannel);
-        cacheChannel = null;
-        isSubscribed = false;
-      }
-    };
+    if (import.meta.env.DEV) {
+      logger.debug('Cleaning up existing cache channel before reinitializing');
+    }
+    cleanupChannel();
   }
-  
+
   // Create a single channel for all cache invalidation events
   cacheChannel = supabase.channel('cache-invalidation-channel');
   
@@ -115,24 +126,20 @@ export function initializeCacheRealtimeSubscriptions(): () => void {
     if (status === 'SUBSCRIBED') {
       isSubscribed = true;
       reconnectAttempts = 0;
-    } else if (status === 'CHANNEL_ERROR') {
-      isSubscribed = false;
-      attemptReconnect();
-    } else if (status === 'TIMED_OUT') {
+      if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
       isSubscribed = false;
       attemptReconnect();
     } else if (status === 'CLOSED') {
       isSubscribed = false;
     }
   });
-  
+
   return () => {
-    if (cacheChannel) {
-      supabase.removeChannel(cacheChannel);
-      cacheChannel = null;
-      isSubscribed = false;
-      reconnectAttempts = 0;
-    }
+    cleanupChannel();
   };
 }
 
@@ -140,19 +147,28 @@ export function initializeCacheRealtimeSubscriptions(): () => void {
  * Attempt to reconnect Realtime subscription
  */
 function attemptReconnect(): void {
+  // Cancel any pending reconnect (prevents duplicate subscriptions)
+  if (reconnectTimer !== null) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+
   if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
     if (import.meta.env.DEV) {
       logger.debug('Max reconnect attempts reached for cache invalidation Realtime - will retry on next page load');
     }
     return;
   }
-  
+
   reconnectAttempts++;
   const delay = Math.min(2000 * Math.pow(2, reconnectAttempts - 1), 30000); // Exponential backoff, max 30s
-  
-  logger.debug(`Attempting to reconnect cache invalidation Realtime in ${delay}ms (attempt ${reconnectAttempts})`);
-  
-  setTimeout(() => {
+
+  if (import.meta.env.DEV) {
+    logger.debug(`Reconnecting cache invalidation Realtime in ${delay}ms (attempt ${reconnectAttempts})`);
+  }
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
     if (cacheChannel && !isSubscribed) {
       cacheChannel.subscribe();
     }
