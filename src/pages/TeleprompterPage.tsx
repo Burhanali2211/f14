@@ -31,6 +31,7 @@ import { UnifiedTeleprompterPlayer } from '@/components/media/UnifiedTeleprompte
 import { TeleprompterDisplaySettings } from '@/components/media/TeleprompterDisplaySettings';
 import { TeleprompterPlaybackControls } from '@/components/media/TeleprompterPlaybackControls';
 import type { ImageRegion } from '@/components/media/ImageSegmentEditor';
+import { useBufferedAudio } from '@/hooks/useBufferedAudio';
 
 async function fetchPiece(id: string) {
   const { data, error } = await supabase
@@ -99,6 +100,8 @@ export default function TeleprompterPage() {
     }
     return null;
   }, [piece?.audio_url]);
+
+  const { playbackUrl, isBuffering, bufferingError } = useBufferedAudio(audioUrl);
 
   const pdfUrl = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);
@@ -177,20 +180,21 @@ export default function TeleprompterPage() {
     loadRegions();
   }, [id]);
 
-    useEffect(() => {
-      if (!audioUrl) {
-        setIsLoaded(false);
-        return;
-      }
+  useEffect(() => {
+    if (!playbackUrl) {
+      setIsLoaded(false);
+      if (bufferingError) setError(bufferingError);
+      return;
+    }
+    setError(null);
 
-      const audio = new Audio();
-    audio.preload = 'metadata';
-    
+    const audio = new Audio();
+    audio.preload = 'auto';
+
     const handleLoadedMetadata = () => {
       setDuration(audio.duration);
       setIsLoaded(true);
       setError(null);
-      // Ensure we always start from the beginning
       audio.currentTime = 0;
     };
 
@@ -200,15 +204,14 @@ export default function TeleprompterPage() {
     };
 
     const handleEnded = () => {
-      // Don't setIsPlaying(false) here - the playback loop handles stop/continuation
-      // (auto-stop at last segment end, or continue until segment end if audio ended first)
+      // Playback loop handles stop/continuation
     };
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('error', handleError);
     audio.addEventListener('ended', handleEnded);
 
-    audio.src = audioUrl;
+    audio.src = playbackUrl;
     audioRef.current = audio;
 
     return () => {
@@ -219,7 +222,7 @@ export default function TeleprompterPage() {
       audio.src = '';
       audioRef.current = null;
     };
-  }, [audioUrl]);
+  }, [playbackUrl, bufferingError]);
 
   const updateCurrentSegment = useCallback((time: number) => {
     if (!segments.length) return;
@@ -829,8 +832,19 @@ export default function TeleprompterPage() {
               </h1>
 
               <div className="flex items-center gap-2 shrink-0">
-                {((audioUrl && isLoaded) || segments.length > 0 || imageRegions.length > 0) && (
+                {((audioUrl && (isLoaded || isBuffering)) || segments.length > 0 || imageRegions.length > 0) && (
                   <div className="flex items-center shadow-lg shadow-primary/10 rounded-full bg-primary overflow-hidden h-9">
+                    {isBuffering ? (
+                      <Button
+                        size="sm"
+                        disabled
+                        className="rounded-none h-full px-5 font-bold text-[11px] uppercase tracking-wider opacity-90"
+                      >
+                        <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                        Buffering…
+                      </Button>
+                    ) : (
+                      <>
                     <Button
                       size="sm"
                       className="rounded-none h-full px-5 hover:bg-primary/90 transition-colors font-bold text-[11px] uppercase tracking-wider"
@@ -867,6 +881,8 @@ export default function TeleprompterPage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      </>
+                    )}
                       </>
                     )}
                   </div>
