@@ -207,12 +207,15 @@ export function useR2Audio(): UseR2AudioReturn {
             if (xhr.status >= 200 && xhr.status < 300) {
               resolve();
             } else {
-              reject(new Error(`Upload failed with status ${xhr.status}. For large files, configure CORS on your R2 bucket.`));
+              const msg = xhr.status === 401
+                ? 'Upload failed (401). Check R2 credentials in Vercel env vars - see R2_CORS_SETUP.md'
+                : `Upload failed with status ${xhr.status}. For large files, ensure CORS and R2 credentials are configured.`;
+              reject(new Error(msg));
             }
           });
 
           xhr.addEventListener('error', () => {
-            reject(new Error('Upload failed. Configure CORS on your R2 bucket - see R2_CORS_SETUP.md'));
+            reject(new Error('Upload failed. Check R2 credentials and CORS - see R2_CORS_SETUP.md'));
           });
 
           xhr.addEventListener('abort', () => {

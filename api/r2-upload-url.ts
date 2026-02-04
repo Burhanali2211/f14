@@ -1,6 +1,5 @@
-export const config = {
-  runtime: 'edge',
-};
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -28,90 +27,24 @@ function isValidAudioContentType(contentType: string, filename: string): boolean
   return false;
 }
 
-async function hmacSha256(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
-  const cryptoKey = await crypto.subtle.importKey(
-    'raw',
-    key,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  );
-  return crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
-}
-
-async function getSignatureKey(secretKey: string, dateStamp: string, region: string, service: string): Promise<ArrayBuffer> {
-  const encoder = new TextEncoder();
-  const kDate = await hmacSha256(encoder.encode('AWS4' + secretKey).buffer as ArrayBuffer, dateStamp);
-  const kRegion = await hmacSha256(kDate, region);
-  const kService = await hmacSha256(kRegion, service);
-  return hmacSha256(kService, 'aws4_request');
-}
-
-function toHex(buffer: ArrayBuffer): string {
-  return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-async function createPresignedUrl(
-  bucket: string,
-  key: string,
-  method: string,
-  contentType: string,
-  expiresIn: number = 3600
-): Promise<string> {
-  const region = 'auto';
-  const service = 's3';
-  // Virtual-hosted style (Cloudflare R2 preferred): bucket.accountid.r2.cloudflarestorage.com/key
-  const host = `${bucket}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-  const endpoint = `https://${host}`;
-  
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-  const dateStamp = amzDate.slice(0, 8);
-  
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
-  
-  const canonicalUri = `/${key}`;
-  
-  const queryParams = new URLSearchParams({
-    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-    'X-Amz-Credential': credential,
-    'X-Amz-Date': amzDate,
-    'X-Amz-Expires': expiresIn.toString(),
-    'X-Amz-SignedHeaders': 'content-type;host',
+function createPresignedUrl(bucket: string, key: string, contentType: string, expiresIn = 3600): Promise<string> {
+  const s3 = new S3Client({
+    region: 'auto',
+    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID!,
+      secretAccessKey: R2_SECRET_ACCESS_KEY!,
+    },
+    forcePathStyle: true,
   });
-  
-  const canonicalQueryString = queryParams.toString().split('&').sort().join('&');
-  
-  const canonicalHeaders = `content-type:${contentType}\nhost:${host}\n`;
-  const signedHeaders = 'content-type;host';
-  
-  const canonicalRequest = [
-    method,
-    canonicalUri,
-    canonicalQueryString,
-    canonicalHeaders,
-    signedHeaders,
-    'UNSIGNED-PAYLOAD',
-  ].join('\n');
-  
-  const canonicalRequestHash = toHex(
-    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonicalRequest))
-  );
-  
-  const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    amzDate,
-    credentialScope,
-    canonicalRequestHash,
-  ].join('\n');
-  
-  const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY!, dateStamp, region, service);
-  const signature = toHex(await hmacSha256(signingKey, stringToSign));
-  
-  return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+
+  const command = new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  return getSignedUrl(s3, command, { expiresIn });
 }
 
 async function verifyUser(authHeader: string | null): Promise<{ userId: string } | null> {
@@ -253,7 +186,7 @@ export default async function handler(request: Request) {
       });
     }
 
-    const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME!, r2Key, 'PUT', contentType, 3600);
+    const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME!, r2Key, contentType, 3600);
 
     if (userId !== 'anonymous') {
       const insertResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_audio_files`, {

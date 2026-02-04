@@ -255,9 +255,10 @@ export default function ImageSegmentEditorPage() {
       });
     } catch (err: any) {
       console.error('AirSend sync error:', err);
+      const msg = err?.message || 'Could not save the audio file to cloud';
       toast({
         title: 'Sync failed',
-        description: 'Could not save the audio file to cloud',
+        description: msg,
         variant: 'destructive',
       });
     } finally {
