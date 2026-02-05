@@ -45,16 +45,16 @@ A comprehensive, high-performance platform dedicated to the preservation and dis
 ## 🏁 Getting Started
 
 ### Prerequisites
-- [Bun](https://bun.sh/) (or Node.js/npm)
+- [Node.js](https://nodejs.org/) (v18+) and npm
 - Supabase account and project
 
 ### Installation
 1. Clone the repository
 2. Install dependencies:
    ```bash
-   bun install
+   npm install
    ```
-3. Set up your environment variables in a `.env` file (see `.env.example` if available or check existing environment setup):
+3. Set up your environment variables in a `.env` file (see `.env.example` if available or check `docs/ENV_SETUP.md`):
    ```env
    VITE_SUPABASE_URL=your_supabase_url
    VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -62,7 +62,7 @@ A comprehensive, high-performance platform dedicated to the preservation and dis
    ```
 4. Start the development server:
    ```bash
-   bun run dev
+   npm run dev
    ```
 
 ## 📁 Project Structure
@@ -73,6 +73,8 @@ A comprehensive, high-performance platform dedicated to the preservation and dis
 - `src/integrations/`: Third-party service clients (Supabase, etc.).
 - `src/lib/`: Utility functions and shared logic.
 - `supabase/`: Database migrations and Edge Functions.
+- `docs/`: Additional documentation.
+- `sql/`: Standalone SQL scripts.
 
 ## 📄 License
 

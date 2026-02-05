@@ -5,7 +5,7 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: https://followerof14.vercel.app/sitemap.xml
+Sitemap: https://followersof14.vercel.app/sitemap.xml
 
 # Allow search engines to index all content pages
 Allow: /piece/
@@ -47,4 +47,4 @@ Disallow: /auth
 Disallow: /api/
 
 # Host declaration
-Host: https://followerof14.vercel.app
+Host: https://followersof14.vercel.app

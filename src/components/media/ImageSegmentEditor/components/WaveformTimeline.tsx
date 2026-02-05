@@ -48,6 +48,8 @@ export function WaveformTimeline({
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const initAttemptedRef = useRef(false);
 
+  const isDestroyingRef = useRef(false);
+
   const initWavesurfer = useCallback(async () => {
     if (!audioUrl || !waveformRef.current || initAttemptedRef.current) return;
     if (wavesurferRef.current) return;
@@ -56,11 +58,12 @@ export function WaveformTimeline({
     
     initAttemptedRef.current = true;
     setIsLoading(true);
+    isDestroyingRef.current = false;
     
     try {
       const WaveSurfer = (await import('wavesurfer.js')).default;
       
-      if (!waveformRef.current) {
+      if (!waveformRef.current || isDestroyingRef.current) {
         setIsLoading(false);
         return;
       }
@@ -82,28 +85,44 @@ export function WaveformTimeline({
       wavesurferRef.current = ws;
 
       ws.on('ready', () => {
-        setIsWaveformReady(true);
-        setIsLoading(false);
+        if (!isDestroyingRef.current) {
+          setIsWaveformReady(true);
+          setIsLoading(false);
+        }
       });
 
       ws.on('error', (err: Error) => {
-        console.error('WaveSurfer error:', err);
+        if (isDestroyingRef.current) return;
+        const isAbort = err?.name === 'AbortError' || err?.message?.includes('aborted');
+        if (!isAbort) {
+          console.error('WaveSurfer error:', err);
+        }
         setIsLoading(false);
         setIsWaveformReady(false);
       });
 
       ws.on('interaction', () => {
-        if (ws) {
+        if (ws && !isDestroyingRef.current) {
           const time = ws.getCurrentTime();
           onSeekTo(time);
         }
       });
 
-      ws.load(audioUrl);
+      ws.load(audioUrl).catch((err: unknown) => {
+        if (isDestroyingRef.current) return;
+        const isAbort = err instanceof Error && (err.name === 'AbortError' || err.message?.includes('aborted'));
+        if (!isAbort) {
+          console.error('WaveSurfer load error:', err);
+        }
+        setIsLoading(false);
+        setIsWaveformReady(false);
+      });
     } catch (err) {
-      console.error('Failed to init wavesurfer:', err);
-      setIsLoading(false);
-      initAttemptedRef.current = false;
+      if (!isDestroyingRef.current) {
+        console.error('Failed to init wavesurfer:', err);
+        setIsLoading(false);
+        initAttemptedRef.current = false;
+      }
     }
   }, [audioUrl, onSeekTo]);
 
@@ -120,6 +139,7 @@ export function WaveformTimeline({
     setHasUserInteracted(false);
     
     return () => {
+      isDestroyingRef.current = true;
       const ws = wavesurferRef.current;
       wavesurferRef.current = null;
       
@@ -128,6 +148,7 @@ export function WaveformTimeline({
           ws.unAll();
           ws.destroy();
         } catch (e) {
+          // Suppress errors from destroy (e.g. abort, context closed)
         }
       }
     };

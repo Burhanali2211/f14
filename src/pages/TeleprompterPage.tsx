@@ -82,6 +82,7 @@ export default function TeleprompterPage() {
   const [imageZoom, setImageZoom] = useState(100);
   const [highlightMode, setHighlightMode] = useState<'background' | 'border' | 'scale' | 'glow'>('background');
   const [scrollBehavior, setScrollBehavior] = useState<'smooth' | 'instant'>('smooth');
+  const [segmentSkipOffset, setSegmentSkipOffset] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
 
   const [session, setSession] = useState<ReturnType<typeof getSession>>(null);
@@ -442,12 +443,17 @@ export default function TeleprompterPage() {
   }, [activeIndex, navigableCount, hasSegments, hasImageRegions, segments, sortedImageRegions, currentTimeDisplay]);
 
   const seekToSegment = useCallback((index: number) => {
+    let startTime = 0;
     if (hasSegments && segments[index]) {
-      seek(segments[index].startTime);
+      startTime = segments[index].startTime;
     } else if (hasImageRegions && sortedImageRegions[index]) {
-      seek(sortedImageRegions[index].startTime);
+      startTime = sortedImageRegions[index].startTime;
+    } else {
+      return;
     }
-  }, [segments, sortedImageRegions, hasSegments, hasImageRegions, seek]);
+    const targetTime = Math.max(0, startTime - segmentSkipOffset);
+    seek(targetTime);
+  }, [segments, sortedImageRegions, hasSegments, hasImageRegions, segmentSkipOffset, seek]);
 
   const goToNextSegment = useCallback(() => {
     if (navigableCount === 0) return;
@@ -893,6 +899,7 @@ export default function TeleprompterPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-72 z-[100]" align="end" container={containerRef.current}>
                   <TeleprompterDisplaySettings
+                    container={containerRef.current}
                     contentType={contentType}
                     fontSize={fontSize}
                     onFontSizeChange={setFontSize}
@@ -902,6 +909,8 @@ export default function TeleprompterPage() {
                     onHighlightModeChange={setHighlightMode}
                     scrollBehavior={scrollBehavior}
                     onScrollBehaviorChange={setScrollBehavior}
+                    segmentSkipOffset={segmentSkipOffset}
+                    onSegmentSkipOffsetChange={setSegmentSkipOffset}
                   />
                 </PopoverContent>
               </Popover>
@@ -1022,29 +1031,22 @@ export default function TeleprompterPage() {
                         Buffering…
                       </Button>
                     ) : (
-                      <>
-                    <Button
-                      size="sm"
-                      className="rounded-none h-full px-5 hover:bg-primary/90 transition-colors font-bold text-[11px] uppercase tracking-wider"
-                      onClick={() => enterPlaybackMode()}
-                    >
-                      <PlayCircle className="w-3.5 h-3.5 mr-2" />
-                      Start
-                    </Button>
-                    {audioUrl && isLoaded && (
-                      <>
-                        <div className="w-px h-4 bg-primary-foreground/20" />
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="sm" className="rounded-none h-full px-2 hover:bg-primary/90 transition-colors">
-                              <ChevronDown className="w-3.5 h-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem onClick={() => enterPlaybackMode()} className="gap-2">
-                              <Play className="w-4 h-4" />
-                              <span>Start Now</span>
-                            </DropdownMenuItem>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            className="rounded-none h-full px-5 hover:bg-primary/90 transition-colors font-bold text-[11px] uppercase tracking-wider flex items-center gap-1"
+                          >
+                            <PlayCircle className="w-3.5 h-3.5 mr-2" />
+                            Start
+                            <ChevronDown className="w-3.5 h-3.5 ml-1" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="w-48">
+                          <DropdownMenuItem onClick={() => enterPlaybackMode()} className="gap-2">
+                            <Play className="w-4 h-4" />
+                            <span>Start Now</span>
+                          </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => enterPlaybackMode(3)} className="gap-2">
                               <Timer className="w-4 h-4" />
                               <span>Start in 3s</span>
@@ -1057,11 +1059,8 @@ export default function TeleprompterPage() {
                               <Timer className="w-4 h-4" />
                               <span>Start in 10s</span>
                             </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </>
-                    )}
-                      </>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                   </div>

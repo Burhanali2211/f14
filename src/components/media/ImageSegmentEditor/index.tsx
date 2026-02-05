@@ -313,15 +313,15 @@ export function ImageSegmentEditor({
 
   const handleSetStartTime = useCallback(() => {
     if (selection.focusedId) {
-      handleRegionUpdate(selection.focusedId, { startTime: audioPlayer.currentTime });
+      handleRegionUpdate(selection.focusedId, { startTime: audioPlayer.getCurrentTime() });
     }
-  }, [selection.focusedId, audioPlayer.currentTime, handleRegionUpdate]);
+  }, [selection.focusedId, audioPlayer.getCurrentTime, handleRegionUpdate]);
 
   const handleSetEndTime = useCallback(() => {
     if (selection.focusedId) {
-      handleRegionUpdate(selection.focusedId, { endTime: audioPlayer.currentTime });
+      handleRegionUpdate(selection.focusedId, { endTime: audioPlayer.getCurrentTime() });
     }
-  }, [selection.focusedId, audioPlayer.currentTime, handleRegionUpdate]);
+  }, [selection.focusedId, audioPlayer.getCurrentTime, handleRegionUpdate]);
 
   const handleAdjustStartTime = useCallback((delta: number) => {
     if (selection.focusedRegion) {
@@ -509,6 +509,7 @@ export function ImageSegmentEditor({
 <SegmentEditor
                 region={selection.focusedRegion}
                 currentTime={audioPlayer.currentTime}
+                getCurrentTime={audioPlayer.getCurrentTime}
                 duration={audioPlayer.duration}
                 hasAudio={audioPlayer.hasAudio}
                 chainTimes={chainTimes}

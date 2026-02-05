@@ -124,29 +124,34 @@ export interface EditorContextValue {
   playRegion: (regionId: string) => void;
 }
 
+/** Format seconds to MM:SS.CC using integer math to avoid floating-point drift. */
 export const formatTimeParts = (seconds: number): { mm: string; ss: string; cc: string } => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 100);
+  const totalCentiseconds = Math.round(seconds * 100);
+  const mins = Math.floor(totalCentiseconds / 6000);
+  const remainder = totalCentiseconds % 6000;
+  const secs = Math.floor(remainder / 100);
+  const cs = remainder % 100;
   return {
     mm: mins.toString().padStart(2, '0'),
     ss: secs.toString().padStart(2, '0'),
-    cc: ms.toString().padStart(2, '0')
+    cc: cs.toString().padStart(2, '0')
   };
 };
 
 export const parseTimeParts = (mm: string, ss: string, cc: string): number => {
-  const mins = parseInt(mm || '0');
-  const secs = parseInt(ss || '0');
-  const ms = parseInt(cc || '0');
-  return mins * 60 + secs + ms / 100;
+  const mins = parseInt(mm || '0', 10);
+  const secs = parseInt(ss || '0', 10);
+  const cs = parseInt(cc || '0', 10);
+  return mins * 60 + secs + cs / 100;
 };
 
 export const formatTimeDisplay = (seconds: number): string => {
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  const ms = Math.floor((seconds % 1) * 100);
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`;
+  const totalCentiseconds = Math.round(seconds * 100);
+  const mins = Math.floor(totalCentiseconds / 6000);
+  const remainder = totalCentiseconds % 6000;
+  const secs = Math.floor(remainder / 100);
+  const cs = remainder % 100;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
 };
 
 export const SEGMENT_COLORS = [

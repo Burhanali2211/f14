@@ -69,11 +69,20 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
       }
     };
 
+    const handleError = () => {
+      const err = audio.error;
+      const isAbort = err && (err.code === 1 || String(err.message || '').toLowerCase().includes('abort'));
+      if (!isAbort && err) {
+        console.warn('Audio load error:', err.message || err.code);
+      }
+    };
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -81,6 +90,7 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('error', handleError);
       audio.pause();
       audio.src = '';
       audio.load();
@@ -107,14 +117,14 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
         if (audioRef.current) {
           const currentTime = audioRef.current.currentTime;
           setState(prev => {
-            if (Math.abs(prev.currentTime - currentTime) > 0.05) {
+            if (Math.abs(prev.currentTime - currentTime) > 0.02) {
               return { ...prev, currentTime };
             }
             return prev;
           });
           onTimeUpdate?.(currentTime);
         }
-      }, 100);
+      }, 50);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -130,7 +140,12 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
   }, [state.isPlaying, onTimeUpdate]);
 
   const play = useCallback(() => {
-    audioRef.current?.play();
+    audioRef.current?.play()?.catch((err: unknown) => {
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      if (!isAbort) {
+        console.warn('Audio play failed:', err);
+      }
+    });
   }, []);
 
   const pause = useCallback(() => {
@@ -142,9 +157,18 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
     if (state.isPlaying) {
       audioRef.current.pause();
     } else {
-      audioRef.current.play();
+      audioRef.current.play()?.catch((err: unknown) => {
+        const isAbort = err instanceof DOMException && err.name === 'AbortError';
+        if (!isAbort) {
+          console.warn('Audio play failed:', err);
+        }
+      });
     }
   }, [state.isPlaying]);
+
+  const getCurrentTime = useCallback((): number => {
+    return audioRef.current ? audioRef.current.currentTime : 0;
+  }, []);
 
   const seekTo = useCallback((time: number) => {
     if (!audioRef.current) return;
@@ -180,7 +204,12 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
     if (!audioRef.current) return;
     audioRef.current.currentTime = startTime;
     setLoop(startTime, endTime);
-    audioRef.current.play();
+    audioRef.current.play()?.catch((err: unknown) => {
+      const isAbort = err instanceof DOMException && err.name === 'AbortError';
+      if (!isAbort) {
+        console.warn('Audio play failed:', err);
+      }
+    });
   }, [setLoop]);
 
   const clearLoop = useCallback(() => {
@@ -201,6 +230,7 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
   return {
     ...state,
     audioRef,
+    getCurrentTime,
     play,
     pause,
     stop,

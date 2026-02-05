@@ -13,6 +13,9 @@ export type ScrollBehavior = 'smooth' | 'instant';
 /** Content type determines which settings are shown. */
 export type TeleprompterContentType = 'images' | 'segments' | 'text' | 'pdf' | 'empty';
 
+/** Seconds to seek before segment start when using prev/next (gives reciter time to prepare). */
+export type SegmentSkipOffset = 0 | 2 | 3 | 5;
+
 interface TeleprompterDisplaySettingsProps {
   fontSize: number;
   onFontSizeChange: (value: number) => void;
@@ -22,6 +25,10 @@ interface TeleprompterDisplaySettingsProps {
   onHighlightModeChange: (value: HighlightMode) => void;
   scrollBehavior?: ScrollBehavior;
   onScrollBehaviorChange?: (value: ScrollBehavior) => void;
+  segmentSkipOffset?: SegmentSkipOffset;
+  onSegmentSkipOffsetChange?: (value: SegmentSkipOffset) => void;
+  /** When in fullscreen, pass container so Select dropdowns render inside it */
+  container?: HTMLElement | null;
   /** When set, only shows settings relevant to this content type. Omit to show all (legacy/default). */
   contentType?: TeleprompterContentType;
   variant?: 'default' | 'playback';
@@ -36,10 +43,17 @@ export function TeleprompterDisplaySettings({
   onHighlightModeChange,
   scrollBehavior,
   onScrollBehaviorChange,
+  segmentSkipOffset,
+  onSegmentSkipOffsetChange,
+  container,
   contentType,
   variant = 'default',
 }: TeleprompterDisplaySettingsProps) {
   const showScrollBehavior = scrollBehavior !== undefined && onScrollBehaviorChange;
+  const showSegmentSkipOffset =
+    segmentSkipOffset !== undefined &&
+    onSegmentSkipOffsetChange &&
+    (contentType === 'images' || contentType === 'segments');
 
   // When contentType is set, show only relevant settings
   const showFontSize = !contentType || contentType === 'segments' || contentType === 'text';
@@ -90,7 +104,7 @@ export function TeleprompterDisplaySettings({
             <SelectTrigger className="mt-1">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent container={container} className={container ? 'z-[110]' : undefined}>
               <SelectItem value="background">Background</SelectItem>
               <SelectItem value="border">Border</SelectItem>
               <SelectItem value="scale">Scale</SelectItem>
@@ -107,11 +121,34 @@ export function TeleprompterDisplaySettings({
             <SelectTrigger className="mt-1">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent container={container} className={container ? 'z-[110]' : undefined}>
               <SelectItem value="smooth">Smooth</SelectItem>
               <SelectItem value="instant">Instant</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+      )}
+
+      {showSegmentSkipOffset && (
+        <div>
+          <label className="text-sm text-muted-foreground">Segment skip lead time</label>
+          <Select
+            value={String(segmentSkipOffset)}
+            onValueChange={(v) => onSegmentSkipOffsetChange(Number(v) as SegmentSkipOffset)}
+          >
+            <SelectTrigger className="mt-1">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent container={container} className={container ? 'z-[110]' : undefined}>
+              <SelectItem value="0">0s (jump to start)</SelectItem>
+              <SelectItem value="2">2s before start</SelectItem>
+              <SelectItem value="3">3s before start</SelectItem>
+              <SelectItem value="5">5s before start</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-1">
+            When using ← → keys, seek this many seconds before the segment so the reciter can prepare.
+          </p>
         </div>
       )}
     </div>

@@ -19,7 +19,7 @@ if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   console.error('❌ Error: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set');
   console.log('\nYou can either:');
   console.log('1. Set environment variables and run this script');
-  console.log('2. Run the SQL in Supabase SQL Editor (see create-storage-bucket.sql)');
+  console.log('2. Run the SQL in Supabase SQL Editor (see sql/create-storage-bucket.sql)');
   process.exit(1);
 }
 

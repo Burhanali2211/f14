@@ -579,6 +579,26 @@ app.get('/api/r2-audio-proxy', async (req, res) => {
     }
     const nodeStream = Readable.fromWeb(r2Response.body);
     res.status(r2Response.status);
+
+    const onError = (err) => {
+      const isClientAbort = err?.code === 'ECONNRESET' || err?.message?.includes('aborted') || err?.message?.includes('terminated');
+      if (!isClientAbort) {
+        console.warn('[api] r2-audio-proxy stream error:', err?.message || err);
+      }
+      nodeStream.destroy();
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error' });
+      } else if (!res.writableEnded) {
+        res.end();
+      }
+    };
+
+    res.on('close', () => {
+      nodeStream.destroy();
+    });
+    nodeStream.on('error', onError);
+    res.on('error', onError);
+
     return nodeStream.pipe(res);
   } catch (error) {
     console.error('Error proxying audio:', error);
@@ -622,6 +642,26 @@ app.get('/api/image-proxy', async (req, res) => {
       return res.status(500).json({ error: 'No response body' });
     }
     const nodeStream = Readable.fromWeb(fetchRes.body);
+
+    const onError = (err) => {
+      const isClientAbort = err?.code === 'ECONNRESET' || err?.message?.includes('aborted') || err?.message?.includes('terminated');
+      if (!isClientAbort) {
+        console.warn('[api] image-proxy stream error:', err?.message || err);
+      }
+      nodeStream.destroy();
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Stream error' });
+      } else if (!res.writableEnded) {
+        res.end();
+      }
+    };
+
+    res.on('close', () => {
+      nodeStream.destroy();
+    });
+    nodeStream.on('error', onError);
+    res.on('error', onError);
+
     return nodeStream.pipe(res);
   } catch (error) {
     console.error('Error proxying image:', error);

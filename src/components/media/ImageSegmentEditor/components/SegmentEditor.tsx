@@ -10,6 +10,7 @@ import { formatTimeParts, parseTimeParts, formatTimeDisplay } from '../types';
 interface SegmentEditorProps {
   region: ImageRegion;
   currentTime: number;
+  getCurrentTime?: () => number;
   duration: number;
   hasAudio: boolean;
   chainTimes?: boolean;
@@ -23,6 +24,7 @@ interface SegmentEditorProps {
 function SegmentEditorComponent({
   region,
   currentTime,
+  getCurrentTime,
   duration,
   hasAudio,
   chainTimes = false,
@@ -74,24 +76,26 @@ function SegmentEditorComponent({
   }, [form, onSave]);
 
   const captureStartTime = useCallback(() => {
-    const parts = formatTimeParts(currentTime);
+    const time = getCurrentTime ? getCurrentTime() : currentTime;
+    const parts = formatTimeParts(time);
     setForm(prev => ({
       ...prev,
       startMM: parts.mm,
       startSS: parts.ss,
       startCC: parts.cc,
     }));
-  }, [currentTime]);
+  }, [currentTime, getCurrentTime]);
 
   const captureEndTime = useCallback(() => {
-    const parts = formatTimeParts(currentTime);
+    const time = getCurrentTime ? getCurrentTime() : currentTime;
+    const parts = formatTimeParts(time);
     setForm(prev => ({
       ...prev,
       endMM: parts.mm,
       endSS: parts.ss,
       endCC: parts.cc,
     }));
-  }, [currentTime]);
+  }, [currentTime, getCurrentTime]);
 
   const adjustStartTime = useCallback((delta: number) => {
     const currentStart = parseTimeParts(form.startMM, form.startSS, form.startCC);
