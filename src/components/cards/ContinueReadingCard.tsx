@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Video } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import { useReadingProgress } from '@/hooks/use-reading-progress';
 import type { Piece } from '@/lib/supabase-types';
 
@@ -41,7 +41,7 @@ export const ContinueReadingCard = memo(function ContinueReadingCard({ piece, in
       {/* Image - Compact square */}
       <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 overflow-hidden rounded-md bg-muted/20">
         <img 
-          src={firstImageUrl || getKarbalaPlaceholder(piece.id)} 
+          src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-full h-full object-cover"
           loading="lazy"

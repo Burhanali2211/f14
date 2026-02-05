@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Video } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { Piece } from '@/lib/supabase-types';
 
 interface PopularPieceCardProps {
@@ -35,7 +35,7 @@ export const PopularPieceCard = memo(function PopularPieceCard({ piece, index, t
       {/* Image Section */}
       <div className="relative w-full h-52 sm:h-60 md:h-64 overflow-hidden bg-muted/30">
         <img 
-          src={firstImageUrl || getKarbalaPlaceholder(piece.id)} 
+          src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"

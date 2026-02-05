@@ -12,6 +12,7 @@ import { generateBreadcrumbStructuredData } from '@/lib/seo-utils';
 import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
 import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Piece, Artiste } from '@/lib/supabase-types';
+import { getProxiedImageUrl } from '@/lib/utils';
 
 export default function ArtistPage() {
   const { reciterName } = useParams<{ reciterName: string }>();
@@ -147,7 +148,7 @@ export default function ArtistPage() {
           <div className="flex items-center gap-4 mb-4">
             {artiste?.image_url ? (
               <img
-                src={artiste.image_url}
+                src={getProxiedImageUrl(artiste.image_url) ?? artiste.image_url}
                 alt={artistName}
                 className="w-20 h-20 rounded-2xl object-cover border-2 border-primary/20 shadow-elevated"
                 loading="eager"

@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Image as ImageIcon, FileText, Music, Layers, CloudOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getFirstImageUrl, getKarbalaPlaceholder, normalizeImageUrl } from '@/lib/utils';
+import { getFirstImageUrl, getKarbalaPlaceholder, normalizeImageUrl, getProxiedImageUrl } from '@/lib/utils';
 
 export interface StudioPieceCardItem {
   id: string;
@@ -69,7 +69,7 @@ export function StudioPieceCard({
     <div className="flex items-center gap-3 sm:gap-4 p-4 rounded-xl border border-border bg-card hover:border-primary/30 transition-colors">
       <div className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-border bg-muted">
         <img
-          src={thumbnailUrl || placeholderUrl}
+          src={getProxiedImageUrl(thumbnailUrl) || placeholderUrl}
           alt=""
           className="w-full h-full object-cover"
           onError={(e) => {

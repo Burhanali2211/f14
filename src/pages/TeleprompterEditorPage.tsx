@@ -32,7 +32,7 @@ import {
 import { FinishTaskDialog } from '@/components/media/FinishTaskDialog';
 import { TeleprompterAudioBar } from '@/components/media/TeleprompterAudioBar';
 import { useTeleprompterSegmentEditor } from '@/hooks/use-teleprompter-segment-editor';
-import { cn, normalizeImageUrl } from '@/lib/utils';
+import { cn, normalizeImageUrl, getProxiedImageUrls } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import type { TeleprompterSegment } from '@/lib/teleprompter-types';
@@ -87,7 +87,8 @@ export default function TeleprompterEditorPage() {
 
   const imageUrls = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);
-    return urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
+    const images = urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
+    return getProxiedImageUrls(images);
   }, [piece?.image_url]);
 
   const pdfUrl = useMemo(() => {

@@ -15,7 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { PieceCardProps } from './types';
 
 export const PieceCard = memo(({ 
@@ -57,7 +57,7 @@ export const PieceCard = memo(({
         }}
       >
         <img 
-          src={getFirstImageUrl(piece.image_url) || getKarbalaPlaceholder(piece.id)} 
+          src={getProxiedImageUrl(getFirstImageUrl(piece.image_url)) || getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl object-cover flex-shrink-0 border border-border"
           loading="lazy"

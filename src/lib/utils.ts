@@ -129,6 +129,11 @@ export function getProxiedImageUrl(url: string | null | undefined): string | nul
   return `/api/image-proxy?url=${encodeURIComponent(trimmed)}`;
 }
 
+/** Proxies an array of image URLs for display (Supabase URLs go through same-origin proxy). */
+export function getProxiedImageUrls(urls: string[]): string[] {
+  return urls.map((u) => getProxiedImageUrl(u) ?? u);
+}
+
 /**
  * Gets a Karbala sacred place placeholder image
  * Returns a random placeholder from the available Karbala sacred places

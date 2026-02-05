@@ -5,6 +5,7 @@ import { getGradientStyles } from '@/hooks/use-hero-gradient';
 import { useImageBrightness } from '@/hooks/use-image-brightness';
 import { useTheme } from '@/hooks/use-theme';
 import type { SiteSettings, Piece } from '@/lib/supabase-types';
+import { getProxiedImageUrl } from '@/lib/utils';
 
 interface HeroSectionProps {
   siteSettings: SiteSettings | null;
@@ -56,7 +57,7 @@ export function HeroSection({
   const bgImageStyles = useMemo(() => {
     if (!hasImage) return undefined;
     return {
-      backgroundImage: `url(${siteSettings?.hero_image_url})`,
+      backgroundImage: `url(${getProxiedImageUrl(siteSettings?.hero_image_url) ?? siteSettings?.hero_image_url})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       backgroundRepeat: 'no-repeat',

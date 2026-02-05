@@ -10,6 +10,7 @@ import { logger } from '@/lib/logger';
 import { getCachedData, setCachedData, getCacheKey } from '@/lib/data-cache';
 import { getTableVersion } from '@/lib/cache-change-detector';
 import type { Imam } from '@/lib/supabase-types';
+import { getProxiedImageUrl } from '@/lib/utils';
 
 export default function AhlulBaytPage() {
   const [imams, setImams] = useState<Imam[]>([]);
@@ -137,7 +138,7 @@ export default function AhlulBaytPage() {
                   <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3 md:mb-4 group-hover:bg-primary group-hover:scale-110 transition-all duration-300">
                     {imam.image_url ? (
                       <img
-                        src={imam.image_url}
+                        src={getProxiedImageUrl(imam.image_url) ?? imam.image_url}
                         alt={imam.name}
                         className="w-full h-full rounded-2xl object-cover"
                         loading="lazy"

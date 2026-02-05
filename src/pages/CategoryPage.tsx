@@ -35,7 +35,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from '@/lib/db-utils';
 import { logger } from '@/lib/logger';
-import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { Category, Piece } from '@/lib/supabase-types';
 
 type SortOption = 'title' | 'recent' | 'popular' | 'reciter';
@@ -477,7 +477,7 @@ export default function CategoryPage() {
                   >
                     <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-xl overflow-hidden flex-shrink-0 shadow-md group-hover:shadow-lg transition-all duration-300">
                       <img 
-                        src={getFirstImageUrl(piece.image_url) || getKarbalaPlaceholder(piece.id)} 
+                        src={getProxiedImageUrl(getFirstImageUrl(piece.image_url)) || getKarbalaPlaceholder(piece.id)} 
                         alt={piece.title}
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                         loading="lazy"

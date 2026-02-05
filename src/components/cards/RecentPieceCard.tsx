@@ -2,7 +2,7 @@ import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Video } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { Piece } from '@/lib/supabase-types';
 
 interface RecentPieceCardProps {
@@ -37,7 +37,7 @@ export const RecentPieceCard = memo(function RecentPieceCard({ piece, index = 0 
         {/* Image Section - Smaller, square */}
         <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0 overflow-hidden rounded-lg bg-muted/30">
           <img 
-            src={firstImageUrl || getKarbalaPlaceholder(piece.id)} 
+            src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
             alt={piece.title}
             className="w-full h-full object-cover"
             loading="lazy"

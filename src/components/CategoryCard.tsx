@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Heart, Star, Droplet, Hand, Moon, Users, Book, ArrowRight, CircleHelp } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
 import type { Category } from '@/lib/supabase-types';
+import { getProxiedImageUrl } from '@/lib/utils';
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   heart: Heart,
@@ -46,8 +47,8 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
   const iconColor = iconColorMap[category.icon] || iconColorMap.book;
   const iconBg = iconBgMap[category.icon] || iconBgMap.book;
   
-  // Get background image settings from admin dashboard
-  const bgImageUrl = category.bg_image_url;
+  // Get background image settings from admin dashboard (proxied to avoid __cf_bm cookie issues)
+  const bgImageUrl = getProxiedImageUrl(category.bg_image_url) ?? category.bg_image_url;
   const bgImagePosition = category.bg_image_position || 'center';
   const bgImageSize = category.bg_image_size || 'cover';
   // Adjust opacity for light mode - need stronger overlay for better text readability

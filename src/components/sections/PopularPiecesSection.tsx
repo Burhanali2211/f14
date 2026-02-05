@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { TrendingUp, ChevronLeft, ChevronRight, Eye, Flame } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { getTextDirection, getTextAlignmentClass, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextDirection, getTextAlignmentClass, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { Piece } from '@/lib/supabase-types';
 
 interface PopularPiecesSectionProps {
@@ -105,7 +105,7 @@ function PopularCard({ piece, rank }: { piece: Piece; rank: number }) {
     >
       <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-card border border-border/40 hover:border-primary/30 transition-all shadow-sm hover:shadow-md">
         <img 
-          src={hasImage ? firstImageUrl! : getKarbalaPlaceholder(piece.id)} 
+          src={hasImage ? (getProxiedImageUrl(firstImageUrl) ?? firstImageUrl!) : getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"

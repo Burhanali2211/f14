@@ -2,7 +2,7 @@ import { memo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Play, Eye, Video, ArrowUpRight } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { Piece } from '@/lib/supabase-types';
 
 interface PieceCardProps {
@@ -120,7 +120,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
     >
       <div className="relative h-44 sm:h-48 md:h-52 lg:h-56 overflow-hidden bg-secondary">
         <img 
-          src={hasImage ? (getFirstImageUrl(piece.image_url) || getKarbalaPlaceholder(piece.id)) : getKarbalaPlaceholder(piece.id)} 
+          src={hasImage ? (getProxiedImageUrl(getFirstImageUrl(piece.image_url)) || getKarbalaPlaceholder(piece.id)) : getKarbalaPlaceholder(piece.id)} 
           alt={`${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}`}
           className={`w-full h-full object-cover transition-transform duration-500 ${isPressed ? 'scale-100' : 'group-hover:scale-105'}`}
           loading="lazy"

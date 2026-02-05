@@ -1,7 +1,7 @@
 import { Sparkles, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { getTextDirection, getTextAlignmentClass, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextDirection, getTextAlignmentClass, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { Piece } from '@/lib/supabase-types';
 
 interface RecentPiecesSectionProps {
@@ -63,7 +63,7 @@ function RecentItem({ piece, index }: { piece: Piece; index: number }) {
     >
       <div className="relative w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
         <img 
-          src={firstImageUrl || getKarbalaPlaceholder(piece.id)} 
+          src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
           alt=""
           className="w-full h-full object-cover"
           loading="lazy"

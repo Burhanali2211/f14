@@ -31,7 +31,7 @@ import {
   generateArticleStructuredData,
   generateBreadcrumbStructuredData,
 } from '@/lib/seo-utils';
-import { normalizeImageUrl, getFirstImageUrl } from '@/lib/utils';
+import { normalizeImageUrl, getFirstImageUrl, getProxiedImageUrls } from '@/lib/utils';
 import type { Piece, Category, Imam } from '@/lib/supabase-types';
 
 type MediaType = 'video' | 'images' | 'pdf' | 'text' | 'none';
@@ -367,6 +367,8 @@ export default function PiecePage() {
           images.push(url);
         }
       }
+
+      const proxiedImages = getProxiedImageUrls(images);
       
       let media: MediaType = 'none';
       if (hasVideo) media = 'video';
@@ -374,7 +376,7 @@ export default function PiecePage() {
       else if (images.length > 0) media = 'images';
       else if (piece?.text_content && piece.text_content.trim().length >= 10) media = 'text';
       
-      return { imageUrls: images, pdfUrl: pdf, primaryMedia: media };
+      return { imageUrls: proxiedImages, pdfUrl: pdf, primaryMedia: media };
     }, [piece?.image_url, piece?.video_url, piece?.text_content]);
 
   const hasTextContent = piece?.text_content && piece.text_content.trim().length >= 10;

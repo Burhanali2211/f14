@@ -10,6 +10,7 @@ import { EditorHeader, RecoveryDialog } from '@/components/media/ImageSegmentEdi
 import { useAutoSave } from '@/components/media/ImageSegmentEditor/hooks';
 import { useR2Audio } from '@/hooks/useR2Audio';
 import { toast } from '@/hooks/use-toast';
+import { getProxiedImageUrls } from '@/lib/utils';
 
 async function fetchPiece(id: string) {
   const { data, error } = await supabase
@@ -127,7 +128,8 @@ export default function ImageSegmentEditorPage() {
 
   const imageUrls = useMemo(() => {
     const urls = parseImageUrls(piece?.image_url);
-    return urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
+    const images = urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
+    return getProxiedImageUrls(images);
   }, [piece?.image_url]);
 
   const regionsPerPage = useMemo(() => {

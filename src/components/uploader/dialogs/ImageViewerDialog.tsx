@@ -7,17 +7,19 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import type { ImageViewerDialogProps } from '../types';
+import { getProxiedImageUrl } from '@/lib/utils';
 
 export const ImageViewerDialog = ({ imageUrl, isOpen, onClose }: ImageViewerDialogProps) => {
+  const displayUrl = getProxiedImageUrl(imageUrl) ?? imageUrl;
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-7xl w-full max-h-[90vh] h-[90vh] sm:h-auto p-0 overflow-hidden rounded-2xl">
         <DialogTitle className="sr-only">Image Preview</DialogTitle>
         <DialogDescription className="sr-only">Full size view of the uploaded image</DialogDescription>
-        {imageUrl && (
+        {displayUrl && (
           <div className="relative w-full h-full flex items-center justify-center bg-black/95 overflow-auto">
             <img 
-              src={imageUrl} 
+              src={displayUrl} 
               alt="Full size preview"
               className="max-w-full max-h-full object-contain"
               style={{ maxHeight: 'calc(90vh - 2rem)' }}

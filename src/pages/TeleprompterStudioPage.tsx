@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { normalizeImageUrl } from '@/lib/utils';
+import { normalizeImageUrl, getProxiedImageUrls } from '@/lib/utils';
 import { getCurrentUser } from '@/lib/auth-utils';
 import { useUserRole } from '@/hooks/use-user-role';
 import { toast } from '@/hooks/use-toast';
@@ -148,7 +148,7 @@ function StudioUploadZoneWithRouter({ pieceId, onContentReady, createPieceFromEx
   }
 
   const allUrls = normalizeImageUrl(piece.image_url);
-  const imageUrls = allUrls.filter((u) => !u.toLowerCase().endsWith('.pdf'));
+  const imageUrls = getProxiedImageUrls(allUrls.filter((u) => !u.toLowerCase().endsWith('.pdf')));
   const pdfUrl = allUrls.find((u) => u.toLowerCase().endsWith('.pdf')) || null;
   const audioUrl = piece.audio_url
     ? piece.audio_url.startsWith('audio/')

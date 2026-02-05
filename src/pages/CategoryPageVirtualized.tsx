@@ -3,7 +3,7 @@ import { FixedSizeList as List } from 'react-window';
 import { Link } from 'react-router-dom';
 import { PieceCard } from '@/components/PieceCard';
 import type { Piece } from '@/lib/supabase-types';
-import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextAlignmentClass, getTextDirection, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Video, Eye, ArrowUpRight } from 'lucide-react';
 
@@ -45,7 +45,7 @@ export function VirtualizedPieceList({
           {/* Image */}
           <div className="relative w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 rounded-lg md:rounded-xl overflow-hidden flex-shrink-0 shadow-md group-hover:shadow-lg transition-all duration-300">
             <img 
-              src={getFirstImageUrl(piece.image_url) || getKarbalaPlaceholder(piece.id)} 
+              src={getProxiedImageUrl(getFirstImageUrl(piece.image_url)) || getKarbalaPlaceholder(piece.id)} 
               alt={piece.title}
               className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
               loading="lazy"

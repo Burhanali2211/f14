@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Mic } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { getProxiedImageUrl } from '@/lib/utils';
 
 interface Artist {
   name: string;
@@ -73,7 +74,7 @@ export function ArtistsSection({ artists }: ArtistsSectionProps) {
                   <Avatar className="w-16 h-16 group-hover:scale-110 transition-transform duration-300">
                     {artist.image_url ? (
                       <img
-                        src={artist.image_url}
+                        src={getProxiedImageUrl(artist.image_url) ?? artist.image_url}
                         alt={artist.name}
                         className="w-full h-full object-cover rounded-full"
                         loading="lazy"

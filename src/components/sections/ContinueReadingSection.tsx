@@ -1,7 +1,7 @@
 import { History, ChevronRight, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useReadingProgress } from '@/hooks/use-reading-progress';
-import { getTextDirection, getTextAlignmentClass, getKarbalaPlaceholder, getFirstImageUrl } from '@/lib/utils';
+import { getTextDirection, getTextAlignmentClass, getKarbalaPlaceholder, getFirstImageUrl, getProxiedImageUrl } from '@/lib/utils';
 import type { Piece } from '@/lib/supabase-types';
 
 interface ContinueReadingSectionProps {
@@ -57,7 +57,7 @@ function ContinueCard({ piece, index }: { piece: Piece; index: number }) {
       <div className="relative h-20 sm:h-24 rounded-xl overflow-hidden bg-card border border-border/40 hover:border-primary/40 transition-all">
         <div className="absolute inset-0">
           <img 
-            src={firstImageUrl || getKarbalaPlaceholder(piece.id)} 
+            src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
             alt=""
             className="w-full h-full object-cover opacity-30"
             loading="lazy"
@@ -72,7 +72,7 @@ function ContinueCard({ piece, index }: { piece: Piece; index: number }) {
           <div className="relative flex-shrink-0">
               <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-lg overflow-hidden ring-2 ring-primary/20">
                 <img 
-                  src={firstImageUrl || getKarbalaPlaceholder(piece.id)} 
+                  src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
                   alt={piece.title}
                   className="w-full h-full object-cover"
                   loading="lazy"
