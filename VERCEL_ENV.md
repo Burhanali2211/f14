@@ -28,6 +28,9 @@ Add these environment variables in your Vercel project settings (Settings → En
 | `SITE_URL` | Production site URL |
 | `VITE_EARNINGS_ACCESS_PASSWORD` | Admin earnings section password |
 | `VITE_VAPID_PUBLIC_KEY` | Web Push VAPID public key |
+| `VITE_AIRSEND_TURN_URL` | (Optional) TURN server URL for WebRTC (e.g. `turn:turn.example.com:3478`) |
+| `VITE_AIRSEND_TURN_USER` | (Optional) TURN username |
+| `VITE_AIRSEND_TURN_CRED` | (Optional) TURN credential |
 
 ## Environment scope
 

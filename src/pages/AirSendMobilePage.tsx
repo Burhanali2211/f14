@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Upload, CheckCircle, File, Loader2, AlertCircle, Smartphone, Wifi, Camera, List } from 'lucide-react';
+import { Upload, CheckCircle, File, Loader2, AlertCircle, Smartphone, Wifi, Camera, List, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { airsendSupabase } from '@/integrations/supabase/airsend-client';
 import { cn } from '@/lib/utils';
-import { AirSendP2P } from '@/lib/airsend-p2p';
+import { AirSendP2P, MAX_FILE_SIZE } from '@/lib/airsend-p2p';
 import { AirSendQrScanner } from '@/components/media/AirSendQrScanner';
-import { AIRSEND_ROUTE } from '@/lib/airsend-constants';
+import { AIRSEND_ROUTE, setMobileSession, getMobileSession, clearMobileSession } from '@/lib/airsend-constants';
 import { toast } from 'sonner';
-
-const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
 interface AvailableSession {
   session_code: string;
@@ -47,9 +45,16 @@ export default function AirSendMobilePage() {
     mounted.current = true;
 
     if (!sessionCode) {
+      const stored = getMobileSession();
+      if (stored) {
+        setSearchParams({ session: stored });
+        return;
+      }
       setSessionValid(false);
       return;
     }
+
+    setMobileSession(sessionCode);
 
     const checkSession = async () => {
       try {
@@ -62,12 +67,14 @@ export default function AirSendMobilePage() {
         if (!mounted.current) return;
 
         if (error || !data) {
+          clearMobileSession();
           setSessionValid(false);
           return;
         }
 
         const expiresAt = new Date(data.expires_at);
         if (expiresAt < new Date()) {
+          clearMobileSession();
           setSessionValid(false);
           return;
         }
@@ -82,6 +89,7 @@ export default function AirSendMobilePage() {
             if (s.includes('Channel open')) {
               setIsChannelReady(true);
               setStatus('idle');
+              setError(null);
             }
             if (s.includes('failed') || s.includes('timeout') || s.includes('Connection lost')) {
               setStatus('error');
@@ -301,7 +309,13 @@ export default function AirSendMobilePage() {
           >
             Send Another
           </Button>
-          <Button variant="ghost" onClick={() => navigate(AIRSEND_ROUTE)}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              clearMobileSession();
+              navigate(AIRSEND_ROUTE);
+            }}
+          >
             New Session
           </Button>
         </div>
@@ -390,6 +404,17 @@ export default function AirSendMobilePage() {
                 <p className="text-xs text-center text-muted-foreground mt-2">
                   Transferring directly: {progress}%
                 </p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full mt-2 text-muted-foreground"
+                  onClick={() => {
+                    p2pRef.current?.cancelSend();
+                  }}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancel
+                </Button>
               </div>
             )}
 

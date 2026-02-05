@@ -7,7 +7,7 @@ export interface AirSendFile {
   data: ArrayBuffer;
 }
 
-type SignalingMessage = 
+type SignalingMessage =
   | { type: 'ready' }
   | { type: 'request-restart' }
   | { type: 'offer'; sdp: RTCSessionDescriptionInit }
@@ -22,11 +22,54 @@ enum PacketType {
 
 const CHUNK_SIZE = 64 * 1024;
 const BUFFER_THRESHOLD = CHUNK_SIZE * 8;
-const MAX_FILE_SIZE = 500 * 1024 * 1024;
+export const MAX_FILE_SIZE = 500 * 1024 * 1024;
 /** Connection timeout - allow time for user to browse files (e.g. open file manager) */
-const CONNECTION_TIMEOUT_MS = 120_000;
-/** Grace period for 'disconnected' - often recovers when user returns to app */
-const DISCONNECTED_GRACE_MS = 60_000;
+const CONNECTION_TIMEOUT_MS = 180_000;
+/** Grace period for 'disconnected' - user may switch apps to pick file, take time */
+const DISCONNECTED_GRACE_MS = 120_000;
+/** Buffer drain timeout - slow networks need more time */
+const BUFFER_DRAIN_TIMEOUT_MS = 60_000;
+
+const MAX_FILENAME_LENGTH = 255;
+const SAFE_FILENAME_REGEX = /^[^<>:"/\\|?*\x00-\x1f]*$/;
+
+function getIceServers(): RTCIceServer[] {
+  const servers: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
+  const turnUrl = import.meta.env.VITE_AIRSEND_TURN_URL;
+  const turnUser = import.meta.env.VITE_AIRSEND_TURN_USER;
+  const turnCred = import.meta.env.VITE_AIRSEND_TURN_CRED;
+  if (turnUrl && turnUser && turnCred) {
+    servers.push({ urls: turnUrl, username: turnUser, credential: turnCred });
+  }
+  return servers;
+}
+
+function sanitizeFilename(name: string): string {
+  const base = name.replace(/^.*[/\\]/, '').slice(0, MAX_FILENAME_LENGTH);
+  return SAFE_FILENAME_REGEX.test(base) ? base : base.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_') || 'file';
+}
+
+interface FileMetadata {
+  name: string;
+  type: string;
+  size: number;
+}
+
+function parseAndValidateMetadata(jsonStr: string): FileMetadata | null {
+  try {
+    const parsed = JSON.parse(jsonStr) as unknown;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const { name, type, size } = parsed as Record<string, unknown>;
+    if (typeof name !== 'string' || typeof type !== 'string' || typeof size !== 'number') return null;
+    if (size < 0 || size > MAX_FILE_SIZE) return null;
+    return { name: sanitizeFilename(name), type: type || 'application/octet-stream', size };
+  } catch {
+    return null;
+  }
+}
 
 export class AirSendP2P {
   private pc: RTCPeerConnection | null = null;
@@ -37,7 +80,8 @@ export class AirSendP2P {
   private onFileReceived?: (file: AirSendFile) => void;
   private onStatusChange?: (status: string) => void;
   private onProgress?: (progress: number) => void;
-  
+  private onConnectionLost?: () => void;
+
   private iceCandidatesQueue: RTCIceCandidateInit[] = [];
   private remoteDescriptionSet = false;
   private isSubscribed = false;
@@ -47,6 +91,7 @@ export class AirSendP2P {
   private maxRetries = 15;
   private currentRetry = 0;
   private destroyed = false;
+  private sendAbortController: AbortController | null = null;
 
   constructor(sessionCode: string, isReceiver: boolean) {
     this.sessionCode = sessionCode;
@@ -57,10 +102,12 @@ export class AirSendP2P {
     onFileReceived?: (file: AirSendFile) => void;
     onStatusChange?: (status: string) => void;
     onProgress?: (progress: number) => void;
+    onConnectionLost?: () => void;
   }) {
     this.onFileReceived = callbacks.onFileReceived;
     this.onStatusChange = callbacks.onStatusChange;
     this.onProgress = callbacks.onProgress;
+    this.onConnectionLost = callbacks.onConnectionLost;
 
     this.onStatusChange?.('Initializing...');
 
@@ -96,14 +143,7 @@ export class AirSendP2P {
   }
 
   private setupPeerConnection() {
-    // Use max 2 STUN servers - Chrome warns that 5+ servers slow down ICE discovery
-    const configuration = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-      ],
-    };
-
+    const configuration = { iceServers: getIceServers() };
     this.pc = new RTCPeerConnection(configuration);
 
     this.pc.onicecandidate = (event) => {
@@ -128,17 +168,23 @@ export class AirSendP2P {
         }
       } else if (state === 'failed') {
         this.clearDisconnectedGraceTimeout();
+        this.dataChannel = null;
         if (this.currentRetry < this.maxRetries) {
           this.currentRetry++;
           this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
           if (this.isReceiver) {
-            this.sendSignalingMessage({ type: 'request-restart' });
+            this.onConnectionLost?.();
+            this.sendSignalingMessage({ type: 'ready' });
           } else {
             this.restartIce();
           }
         } else {
+          if (this.isReceiver) this.onConnectionLost?.();
           this.onStatusChange?.('Connection failed. Please try again.');
         }
+      } else if (state === 'closed') {
+        this.dataChannel = null;
+        if (this.isReceiver) this.onConnectionLost?.();
       } else if (state === 'disconnected') {
         this.onStatusChange?.('Connection paused - take your time selecting a file');
         if (this.currentRetry < this.maxRetries) {
@@ -146,10 +192,12 @@ export class AirSendP2P {
           this.disconnectedGraceTimeout = setTimeout(() => {
             if (!this.destroyed && this.pc?.connectionState === 'disconnected') {
               this.disconnectedGraceTimeout = null;
+              this.dataChannel = null;
               this.currentRetry++;
               this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
               if (this.isReceiver) {
-                this.sendSignalingMessage({ type: 'request-restart' });
+                this.onConnectionLost?.();
+                this.sendSignalingMessage({ type: 'ready' });
               } else {
                 this.restartIce();
               }
@@ -157,6 +205,7 @@ export class AirSendP2P {
           }, DISCONNECTED_GRACE_MS);
         } else {
           this.clearDisconnectedGraceTimeout();
+          if (this.isReceiver) this.onConnectionLost?.();
           this.onStatusChange?.('Connection lost. Session will recover when you return.');
         }
       } else if (state === 'connecting') {
@@ -176,9 +225,9 @@ export class AirSendP2P {
     this.dataChannel = channel;
     this.dataChannel.binaryType = 'arraybuffer';
     this.dataChannel.bufferedAmountLowThreshold = BUFFER_THRESHOLD;
-    
+
     let receivedChunks: ArrayBuffer[] = [];
-    let fileMetadata: { name: string; type: string; size: number } | null = null;
+    let fileMetadata: FileMetadata | null = null;
     let bytesReceived = 0;
 
     this.dataChannel.onopen = () => {
@@ -212,14 +261,14 @@ export class AirSendP2P {
         case PacketType.METADATA: {
           const decoder = new TextDecoder();
           const jsonStr = decoder.decode(event.data.slice(1));
-          try {
-            fileMetadata = JSON.parse(jsonStr);
-            receivedChunks = [];
-            bytesReceived = 0;
-            this.onStatusChange?.(`Receiving: ${fileMetadata?.name}`);
+          fileMetadata = parseAndValidateMetadata(jsonStr);
+          receivedChunks = [];
+          bytesReceived = 0;
+          if (fileMetadata) {
+            this.onStatusChange?.(`Receiving: ${fileMetadata.name}`);
             this.onProgress?.(0);
-          } catch (e) {
-            console.error('Failed to parse metadata:', e);
+          } else {
+            console.error('Invalid or malformed metadata');
           }
           break;
         }
@@ -239,18 +288,23 @@ export class AirSendP2P {
               this.onFileReceived?.({
                 name: fileMetadata.name,
                 type: fileMetadata.type,
-                data: new ArrayBuffer(0)
+                data: new ArrayBuffer(0),
               });
             } else if (receivedChunks.length > 0) {
               const blob = new Blob(receivedChunks, { type: fileMetadata.type });
               if (blob.size !== fileMetadata.size) {
-                console.warn(`Size mismatch: expected ${fileMetadata.size}, got ${blob.size}`);
+                this.onStatusChange?.('Transfer failed: file corrupted (size mismatch)');
+                console.error(`Size mismatch: expected ${fileMetadata.size}, got ${blob.size}`);
+                receivedChunks = [];
+                fileMetadata = null;
+                bytesReceived = 0;
+                break;
               }
               const data = await blob.arrayBuffer();
               this.onFileReceived?.({
                 name: fileMetadata.name,
                 type: fileMetadata.type,
-                data
+                data,
               });
             }
             this.onStatusChange?.('Transfer complete');
@@ -287,10 +341,12 @@ export class AirSendP2P {
         case 'offer':
           if (this.isReceiver) {
             this.iceCandidatesQueue = [];
-            const needsNewPc = !this.pc || this.pc.connectionState === 'failed' || this.pc.connectionState === 'closed';
+            const state = this.pc?.connectionState;
+            const needsNewPc = !this.pc || state === 'failed' || state === 'closed' || state === 'disconnected';
             if (needsNewPc) {
               this.pc?.close();
               this.dataChannel = null;
+              this.currentRetry = 0;
               this.setupPeerConnection();
             }
             if (this.pc) {
@@ -374,7 +430,11 @@ export class AirSendP2P {
     return this.dataChannel?.readyState === 'open';
   }
 
-  async sendFile(file: File) {
+  cancelSend(): void {
+    this.sendAbortController?.abort();
+  }
+
+  async sendFile(file: File, options?: { signal?: AbortSignal }) {
     if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
       throw new Error('Connection not ready. Please wait for channel to open.');
     }
@@ -383,7 +443,14 @@ export class AirSendP2P {
       throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
     }
 
-    const metadata = JSON.stringify({ name: file.name, type: file.type, size: file.size });
+    this.sendAbortController = new AbortController();
+    const signal = options?.signal ?? this.sendAbortController.signal;
+
+    const metadata = JSON.stringify({
+      name: sanitizeFilename(file.name),
+      type: file.type || 'application/octet-stream',
+      size: file.size,
+    });
     const metaBuffer = new TextEncoder().encode(metadata);
     const metaPacket = new Uint8Array(1 + metaBuffer.byteLength);
     metaPacket[0] = PacketType.METADATA;
@@ -401,17 +468,17 @@ export class AirSendP2P {
     let offset = 0;
 
     while (offset < buffer.byteLength) {
-      if (this.destroyed) {
-        throw new Error('Connection destroyed during transfer');
+      if (this.destroyed || signal.aborted) {
+        throw new Error(signal.aborted ? 'Transfer cancelled' : 'Connection destroyed during transfer');
       }
 
       if (this.dataChannel.bufferedAmount > BUFFER_THRESHOLD) {
         await new Promise<void>((resolve, reject) => {
           const timeout = setTimeout(() => {
             this.dataChannel?.removeEventListener('bufferedamountlow', handleLow);
-            reject(new Error('Buffer drain timeout'));
-          }, 30000);
-          
+            reject(new Error('Buffer drain timeout - network may be slow'));
+          }, BUFFER_DRAIN_TIMEOUT_MS);
+
           const handleLow = () => {
             clearTimeout(timeout);
             this.dataChannel?.removeEventListener('bufferedamountlow', handleLow);
@@ -474,6 +541,7 @@ export class AirSendP2P {
 
   destroy() {
     this.destroyed = true;
+    this.sendAbortController?.abort();
     this.clearConnectionTimeout();
     this.clearDisconnectedGraceTimeout();
     if (this.readyInterval) {

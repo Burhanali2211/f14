@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { airsendSupabase } from '@/integrations/supabase/airsend-client';
 import { AirSendP2P, AirSendFile } from '@/lib/airsend-p2p';
-import { getAirSendUrl, AIRSEND_SESSION_EXPIRY_MINUTES, getStoredSession, setStoredSession, clearStoredSession } from '@/lib/airsend-constants';
+import { getAirSendUrl, AIRSEND_SESSION_EXPIRY_MINUTES, getStoredSession, setStoredSession, clearStoredSession, generateSessionCode } from '@/lib/airsend-constants';
 import { toast } from 'sonner';
 import { useR2Audio, AudioFile } from '@/hooks/useR2Audio';
 import { Progress } from '@/components/ui/progress';
@@ -21,17 +21,9 @@ interface AirSendDialogProps {
   onOpenChange: (open: boolean) => void;
   pieceId?: string | null;
   mode?: 'audio' | 'download-only';
-  onAudioReceived?: (audioUrl: string, audioName: string) => void;
+  /** Receives the file directly - avoids blob URL revocation race */
+  onAudioReceived?: (file: AirSendFile) => void | Promise<void>;
   onCloudAudioUploaded?: (audioFile: AudioFile) => void;
-}
-
-function generateSessionCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
 }
 
 export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audio', onAudioReceived, onCloudAudioUploaded }: AirSendDialogProps) {
@@ -50,6 +42,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
   const receivedUrlRef = useRef<string | null>(null);
   const receivedFileRef = useRef<AirSendFile | null>(null);
   const saveFileHandlerRef = useRef<(file: AirSendFile) => void>(() => {});
+  const createSessionLockRef = useRef(false);
 
   const { uploadAudio, uploadProgress } = useR2Audio();
 
@@ -75,7 +68,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
         if (s.includes('Receiving')) {
           setStatus('receiving');
         }
-        if (s.includes('failed') || s.includes('timeout') || s.includes('error')) {
+        if (s.includes('failed') || s.includes('timeout') || s.includes('error') || s.includes('corrupted')) {
           setStatus('error');
           toast.error(s || 'Transfer failed');
         }
@@ -88,13 +81,21 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
         setReceivedFile(file);
         receivedFileRef.current = file;
         saveFileHandlerRef.current(file);
-      }
+      },
+      onConnectionLost: () => {
+        setStatus('waiting');
+        setProgress(0);
+        setP2PStatus('Waiting for peer...');
+      },
     });
   }, []);
 
   const createSession = useCallback(async (forceNew = false) => {
+    if (createSessionLockRef.current) return;
+    createSessionLockRef.current = true;
     cleanupObjectUrl();
-    
+
+    try {
     if (!forceNew) {
       const stored = getStoredSession();
       if (stored) {
@@ -164,6 +165,9 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
     setSavedToDisk(false);
 
     startP2P(code);
+    } finally {
+      createSessionLockRef.current = false;
+    }
   }, [pieceId ?? null, cleanupObjectUrl, startP2P]);
 
   const handleSaveReceivedFile = async (file: AirSendFile) => {
@@ -303,10 +307,20 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
   useEffect(() => {
     if (!open) return;
     const timer = setInterval(() => {
-      setExpiresIn(prev => prev > 0 ? prev - 1 : 0);
+      setExpiresIn((prev) => {
+        if (prev <= 0) return 0;
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !sessionCode || status !== 'waiting') return;
+    if (expiresIn > 0) return;
+    toast.info('Session expired. Creating new session...');
+    createSession(true);
+  }, [open, sessionCode, status, expiresIn, createSession]);
 
   useEffect(() => {
     if (!open || !sessionCode || status !== 'waiting') return;
@@ -546,9 +560,9 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
                     </Button>
                     <Button
                       className="gap-2 h-11 shadow-md shadow-primary/20"
-                      onClick={() => {
-                        if (receivedUrl && onAudioReceived) {
-                          onAudioReceived(receivedUrl, receivedFile.name);
+                      onClick={async () => {
+                        if (receivedFile && onAudioReceived) {
+                          await Promise.resolve(onAudioReceived(receivedFile));
                           handleClose();
                         }
                       }}

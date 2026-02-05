@@ -223,14 +223,12 @@ export default function ImageSegmentEditorPage() {
     setHasChanges(true);
   }, []);
 
-  const handleAirSendReceived = useCallback(async (localUrl: string, fileName: string) => {
+  const handleAirSendReceived = useCallback(async (airsendFile: { name: string; type: string; data: ArrayBuffer }) => {
     if (!id) return;
-    
+
     setIsUploading(true);
     try {
-      const response = await fetch(localUrl);
-      const blob = await response.blob();
-      const isAudio = blob.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|webm|aac)$/i.test(fileName);
+      const isAudio = airsendFile.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|flac|webm|aac)$/i.test(airsendFile.name);
       if (!isAudio) {
         toast({
           title: 'Audio required',
@@ -239,7 +237,7 @@ export default function ImageSegmentEditorPage() {
         });
         return;
       }
-      const file = new File([blob], fileName, { type: blob.type || 'audio/mpeg' });
+      const file = new File([airsendFile.data], airsendFile.name, { type: airsendFile.type || 'audio/mpeg' });
       
       const audioFile = await uploadAudio(file, id);
 
@@ -255,7 +253,7 @@ export default function ImageSegmentEditorPage() {
 
       toast({
         title: 'Audio synced',
-        description: `"${fileName}" has been saved to cloud storage via AirSend`,
+        description: `"${airsendFile.name}" has been saved to cloud storage via AirSend`,
       });
     } catch (err: any) {
       console.error('AirSend sync error:', err);

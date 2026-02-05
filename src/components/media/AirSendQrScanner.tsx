@@ -10,12 +10,13 @@ interface AirSendQrScannerProps {
 
 function extractSessionFromUrl(urlOrCode: string): string | null {
   try {
-    if (/^[A-Z0-9]{6}$/i.test(urlOrCode.trim())) {
-      return urlOrCode.trim().toUpperCase();
+    const trimmed = urlOrCode.trim().toUpperCase();
+    if (/^[A-Z0-9]{6,10}$/.test(trimmed)) {
+      return trimmed;
     }
     const url = new URL(urlOrCode);
     const session = url.searchParams.get('session');
-    return session || null;
+    return session ? session.toUpperCase() : null;
   } catch {
     return null;
   }
