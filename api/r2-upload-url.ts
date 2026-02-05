@@ -1,8 +1,6 @@
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-
+// Edge runtime for fast cold starts - avoids 30s timeout on Node.js + AWS SDK
 export const config = {
-  runtime: 'nodejs',
+  runtime: 'edge',
   maxDuration: 30,
 };
 
@@ -15,45 +13,100 @@ const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL 
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
-const FETCH_TIMEOUT_MS = 8000;
+const FETCH_TIMEOUT_MS = 5000;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean) || [];
 
-/** Read body as JSON - works with Web API Request and Node.js IncomingMessage */
-async function getJsonBody(req: Request | NodeJS.ReadableStream & { json?: () => Promise<unknown> }): Promise<unknown> {
-  if (typeof (req as Request).json === 'function') {
-    return (req as Request).json();
-  }
-  const nodeReq = req as NodeJS.ReadableStream;
-  const chunks: Buffer[] = [];
-  return new Promise<unknown>((resolve, reject) => {
-    nodeReq.on('data', (chunk: Buffer | Uint8Array) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    nodeReq.on('end', () => {
-      try {
-        const text = Buffer.concat(chunks).toString('utf-8');
-        resolve(text ? JSON.parse(text) : {});
-      } catch (e) {
-        reject(e);
-      }
-    });
-    nodeReq.on('error', reject);
-  });
+async function hmacSha256(key: ArrayBuffer, message: string): Promise<ArrayBuffer> {
+  const cryptoKey = await crypto.subtle.importKey(
+    'raw',
+    key,
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  return crypto.subtle.sign('HMAC', cryptoKey, new TextEncoder().encode(message));
 }
 
-/** Get header value - works with Web API Headers and Node.js IncomingMessage.headers */
-function getHeader(headers: Headers | Record<string, string | string[] | undefined>, name: string): string {
-  if (!headers) return '';
-  if (typeof (headers as Headers).get === 'function') {
-    return (headers as Headers).get(name) || '';
-  }
-  const obj = headers as Record<string, string | string[] | undefined>;
-  const lower = name.toLowerCase();
-  const v = obj[lower] ?? obj[name];
-  if (Array.isArray(v)) return v[0] || '';
-  return typeof v === 'string' ? v : '';
+async function getSignatureKey(secretKey: string, dateStamp: string, region: string, service: string): Promise<ArrayBuffer> {
+  const encoder = new TextEncoder();
+  const kDate = await hmacSha256(encoder.encode('AWS4' + secretKey).buffer as ArrayBuffer, dateStamp);
+  const kRegion = await hmacSha256(kDate, region);
+  const kService = await hmacSha256(kRegion, service);
+  return hmacSha256(kService, 'aws4_request');
 }
 
-function getCorsHeaders(headers: Headers | Record<string, string | string[] | undefined>): Record<string, string> {
-  const origin = getHeader(headers, 'Origin') || '';
+function toHex(buffer: ArrayBuffer): string {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+/** Create presigned PUT URL for R2 - Edge compatible (no AWS SDK) */
+async function createPresignedPutUrl(
+  bucket: string,
+  key: string,
+  contentType: string,
+  expiresIn = 3600
+): Promise<string> {
+  const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+  const region = 'auto';
+  const service = 's3';
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
+
+  const now = new Date();
+  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
+  const dateStamp = amzDate.slice(0, 8);
+
+  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
+
+  const canonicalUri = `/${bucket}/${key}`;
+  const signedHeaders = 'content-type;host';
+
+  const queryParams: Record<string, string> = {
+    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
+    'X-Amz-Content-Sha256': 'UNSIGNED-PAYLOAD',
+    'X-Amz-Credential': credential,
+    'X-Amz-Date': amzDate,
+    'X-Amz-Expires': expiresIn.toString(),
+    'X-Amz-SignedHeaders': signedHeaders,
+  };
+
+  const canonicalQueryString = Object.keys(queryParams)
+    .sort()
+    .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(queryParams[k])}`)
+    .join('&');
+
+  const canonicalHeaders = `content-type:${contentType}\nhost:${host}\n`;
+
+  const canonicalRequest = [
+    'PUT',
+    canonicalUri,
+    canonicalQueryString,
+    canonicalHeaders,
+    signedHeaders,
+    'UNSIGNED-PAYLOAD',
+  ].join('\n');
+
+  const canonicalRequestHash = toHex(
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(canonicalRequest))
+  );
+
+  const stringToSign = [
+    'AWS4-HMAC-SHA256',
+    amzDate,
+    credentialScope,
+    canonicalRequestHash,
+  ].join('\n');
+
+  const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY!, dateStamp, region, service);
+  const signature = toHex(await hmacSha256(signingKey, stringToSign));
+
+  return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+}
+
+function getCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('Origin') || '';
   const isAllowed = ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin);
   const allowOrigin = isAllowed ? origin : (ALLOWED_ORIGINS[0] || '*');
   return {
@@ -91,26 +144,6 @@ function isValidAudioContentType(contentType: string, filename: string): boolean
   return false;
 }
 
-function createPresignedUrl(bucket: string, key: string, contentType: string, expiresIn = 3600): Promise<string> {
-  const s3 = new S3Client({
-    region: 'auto',
-    endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-    credentials: {
-      accessKeyId: R2_ACCESS_KEY_ID!,
-      secretAccessKey: R2_SECRET_ACCESS_KEY!,
-    },
-    forcePathStyle: true,
-  });
-
-  const command = new PutObjectCommand({
-    Bucket: bucket,
-    Key: key,
-    ContentType: contentType,
-  });
-
-  return getSignedUrl(s3, command, { expiresIn });
-}
-
 async function verifyUser(authHeader: string | null): Promise<{ userId: string } | null> {
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -138,7 +171,7 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
 }
 
 export default async function handler(request: Request) {
-  const corsHeaders = getCorsHeaders(request.headers);
+  const corsHeaders = getCorsHeaders(request);
 
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -162,13 +195,13 @@ export default async function handler(request: Request) {
       });
     }
 
-    const auth = await verifyUser(getHeader(request.headers, 'authorization') || null);
+    const auth = await verifyUser(request.headers.get('authorization'));
     const rawUserId = auth?.userId || 'anonymous';
     const userId = rawUserId === 'anonymous'
       ? 'anonymous'
       : String(rawUserId).slice(0, 128).replace(/[^a-zA-Z0-9-]/g, '_');
 
-    const body = (await getJsonBody(request)) as Record<string, unknown>;
+    const body = await request.json() as Record<string, unknown>;
     const { filename, contentType, fileSize, pieceId } = body;
 
     if (!filename || !contentType || !fileSize) {
@@ -178,26 +211,25 @@ export default async function handler(request: Request) {
       });
     }
 
-    if (!isValidAudioContentType(contentType, filename)) {
+    if (!isValidAudioContentType(String(contentType), String(filename))) {
       return new Response(JSON.stringify({ error: 'Invalid content type. Please upload an audio file.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    if (fileSize > MAX_FILE_SIZE) {
+    if (Number(fileSize) > MAX_FILE_SIZE) {
       return new Response(JSON.stringify({ error: `File too large. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB` }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
-    const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const sanitizedFilename = String(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = Date.now();
     const r2Key = `audio/${userId}/${timestamp}_${sanitizedFilename}`;
 
-    // Always use direct upload (presigned URL) - matches api-server behavior, works in dev and prod
-    const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME!, r2Key, contentType, 3600);
+    const uploadUrl = await createPresignedPutUrl(R2_BUCKET_NAME!, r2Key, String(contentType), 3600);
 
     if (userId !== 'anonymous') {
       if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
@@ -218,8 +250,8 @@ export default async function handler(request: Request) {
           user_id: userId,
           r2_key: r2Key,
           filename: sanitizedFilename,
-          content_type: contentType,
-          size_bytes: fileSize,
+          content_type: String(contentType),
+          size_bytes: Number(fileSize),
           piece_id: pieceId || null,
         }),
       });

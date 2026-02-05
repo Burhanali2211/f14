@@ -11,8 +11,9 @@ A comprehensive hub for sacred recitations, Quranic content, and Shia religious 
 
 ## Architecture
 - `src/components`: UI components organized by feature (Quran, Media, Admin, etc.)
-- `api/`: Vercel serverless functions for handling backend logic that requires secrets
-- `supabase/functions`: Edge functions for AI processing and website content fetching
+- `api/`: Vercel serverless functions (r2-upload-url, r2-stream-url, r2-audio-proxy, r2-delete, image-proxy, telegram-notify, etc.)
+- `supabase/functions`: Supabase Edge functions for AI processing
+- `scripts/api-server.js`: Local dev API proxy (mirrors api/ routes for localhost)
 - `src/integrations/supabase`: Supabase client and database type definitions
 - `src/pages`: Main application routes
 
