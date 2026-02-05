@@ -28,7 +28,7 @@ import {
   formatTime,
 } from '@/lib/teleprompter-storage';
 import { UnifiedTeleprompterPlayer } from '@/components/media/UnifiedTeleprompterPlayer';
-import { TeleprompterDisplaySettings } from '@/components/media/TeleprompterDisplaySettings';
+import { TeleprompterDisplaySettings, type TeleprompterContentType } from '@/components/media/TeleprompterDisplaySettings';
 import { TeleprompterPlaybackControls } from '@/components/media/TeleprompterPlaybackControls';
 import type { ImageRegion } from '@/components/media/ImageSegmentEditor';
 import { useBufferedAudio } from '@/hooks/useBufferedAudio';
@@ -399,6 +399,19 @@ export default function TeleprompterPage() {
 
   const hasSegments = segments.length > 0;
   const hasImageRegions = sortedImageRegions.length > 0;
+  const hasImages = imageUrls.length > 0;
+  const hasPdf = !!pdfUrl;
+  const hasText = !!(textContent && textContent.trim().length > 0);
+
+  const contentType = useMemo((): TeleprompterContentType => {
+    if (hasImages && hasImageRegions) return 'images';
+    if (hasSegments) return 'segments';
+    if (hasImages) return 'images';
+    if (hasPdf) return 'pdf';
+    if (hasText) return 'text';
+    return 'empty';
+  }, [hasPdf, hasImages, hasSegments, hasText, hasImageRegions]);
+
   const navigableCount = hasSegments ? segments.length : hasImageRegions ? sortedImageRegions.length : 0;
   const activeIndex = hasSegments ? currentSegmentIndex : hasImageRegions ? currentRegionIndex : -1;
 
@@ -876,6 +889,7 @@ export default function TeleprompterPage() {
                 </PopoverTrigger>
                 <PopoverContent className="w-72 z-[100]" align="end" container={containerRef.current}>
                   <TeleprompterDisplaySettings
+                    contentType={contentType}
                     fontSize={fontSize}
                     onFontSizeChange={setFontSize}
                     imageZoom={imageZoom}
