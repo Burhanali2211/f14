@@ -192,9 +192,11 @@ export default function TeleprompterPage() {
           // Continue without fileSize - SW will do full fetch
         }
 
-        navigator.serviceWorker.addEventListener('message', handler);
-
-        const active = (await navigator.serviceWorker.ready).active;
+        const sw = navigator.serviceWorker;
+        if (sw) {
+          sw.addEventListener('message', handler);
+        }
+        const active = sw ? (await sw.ready).active : null;
         if (active) {
           active.postMessage({ type: 'PREFETCH_AUDIO', audioUrl, fileSize });
         } else {
@@ -229,7 +231,9 @@ export default function TeleprompterPage() {
       cancelled = true;
       if (timeoutId) clearTimeout(timeoutId);
       if (fallbackId) clearTimeout(fallbackId);
-      navigator.serviceWorker.removeEventListener('message', handler);
+      if ('serviceWorker' in navigator && navigator.serviceWorker) {
+        navigator.serviceWorker.removeEventListener('message', handler);
+      }
     };
   }, [audioUrl]);
 
