@@ -4,7 +4,7 @@ import {
   ChevronLeft, ChevronRight, User, Bookmark, Eye,
   Users, ArrowUp, Heart, Share2, Home, Settings,
   ZoomIn, ZoomOut, RotateCcw, Music, Play, Pause, Volume2, VolumeX,
-  FastForward, Rewind, Timer
+  FastForward, Rewind, Timer, ScrollText
 } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -74,8 +74,8 @@ export default function PiecePage() {
     }
     
     try {
-        const { data, error } = await safeQuery(() =>
-          supabase
+        const { data, error } = await safeQuery(async () => {
+          const result = await supabase
             .from('pieces')
             .select(`
               id, title, text_content, image_url, video_url, audio_url, reciter, language,
@@ -84,8 +84,9 @@ export default function PiecePage() {
               imam:imams(id, name, slug, title, description)
             `)
             .eq('id', id)
-            .maybeSingle()
-        );
+            .maybeSingle();
+          return result;
+        });
 
       if (error || !data) {
         setLoading(false);
@@ -98,13 +99,14 @@ export default function PiecePage() {
       if (typedPiece.category) {
         setCategory(typedPiece.category as Category);
         
-        const { data: siblings } = await safeQuery(() =>
-          supabase
+        const { data: siblings } = await safeQuery(async () => {
+          const result = await supabase
             .from('pieces')
             .select('id, title, category_id')
             .eq('category_id', typedPiece.category_id)
-            .order('title')
-        );
+            .order('title');
+          return result;
+        });
         
         if (siblings) {
           const currentIndex = siblings.findIndex(s => s.id === id);
@@ -128,7 +130,10 @@ export default function PiecePage() {
   const incrementViewCount = useCallback(async () => {
     if (id) {
       try {
-        await safeQuery(() => supabase.rpc('increment_view_count', { piece_id: id }));
+        await safeQuery(async () => {
+          const result = await supabase.rpc('increment_view_count', { piece_id: id });
+          return result;
+        });
       } catch {}
     }
   }, [id]);
@@ -441,7 +446,7 @@ export default function PiecePage() {
             <h1 className="text-2xl font-bold mb-3">Not Found</h1>
             <p className="text-muted-foreground mb-6">This recitation doesn't exist or has been removed.</p>
             <Button asChild size="lg" className="rounded-xl gap-2">
-              <Link to="/"><Home className="w-5 h-5" />Go Home</Link>
+              <Link to="/" title="Go to Home"><Home className="w-5 h-5" />Go Home</Link>
             </Button>
           </div>
         </main>
@@ -474,14 +479,15 @@ export default function PiecePage() {
       <div className="sticky top-16 z-40 bg-background/95 backdrop-blur-md border-b border-border">
         <div className="container max-w-4xl px-4 py-2">
           <div className="flex items-center justify-between gap-2">
-            <Link
-              to={category ? `/category/${category.slug}` : '/'}
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-secondary/50 hover:bg-secondary text-sm font-medium transition-all active:scale-95"
             >
               <ChevronLeft className="w-4 h-4" />
               <span className="hidden sm:inline">{category?.name || 'Home'}</span>
               <span className="sm:hidden">Back</span>
-            </Link>
+            </button>
 
               <div className="flex items-center gap-1.5">
                 {(hasTextContent || imageUrls.length > 0 || pdfUrl || (piece as any).audio_url) && (
@@ -489,9 +495,9 @@ export default function PiecePage() {
                     onClick={() => navigate(`/piece/${id}/teleprompter`)}
                     className="w-10 h-10 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center transition-all active:scale-90"
                     aria-label="Open Teleprompter"
-                    title="Teleprompter Mode"
+                    title="Open Teleprompter Mode"
                   >
-                    <Play className="w-5 h-5" />
+                    <ScrollText className="w-5 h-5" />
                   </button>
                 )}
                 
@@ -537,7 +543,7 @@ export default function PiecePage() {
           
           <div className="flex flex-wrap items-center justify-center gap-2">
             {category && (
-              <Link to={`/category/${category.slug}`}>
+              <Link to={`/category/${category.slug}`} title={`Browse ${category.name} recitations`}>
                 <Badge variant="secondary" className="gap-1.5 py-1.5 px-3 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors">
                   <Bookmark className="w-3.5 h-3.5" />
                   {category.name}
@@ -545,7 +551,7 @@ export default function PiecePage() {
               </Link>
             )}
             {imam && (
-              <Link to={`/figure/${imam.slug}`}>
+              <Link to={`/figure/${imam.slug}`} title={`Browse recitations for ${imam.name}`}>
                 <Badge variant="secondary" className="gap-1.5 py-1.5 px-3 rounded-lg hover:bg-primary hover:text-primary-foreground transition-colors">
                   <Users className="w-3.5 h-3.5" />
                   {imam.name}

@@ -53,12 +53,14 @@ function ContinueCard({ piece, index }: { piece: Piece; index: number }) {
       to={`/piece/${piece.id}`}
       className="group relative flex-shrink-0 w-[280px] sm:w-[320px] snap-start animate-slide-up opacity-0"
       style={{ animationDelay: `${index * 0.08}s` }}
+      title={`Continue reading ${piece.title}`}
     >
       <div className="relative h-20 sm:h-24 rounded-xl overflow-hidden bg-card border border-border/40 hover:border-primary/40 transition-all">
         <div className="absolute inset-0">
           <img 
             src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
             alt=""
+            aria-hidden="true"
             className="w-full h-full object-cover opacity-30"
             loading="lazy"
             onError={(e) => {

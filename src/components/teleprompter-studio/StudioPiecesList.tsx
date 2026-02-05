@@ -142,7 +142,7 @@ export function StudioPiecesList() {
           <LogIn className="w-12 h-12 text-muted-foreground mb-3" />
           <p className="text-muted-foreground mb-4">Sign in to create and manage your pieces.</p>
           <Button asChild>
-            <Link to="/auth">Sign in</Link>
+            <Link to="/auth" title="Sign in">Sign in</Link>
           </Button>
         </div>
       </section>

@@ -7,6 +7,15 @@ export interface AppSettings {
   letterSpacing: number;
   fontFamily: 'jameel-noori-nastaleeq' | 'al-majeed' | 'cairo' | 'tajawal' | 'noto-sans-arabic' | 'ibm-plex-sans-arabic' | 'amiri' | 'noto-nastaliq' | 'lateef' | 'scheherazade';
   textAlign: 'right' | 'center' | 'justify';
+  showVerseNumbers: boolean;
+  highlightCurrentVerse: boolean;
+  autoScrollWhilePlaying: boolean;
+  rememberReadingPosition: boolean;
+  readerBackground: 'default' | string;
+  compactMode: boolean;
+  animationsEnabled: boolean;
+  highContrast: boolean;
+  reducedMotion: boolean;
 }
 
 const defaultSettings: AppSettings = {

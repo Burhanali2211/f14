@@ -29,7 +29,7 @@ export default function QuranSurahPage() {
         <main className="container py-8 flex-1 px-4 sm:px-6 flex items-center justify-center">
           <div className="text-center">
             <h1 className="text-2xl font-bold mb-4">Surah not found</h1>
-            <Link to="/quran" className="text-primary hover:underline">
+            <Link to="/quran" className="text-primary hover:underline" title="Back to Quran">
               Back to Quran
             </Link>
           </div>
@@ -51,6 +51,7 @@ export default function QuranSurahPage() {
       <main className="container py-8 flex-1 px-4 sm:px-6">
         <Link 
           to="/quran" 
+          title="Back to Quran"
           className="inline-flex items-center gap-2 text-base font-medium text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -59,7 +60,7 @@ export default function QuranSurahPage() {
 
         <div className="flex items-center justify-between mb-6">
           {prevSurah ? (
-            <Link to={`/quran/surah/${prevSurah.number}`}>
+            <Link to={`/quran/surah/${prevSurah.number}`} title={`Previous: Surah ${prevSurah.englishName}`}>
               <Button variant="outline" className="gap-2 rounded-xl">
                 <ChevronLeft className="w-4 h-4" />
                 <span className="hidden sm:inline">{prevSurah.englishName}</span>
@@ -76,7 +77,7 @@ export default function QuranSurahPage() {
           </div>
 
           {nextSurah ? (
-            <Link to={`/quran/surah/${nextSurah.number}`}>
+            <Link to={`/quran/surah/${nextSurah.number}`} title={`Next: Surah ${nextSurah.englishName}`}>
               <Button variant="outline" className="gap-2 rounded-xl">
                 <span className="hidden sm:inline">{nextSurah.englishName}</span>
                 <ChevronRight className="w-4 h-4" />
@@ -159,7 +160,7 @@ export default function QuranSurahPage() {
 
         <div className="flex items-center justify-between mt-8 pt-6 border-t border-border/40">
           {prevSurah ? (
-            <Link to={`/quran/surah/${prevSurah.number}`}>
+            <Link to={`/quran/surah/${prevSurah.number}`} title={`Previous: Surah ${prevSurah.englishName}`}>
               <Button variant="outline" className="gap-2 rounded-xl">
                 <ChevronLeft className="w-4 h-4" />
                 <span>{prevSurah.englishName}</span>
@@ -170,7 +171,7 @@ export default function QuranSurahPage() {
           )}
 
           {nextSurah ? (
-            <Link to={`/quran/surah/${nextSurah.number}`}>
+            <Link to={`/quran/surah/${nextSurah.number}`} title={`Next: Surah ${nextSurah.englishName}`}>
               <Button variant="outline" className="gap-2 rounded-xl">
                 <span>{nextSurah.englishName}</span>
                 <ChevronRight className="w-4 h-4" />

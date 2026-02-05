@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Filter, Grid3X3, List, SortAsc, 
   ArrowUpDown, Video, Eye, ArrowUpRight, X, Play, Headphones
@@ -41,8 +41,11 @@ import type { Category, Piece } from '@/lib/supabase-types';
 type SortOption = 'title' | 'recent' | 'popular' | 'reciter';
 type ViewMode = 'grid' | 'list';
 
+const PAGE_SIZE = 10;
+
 export default function CategoryPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [category, setCategory] = useState<Category | null>(null);
   const [pieces, setPieces] = useState<Piece[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
@@ -54,69 +57,113 @@ export default function CategoryPage() {
   const [sortBy, setSortBy] = useState<SortOption>('title');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  useEffect(() => {
-    if (slug) {
-      fetchCategory();
-    }
-  }, [slug]);
+  const sortFromUrl = (searchParams.get('sort') as SortOption) || 'recent';
+  const isAllCategory = slug === 'all';
 
-  const fetchCategory = async () => {
+  const fetchCategory = useCallback(async (append = false, appendOffset = 0) => {
+    const effectiveSort = append ? sortBy : (searchParams.get('sort') as SortOption) || 'recent';
     try {
-      // Skip cache - always fetch fresh data
+      if (!append) setLoading(true);
+      else setLoadingMore(true);
       logger.debug('Fetching category:', slug);
 
-      const { data: catData, error: catError } = await safeQuery(() =>
-        supabase
-          .from('categories')
-          .select('*')
-          .eq('slug', slug)
-          .maybeSingle()
-      );
+      if (isAllCategory) {
+        setCategory({ id: '__all__', name: 'All Recitations', slug: 'all', description: null } as Category);
+        const orderCol = effectiveSort === 'popular' ? 'view_count' : effectiveSort === 'recent' ? 'created_at' : 'title';
+        const ascending = effectiveSort === 'title' || effectiveSort === 'reciter';
+        const offset = append ? appendOffset : 0;
 
-      if (catError) {
-        logger.error('Error fetching category:', catError);
-        setLoading(false);
-        return;
-      }
+        const { data: piecesData, error: piecesError } = await safeQuery(async () => {
+          const result = await supabase
+            .from('pieces')
+            .select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id, text_content')
+            .order(orderCol, { ascending })
+            .range(offset, offset + PAGE_SIZE - 1);
+          return result;
+        });
 
-      if (!catData) {
-        logger.warn('Category not found:', slug);
-        setLoading(false);
-        return;
-      }
+        if (piecesError) {
+          logger.error('Error fetching pieces:', piecesError);
+        } else if (piecesData) {
+          const typedPieces = (piecesData as Piece[]) || [];
+          setPieces(append ? (prev) => [...prev, ...typedPieces] : typedPieces);
+          setHasMore(typedPieces.length === PAGE_SIZE);
+          if (!append) {
+            setLanguages([...new Set(typedPieces.map((p: Piece) => p.language))]);
+            setReciters([...new Set(typedPieces.map((p: Piece) => p.reciter).filter(Boolean))] as string[]);
+          }
+        }
+      } else {
+        const { data: catData, error: catError } = await safeQuery(async () => {
+          const result = await supabase
+            .from('categories')
+            .select('*')
+            .eq('slug', slug)
+            .maybeSingle();
+          return result;
+        });
 
-      logger.debug('Category loaded:', catData.name);
-      setCategory(catData as Category);
+        if (catError) {
+          logger.error('Error fetching category:', catError);
+          setLoading(false);
+          return;
+        }
 
-      const { data: piecesData, error: piecesError } = await safeQuery(() =>
-        supabase
-          .from('pieces')
-          .select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id, text_content')
-          .eq('category_id', catData.id)
-      );
+        if (!catData) {
+          logger.warn('Category not found:', slug);
+          setLoading(false);
+          return;
+        }
 
-      if (piecesError) {
-        logger.error('Error fetching pieces:', piecesError);
-      } else if (piecesData) {
-        logger.debug('Pieces loaded:', piecesData.length);
-        const typedPieces = piecesData as Piece[];
-        setPieces(typedPieces);
-        
-        const uniqueLanguages = [...new Set(typedPieces.map(p => p.language))];
-        setLanguages(uniqueLanguages);
-        
-        const uniqueReciters = [...new Set(typedPieces.map(p => p.reciter).filter(Boolean))] as string[];
-        setReciters(uniqueReciters);
+        logger.debug('Category loaded:', catData.name);
+        setCategory(catData as Category);
+
+        const { data: piecesData, error: piecesError } = await safeQuery(async () => {
+          const result = await supabase
+            .from('pieces')
+            .select('id, title, image_url, reciter, language, view_count, video_url, created_at, category_id, text_content')
+            .eq('category_id', catData.id);
+          return result;
+        });
+
+        if (piecesError) {
+          logger.error('Error fetching pieces:', piecesError);
+        } else if (piecesData) {
+          const typedPieces = piecesData as Piece[];
+          setPieces(typedPieces);
+          setHasMore(false);
+          setLanguages([...new Set(typedPieces.map(p => p.language))]);
+          setReciters([...new Set(typedPieces.map(p => p.reciter).filter(Boolean))] as string[]);
+        }
       }
     } catch (error) {
       logger.error('Unexpected error in fetchCategory:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
-  };
+  }, [slug, isAllCategory, sortBy, searchParams]);
+
+  useEffect(() => {
+    if (slug) {
+      setSortBy(sortFromUrl);
+      fetchCategory();
+    }
+  }, [slug, fetchCategory]);
+
+  const piecesRef = useRef<Piece[]>([]);
+  piecesRef.current = pieces;
+
+  const loadMore = useCallback(() => {
+    if (isAllCategory && hasMore && !loadingMore) {
+      fetchCategory(true, piecesRef.current.length);
+    }
+  }, [isAllCategory, hasMore, loadingMore, fetchCategory]);
 
   const filteredPieces = useMemo(() => {
     let filtered = [...pieces];
@@ -254,7 +301,7 @@ export default function CategoryPage() {
             <h1 className="font-display text-3xl font-bold mb-4">Category Not Found</h1>
             <p className="text-muted-foreground mb-8">The category you're looking for doesn't exist.</p>
             <Button asChild size="lg" className="h-14 px-8 text-lg rounded-xl">
-              <Link to="/">
+              <Link to="/" title="Go to Home">
                 <ChevronLeft className="w-5 h-5 mr-2" />
                 Back to Home
               </Link>
@@ -377,16 +424,52 @@ export default function CategoryPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="min-w-[200px] rounded-xl p-2">
-                  <DropdownMenuItem onClick={() => setSortBy('title')} className="cursor-pointer h-12 rounded-lg text-base">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSortBy('title');
+                      if (isAllCategory) {
+                        setSearchParams({ sort: 'title' });
+                        fetchCategory();
+                      }
+                    }}
+                    className="cursor-pointer h-12 rounded-lg text-base"
+                  >
                     Title (A-Z)
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('recent')} className="cursor-pointer h-12 rounded-lg text-base">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSortBy('recent');
+                      if (isAllCategory) {
+                        setSearchParams({ sort: 'recent' });
+                        fetchCategory();
+                      }
+                    }}
+                    className="cursor-pointer h-12 rounded-lg text-base"
+                  >
                     Recently Added
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('popular')} className="cursor-pointer h-12 rounded-lg text-base">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSortBy('popular');
+                      if (isAllCategory) {
+                        setSearchParams({ sort: 'popular' });
+                        fetchCategory();
+                      }
+                    }}
+                    className="cursor-pointer h-12 rounded-lg text-base"
+                  >
                     Most Popular
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setSortBy('reciter')} className="cursor-pointer h-12 rounded-lg text-base">
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setSortBy('reciter');
+                      if (isAllCategory) {
+                        setSearchParams({ sort: 'reciter' });
+                        fetchCategory();
+                      }
+                    }}
+                    className="cursor-pointer h-12 rounded-lg text-base"
+                  >
                     By Reciter
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -448,14 +531,14 @@ export default function CategoryPage() {
         </div>
 
         {filteredPieces.length > 0 ? (
-          filteredPieces.length > 50 ? (
+          filteredPieces.length > 30 ? (
             <VirtualizedPieceList 
               pieces={filteredPieces} 
               viewMode={viewMode}
               itemHeight={viewMode === 'list' ? 140 : 320}
             />
           ) : viewMode === 'grid' ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {filteredPieces.map((piece, i) => (
                 <PieceCard key={piece.id} piece={piece} index={i} compact={true} />
               ))}
@@ -537,7 +620,23 @@ export default function CategoryPage() {
               })}
             </div>
           )
-        ) : (
+        ) : null}
+
+        {filteredPieces.length > 0 && isAllCategory && hasMore && (
+          <div className="flex justify-center mt-10">
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="rounded-xl px-8 h-12"
+            >
+              {loadingMore ? 'Loading...' : 'Load more'}
+            </Button>
+          </div>
+        )}
+
+        {filteredPieces.length === 0 && (
           <div className="text-center py-20 bg-card rounded-3xl border-2 border-dashed border-border">
             <Filter className="w-16 h-16 text-muted-foreground mx-auto mb-6" />
             <h3 className="text-xl font-bold text-foreground mb-2">

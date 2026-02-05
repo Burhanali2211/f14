@@ -64,7 +64,7 @@ export function MyQuestionsCard({ userId }: MyQuestionsCardProps) {
             <MessageSquare className="w-5 h-5 text-primary" />
             My Fiqh Questions
           </CardTitle>
-          <Link to="/fiqh">
+          <Link to="/fiqh" title="Ask a Fiqh question">
             <Button variant="ghost" size="sm" className="gap-1 rounded-xl">
               Ask New <ChevronRight className="w-4 h-4" />
             </Button>
@@ -82,7 +82,7 @@ export function MyQuestionsCard({ userId }: MyQuestionsCardProps) {
           <div className="text-center py-8 bg-secondary/20 rounded-2xl">
             <MessageSquare className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
             <p className="text-muted-foreground mb-4">You haven't asked any questions yet</p>
-            <Link to="/fiqh">
+            <Link to="/fiqh" title="Browse Fiqh categories">
               <Button variant="outline" className="rounded-xl">
                 Browse Fiqh Categories
               </Button>

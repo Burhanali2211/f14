@@ -132,6 +132,7 @@ export default function AhlulBaytPage() {
                 <Link
                   key={imam.id}
                   to={`/figure/${imam.slug}`}
+                  title={`Browse recitations for ${imam.name}`}
                   className="group p-4 md:p-6 rounded-xl bg-card hover:bg-secondary/50 border border-border/40 hover:border-primary/30 transition-all duration-300 animate-slide-up opacity-0 text-center hover:shadow-lg"
                   style={{ animationDelay: `${i * 0.03}s` }}
                 >

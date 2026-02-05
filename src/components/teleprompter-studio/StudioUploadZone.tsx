@@ -565,7 +565,7 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft, createP
                 key={url}
                 className="relative group rounded-lg overflow-hidden border border-border w-16 h-16 sm:w-20 sm:h-20 shrink-0"
               >
-                <img src={url} alt="" className="w-full h-full object-cover" />
+                <img src={url} alt={`Uploaded image ${i + 1}`} className="w-full h-full object-cover" />
                 {!pieceId && (
                   <button
                     type="button"
@@ -654,7 +654,7 @@ export function StudioUploadZone({ pieceId, onContentReady, onSaveDraft, createP
           </p>
           {!pieceId && !onSaveDraft && hasContent && (
             <Button asChild>
-              <Link to="/auth">Sign in to create</Link>
+              <Link to="/auth" title="Sign in to create pieces">Sign in to create</Link>
             </Button>
           )}
           {!pieceId && onSaveDraft && (

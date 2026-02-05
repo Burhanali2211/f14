@@ -36,6 +36,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
           animationDelay: `${index * 0.04}s`,
           animationFillMode: 'forwards',
         }}
+        title={`Read ${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}`}
       >
         <div className="relative h-36 sm:h-40 md:h-44 overflow-hidden bg-secondary">
           <img 
@@ -117,6 +118,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
         animationDelay: `${index * 0.06}s`,
         animationFillMode: 'forwards',
       }}
+      title={`Read ${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}`}
     >
       <div className="relative h-44 sm:h-48 md:h-52 lg:h-56 overflow-hidden bg-secondary">
         <img 

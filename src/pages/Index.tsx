@@ -22,7 +22,6 @@ export default function Index() {
     categories,
     imams,
     recentPieces,
-    popularPieces,
     continueReadingPieces,
     favoritePieces,
     artists,
@@ -82,7 +81,7 @@ export default function Index() {
             <ArtistsSection artists={artists} />
             <ContinueReadingSection pieces={continueReadingPieces} />
             <FavoritesSection pieces={favoritePieces} />
-            <PopularPiecesSection pieces={popularPieces} />
+            <PopularPiecesSection />
             <RecentPiecesSection pieces={recentPieces} />
             <CTASection />
           </>

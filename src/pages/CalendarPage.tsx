@@ -264,7 +264,7 @@ export default function CalendarPage() {
                             variant="outline" 
                             size="sm"
                           >
-                            <Link to={`/figure/${event.imam.slug}`}>
+                            <Link to={`/figure/${event.imam.slug}`} title={`View recitations for ${event.imam.name}`}>
                               View Recitations
                             </Link>
                           </Button>
@@ -331,7 +331,7 @@ export default function CalendarPage() {
                           </span>
                           {event.imam && (
                             <Button asChild variant="outline" size="sm">
-                              <Link to={`/figure/${event.imam.slug}`}>
+                              <Link to={`/figure/${event.imam.slug}`} title={`View recitations for ${event.imam.name}`}>
                                 View
                               </Link>
                             </Button>

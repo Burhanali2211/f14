@@ -31,6 +31,7 @@ export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
           <Link
             key={imam.id}
             to={`/figure/${imam.slug}`}
+            title={`Browse recitations for ${imam.name}`}
             className="group p-4 rounded-xl bg-card hover:bg-secondary/50 transition-all duration-300 animate-slide-up opacity-0 text-center"
             style={{ animationDelay: `${i * 0.05}s` }}
           >
@@ -51,6 +52,7 @@ export function AhlulbaytSection({ imams }: AhlulbaytSectionProps) {
         <div className="mt-8 text-center">
           <Link
             to="/ahlul-bayt"
+            title="View all Ahlul Bayt"
             className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium transition-all duration-300 group"
           >
             <span>View All </span>

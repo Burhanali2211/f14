@@ -24,7 +24,7 @@ export function FavoritesSection({ pieces }: FavoritesSectionProps) {
           </div>
         </div>
         <Button asChild variant="outline" className="rounded-xl self-start sm:self-auto">
-          <Link to="/favorites">
+          <Link to="/favorites" title="View all favorites">
             View All
             <ArrowRight className="w-4 h-4 ml-2" />
           </Link>

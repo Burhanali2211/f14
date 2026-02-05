@@ -77,6 +77,7 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
       }}
       tabIndex={0}
       aria-label={`Explore ${category.name} category`}
+      title={`Browse ${category.name}`}
     >
       {/* Background Image Layer - from admin dashboard */}
       {bgImageUrl && (

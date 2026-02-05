@@ -86,6 +86,7 @@ export function Header() {
             to="/" 
             className="flex items-center gap-1.5 sm:gap-2 md:gap-3 group flex-shrink-0 min-w-0" 
             onClick={closeMenu}
+            title="Go to Home"
           >
             {siteSettings?.logo_url ? (
               <div className="relative w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl overflow-hidden flex-shrink-0 group-hover:scale-105 transition-transform shadow-primary">
@@ -121,6 +122,7 @@ export function Header() {
           <nav className="hidden lg:flex items-center gap-1.5 md:gap-2 flex-shrink-0">
             <Link
               to="/"
+              title="Go to Home"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 isActive('/') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }`}
@@ -130,6 +132,7 @@ export function Header() {
             </Link>
             <Link
               to="/favorites"
+              title="My Favorites"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 isActive('/favorites') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }`}
@@ -139,6 +142,7 @@ export function Header() {
             </Link>
             <Link
               to="/calendar"
+              title="Events Calendar"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 isActive('/calendar') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }`}
@@ -148,6 +152,7 @@ export function Header() {
             </Link>
             <Link
               to="/settings"
+              title="Settings"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 isActive('/settings') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }`}
@@ -157,6 +162,7 @@ export function Header() {
             </Link>
             <Link
               to="/teleprompter/studio"
+              title="Teleprompter Studio"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                 isStudioActive() ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
               }`}
@@ -167,6 +173,7 @@ export function Header() {
             {user && role === 'admin' && (
               <Link
                 to="/admin"
+                title="Admin Dashboard"
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                   isActive('/admin') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 }`}
@@ -178,6 +185,7 @@ export function Header() {
             {user && (role === 'uploader' || role === 'admin') && (
               <Link
                 to="/uploader"
+                title="Upload Dashboard"
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                   isActive('/uploader') ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                 }`}
@@ -236,14 +244,14 @@ export function Header() {
                   <DropdownMenuSeparator />
                   {role === 'admin' || role === 'uploader' ? (
                     <DropdownMenuItem asChild>
-                      <Link to={role === 'admin' ? '/admin' : '/uploader'} className="flex items-center gap-2 cursor-pointer">
+                      <Link to={role === 'admin' ? '/admin' : '/uploader'} title={role === 'admin' ? 'Admin Dashboard' : 'Uploader Dashboard'} className="flex items-center gap-2 cursor-pointer">
                         <LayoutDashboard className="w-4 h-4" />
                         <span>Dashboard</span>
                       </Link>
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem asChild>
-                    <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                    <Link to="/profile" title="My Profile" className="flex items-center gap-2 cursor-pointer">
                       <User className="w-4 h-4" />
                       <span>My Profile</span>
                     </Link>
@@ -265,7 +273,7 @@ export function Header() {
                 className="hidden lg:inline-flex rounded-xl h-9 sm:h-10 px-4 gap-2" 
                 size="sm"
               >
-                <Link to="/auth" className="flex items-center justify-center gap-2">
+                <Link to="/auth" title="Sign in" className="flex items-center justify-center gap-2">
                   <LogIn className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span className="text-sm font-medium">Login</span>
                 </Link>

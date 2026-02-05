@@ -23,8 +23,9 @@ export function RecentPiecesSection({ pieces }: RecentPiecesSectionProps) {
           </h2>
         </div>
         <Link 
-          to="/category/all" 
+          to="/category/all?sort=recent" 
           className="text-sm text-muted-foreground hover:text-primary transition-colors"
+          title="View all recently added recitations"
         >
           View all
         </Link>
@@ -60,11 +61,12 @@ function RecentItem({ piece, index }: { piece: Piece; index: number }) {
       to={`/piece/${piece.id}`}
       className="group flex items-center gap-3 p-2 sm:p-2.5 rounded-lg hover:bg-muted/50 transition-colors animate-slide-up opacity-0"
       style={{ animationDelay: `${index * 0.04}s` }}
+      title={`Read ${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}`}
     >
       <div className="relative w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
         <img 
           src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
-          alt=""
+          alt={piece.title}
           className="w-full h-full object-cover"
           loading="lazy"
           onError={(e) => {

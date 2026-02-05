@@ -108,7 +108,7 @@ export default function FavoritesPage() {
 
           <TabsContent value="favorites">
             {favoritePieces.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                 {favoritePieces.map((piece, i) => (
                   <PieceCard key={piece.id} piece={piece} index={i} />
                 ))}
@@ -123,7 +123,7 @@ export default function FavoritesPage() {
                   Start adding recitations to your favorites while reading. Tap the heart icon on any piece to save it.
                 </p>
                 <Button asChild size={isMobile ? 'lg' : 'default'} className={isMobile ? 'h-12 px-8' : ''}>
-                  <Link to="/">Browse Content</Link>
+                  <Link to="/" title="Browse content">Browse Content</Link>
                 </Button>
               </div>
             )}
@@ -143,7 +143,7 @@ export default function FavoritesPage() {
                     <span className={isMobile ? 'text-base' : ''}>Clear history</span>
                   </Button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
                   {recentPieces.map((piece, i) => (
                     <PieceCard key={piece.id} piece={piece} index={i} />
                   ))}
@@ -159,7 +159,7 @@ export default function FavoritesPage() {
                   Recitations you read will appear here automatically. Start reading to build your history.
                 </p>
                 <Button asChild size={isMobile ? 'lg' : 'default'} className={isMobile ? 'h-12 px-8' : ''}>
-                  <Link to="/">Start Reading</Link>
+                  <Link to="/" title="Start reading">Start Reading</Link>
                 </Button>
               </div>
             )}

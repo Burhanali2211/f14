@@ -15,7 +15,7 @@ export function CTASection() {
             Help preserve and share islamic poetry. Add your favorite recitations to our growing library.
           </p>
           <Button asChild size="lg" className="rounded-xl bg-card text-foreground hover:bg-card/90 shadow-elevated">
-            <Link to="/auth">
+            <Link to="/auth" title="Sign in to contribute">
               Get Started
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>

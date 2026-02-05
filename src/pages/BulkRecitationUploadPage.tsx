@@ -378,7 +378,7 @@ const { error } = await authenticatedQuery(() => supabase.from('pieces').insert(
     <div className="min-h-screen bg-background pb-24">
       <Header />
       <main className="container py-6 space-y-6">
-        <Link to="/admin" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
+        <Link to="/admin" title="Back to Admin" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
           <ChevronLeft className="w-4 h-4" />
           Back to Admin
         </Link>

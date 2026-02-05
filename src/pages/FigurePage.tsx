@@ -193,7 +193,7 @@ export default function FigurePage() {
         <main className="container py-12">
           <div className="text-center">
             <h1 className="text-2xl font-bold text-foreground mb-4">Holy Personality not found</h1>
-            <Link to="/" className="text-primary hover:underline">
+            <Link to="/" className="text-primary hover:underline" title="Go to Home">
               Go back home
             </Link>
           </div>

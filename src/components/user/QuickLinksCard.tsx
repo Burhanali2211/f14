@@ -16,7 +16,7 @@ export const QuickLinksCard = ({ role }: QuickLinksProps) => {
           className="w-full justify-start"
           asChild
         >
-          <Link to="/favorites">
+          <Link to="/favorites" title="View my favorites">
             <Heart className="w-4 h-4 mr-2" />
             My Favorites
           </Link>
@@ -26,7 +26,7 @@ export const QuickLinksCard = ({ role }: QuickLinksProps) => {
           className="w-full justify-start"
           asChild
         >
-          <Link to="/settings">
+          <Link to="/settings" title="App settings">
             <Settings className="w-4 h-4 mr-2" />
             Settings
           </Link>
@@ -36,7 +36,7 @@ export const QuickLinksCard = ({ role }: QuickLinksProps) => {
           className="w-full justify-start"
           asChild
         >
-          <Link to="/">
+          <Link to="/" title="Browse content">
             <BookOpen className="w-4 h-4 mr-2" />
             Browse Content
           </Link>
@@ -47,7 +47,7 @@ export const QuickLinksCard = ({ role }: QuickLinksProps) => {
             className="w-full justify-start"
             asChild
           >
-            <Link to="/admin">
+            <Link to="/admin" title="Admin Panel">
               <Shield className="w-4 h-4 mr-2" />
               Admin Panel
             </Link>
@@ -59,7 +59,7 @@ export const QuickLinksCard = ({ role }: QuickLinksProps) => {
             className="w-full justify-start"
             asChild
           >
-            <Link to="/uploader">
+            <Link to="/uploader" title="Upload content">
               <BookOpen className="w-4 h-4 mr-2" />
               Upload Content
             </Link>

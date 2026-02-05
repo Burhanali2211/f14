@@ -135,7 +135,7 @@ export function FiqhNotifications() {
                 onClick={() => markAsRead(n.id)}
                 asChild
               >
-                <Link to={n.link || '#'}>
+                <Link to={n.link || '#'} title={n.message}>
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${!n.is_read ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>
                     <MessageCircle className="w-5 h-5" />
                   </div>

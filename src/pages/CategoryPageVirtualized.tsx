@@ -147,11 +147,10 @@ export function VirtualizedPieceList({
     );
   }
 
-  // Grid view - simplified (full grid virtualization is complex)
-  // For now, render grid normally but limit visible items
+  // Grid view - responsive 2-3 columns based on screen width
   return (
-    <div className="grid grid-cols-1 gap-4 md:gap-6">
-      {pieces.slice(0, 100).map((piece, i) => (
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      {pieces.map((piece, i) => (
         <PieceCard key={piece.id} piece={piece} index={i} compact={true} />
       ))}
     </div>

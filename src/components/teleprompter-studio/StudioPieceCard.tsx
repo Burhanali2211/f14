@@ -70,7 +70,7 @@ export function StudioPieceCard({
       <div className="shrink-0 w-14 h-14 sm:w-16 sm:h-16 rounded-lg overflow-hidden border border-border bg-muted">
         <img
           src={getProxiedImageUrl(thumbnailUrl) || placeholderUrl}
-          alt=""
+          alt={item.title || 'Piece thumbnail'}
           className="w-full h-full object-cover"
           onError={(e) => {
             const target = e.target as HTMLImageElement;

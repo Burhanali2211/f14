@@ -190,7 +190,7 @@ export function UpcomingEvents() {
             </div>
           </div>
           <Button asChild variant="outline" className="rounded-xl">
-            <Link to="/calendar">
+            <Link to="/calendar" title="View full events calendar">
               View Full Calendar
               <ChevronRight className="w-4 h-4 ml-2" />
             </Link>
@@ -461,7 +461,7 @@ export function UpcomingEvents() {
                   size="sm" 
                   className="w-full rounded-xl"
                 >
-                  <Link to={`/figure/${selectedEvent.imam.slug}`} onClick={() => setSelectedEvent(null)}>
+                  <Link to={`/figure/${selectedEvent.imam.slug}`} title={`View recitations for ${selectedEvent.imam.name}`} onClick={() => setSelectedEvent(null)}>
                     View Recitations
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </Link>

@@ -1,5 +1,7 @@
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Mic } from 'lucide-react';
+import { Mic, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { getProxiedImageUrl } from '@/lib/utils';
 
@@ -14,6 +16,41 @@ interface ArtistsSectionProps {
 }
 
 export function ArtistsSection({ artists }: ArtistsSectionProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const checkScroll = () => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  };
+
+  useEffect(() => {
+    checkScroll();
+    const el = scrollRef.current;
+    if (el) {
+      el.addEventListener('scroll', checkScroll);
+      window.addEventListener('resize', checkScroll);
+      return () => {
+        el.removeEventListener('scroll', checkScroll);
+        window.removeEventListener('resize', checkScroll);
+      };
+    }
+  }, [artists]);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (scrollRef.current) {
+      const scrollAmount = scrollRef.current.clientWidth * 0.7;
+      scrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   if (artists.length === 0) return null;
 
   // Generate initials from name
@@ -47,14 +84,34 @@ export function ArtistsSection({ artists }: ArtistsSectionProps) {
             <p className="text-xs sm:text-sm text-muted-foreground">Discover recitations by your favorite artists</p>
           </div>
         </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0"
+            onClick={() => scroll('left')}
+            disabled={!canScrollLeft}
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 sm:h-9 sm:w-9 rounded-full shrink-0"
+            onClick={() => scroll('right')}
+            disabled={!canScrollRight}
+          >
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
       
       <div 
-        className="overflow-x-auto -mx-4 sm:-mx-5 md:-mx-6 px-4 sm:px-5 md:px-6 scrollbar-hide"
+        ref={scrollRef}
+        className="overflow-x-auto -mx-4 sm:-mx-5 md:-mx-6 px-4 sm:px-5 md:px-6 scrollbar-hide snap-x snap-mandatory touch-pan-x"
         style={{
-          touchAction: 'pan-x pan-y',
-          maxWidth: '100%',
-          contain: 'layout style'
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth'
         }}
       >
         <div className="flex gap-4 sm:gap-5 md:gap-6 min-w-max pb-2">
@@ -66,7 +123,8 @@ export function ArtistsSection({ artists }: ArtistsSectionProps) {
               <Link
                 key={artist.name}
                 to={`/artist/${encodeURIComponent(artist.name)}`}
-                className="group flex flex-col items-center transition-all duration-300 animate-slide-up opacity-0 flex-shrink-0"
+                className="group flex flex-col items-center transition-all duration-300 animate-slide-up opacity-0 flex-shrink-0 snap-start"
+                title={`Browse recitations by ${artist.name}`}
                 style={{ animationDelay: `${i * 0.05}s` }}
               >
                 {/* Avatar */}

@@ -122,7 +122,7 @@ export function ReaderToolbar({
               asChild
               className="h-8 px-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
             >
-              <Link to={`/category/${category.slug}`}>
+              <Link to={`/category/${category.slug}`} title={`Back to ${category.name}`}>
                 <ChevronLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                 <span className="ml-0.5 sm:ml-1">
                   <span className="hidden sm:inline">Back to </span>
@@ -138,7 +138,7 @@ export function ReaderToolbar({
               className="h-8 px-2 text-xs sm:text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
               aria-label="Back to home"
             >
-              <Link to="/">
+              <Link to="/" title="Go to Home">
                 <Home className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span className="ml-1 hidden sm:inline">Home</span>
               </Link>
@@ -262,7 +262,7 @@ export function ReaderToolbar({
             asChild
             className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
           >
-            <Link to={`/category/${category.slug}`}>
+            <Link to={`/category/${category.slug}`} title={`Back to ${category.name}`}>
               <ChevronLeft className="w-4 h-4" />
               <span className="ml-1">Back to {category.name}</span>
             </Link>
@@ -275,7 +275,7 @@ export function ReaderToolbar({
             className="h-9 px-3 text-sm text-muted-foreground hover:text-foreground hover:bg-accent flex-shrink-0"
             aria-label="Back to home"
           >
-            <Link to="/">
+            <Link to="/" title="Go to Home">
               <Home className="w-4 h-4" />
               <span className="ml-1">Home</span>
             </Link>

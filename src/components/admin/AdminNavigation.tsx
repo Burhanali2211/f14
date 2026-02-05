@@ -86,19 +86,19 @@ export const AdminNavigation = ({
       
         {/* Additional Actions */}
         <div className="mt-4 pt-4 border-t border-border grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
-          <Link to="/admin/announcements" className="w-full">
+          <Link to="/admin/announcements" title="Manage announcements" className="w-full">
             <Button variant="outline" className="w-full justify-center gap-2">
               <Bell className="w-4 h-4" />
               <span>Announcements</span>
             </Button>
           </Link>
-          <Link to="/admin/contact-submissions" className="w-full">
+          <Link to="/admin/contact-submissions" title="View contact messages" className="w-full">
             <Button variant="outline" className="w-full justify-center gap-2">
               <Mail className="w-4 h-4" />
               <span>Contact Messages</span>
             </Button>
           </Link>
-          <Link to="/admin/site-settings" className="w-full">
+          <Link to="/admin/site-settings" title="Site settings" className="w-full">
             <Button variant="outline" className="w-full justify-center gap-2">
               <Settings className="w-4 h-4" />
               <span>Settings</span>

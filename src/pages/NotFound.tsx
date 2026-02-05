@@ -25,7 +25,7 @@ export default function NotFound() {
           {/* Actions */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button asChild size="lg" className="rounded-xl w-full sm:w-auto">
-              <Link to="/">
+              <Link to="/" title="Go to Home">
                 <Home className="w-4 h-4 mr-2" />
                 Back to Home
               </Link>

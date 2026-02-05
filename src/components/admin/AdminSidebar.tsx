@@ -245,7 +245,7 @@ export const AdminSidebar = ({
                       className="h-10 rounded-xl gap-3 px-3"
                       tooltip={link.label}
                     >
-                      <Link to={link.to}>
+                      <Link to={link.to} title={link.label}>
                         <Icon className="w-4 h-4 text-sidebar-foreground/70" />
                         <span className="text-sm">{link.label}</span>
                       </Link>

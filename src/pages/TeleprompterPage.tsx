@@ -770,7 +770,7 @@ export default function TeleprompterPage() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
         <h1 className="text-2xl font-bold mb-4">Piece Not Found</h1>
         <Button asChild>
-          <Link to="/">
+          <Link to="/" title="Go to Home">
             <Home className="w-4 h-4 mr-2" />
             Go Home
           </Link>

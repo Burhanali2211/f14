@@ -207,7 +207,7 @@ function ChildFriendlyPieceCard({ piece, soundEnabled = true, delay = 0 }: Child
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
           <img
             src={firstImageUrl}
-            alt=""
+            alt={piece.title}
             className="w-full h-full object-cover"
             loading="lazy"
           />
