@@ -32,12 +32,12 @@ function escapeMarkdown(text: string): string {
 function formatContactMessage(data: Record<string, unknown>): string {
   return `📬 *NEW CONTACT MESSAGE*
 
-👤 *Name:* ${escapeMarkdown(data.name || 'Unknown')}
-📧 *Email:* ${escapeMarkdown(data.email || 'Not provided')}
-📝 *Subject:* ${escapeMarkdown(data.subject || 'No subject')}
+👤 *Name:* ${escapeMarkdown(String(data.name ?? 'Unknown'))}
+📧 *Email:* ${escapeMarkdown(String(data.email ?? 'Not provided'))}
+📝 *Subject:* ${escapeMarkdown(String(data.subject ?? 'No subject'))}
 
 💬 *Message:*
-${escapeMarkdown(data.message || 'No message')}
+${escapeMarkdown(String(data.message ?? 'No message'))}
 
 ⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
 }
@@ -45,10 +45,10 @@ ${escapeMarkdown(data.message || 'No message')}
 function formatNewUserMessage(data: Record<string, unknown>): string {
   return `🎉 *NEW USER REGISTERED*
 
-👤 *Name:* ${escapeMarkdown(data.full_name || 'Unknown')}
-📧 *Email:* ${escapeMarkdown(data.email || 'Not provided')}
-📱 *Phone:* ${escapeMarkdown(data.phone_number || 'Not provided')}
-📍 *Address:* ${escapeMarkdown(data.address || 'Not provided')}
+👤 *Name:* ${escapeMarkdown(String(data.full_name ?? 'Unknown'))}
+📧 *Email:* ${escapeMarkdown(String(data.email ?? 'Not provided'))}
+📱 *Phone:* ${escapeMarkdown(String(data.phone_number ?? 'Not provided'))}
+📍 *Address:* ${escapeMarkdown(String(data.address ?? 'Not provided'))}
 
 ⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
 }
@@ -56,12 +56,12 @@ function formatNewUserMessage(data: Record<string, unknown>): string {
 function formatUploadRequestMessage(data: Record<string, unknown>): string {
   return `📤 *UPLOAD REQUEST*
 
-👤 *User:* ${escapeMarkdown(data.user_name || 'Unknown')}
-📧 *Email:* ${escapeMarkdown(data.user_email || 'Not provided')}
-📝 *Request:* ${escapeMarkdown(data.request_type || 'General')}
+👤 *User:* ${escapeMarkdown(String(data.user_name ?? 'Unknown'))}
+📧 *Email:* ${escapeMarkdown(String(data.user_email ?? 'Not provided'))}
+📝 *Request:* ${escapeMarkdown(String(data.request_type ?? 'General'))}
 
 💬 *Details:*
-${escapeMarkdown(data.details || 'No details provided')}
+${escapeMarkdown(String(data.details ?? 'No details provided'))}
 
 ⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
 }
@@ -69,11 +69,11 @@ ${escapeMarkdown(data.details || 'No details provided')}
 function formatNewRecitationMessage(data: Record<string, unknown>): string {
   return `📖 *NEW RECITATION ADDED*
 
-📌 *Title:* ${escapeMarkdown(data.title || 'Untitled')}
-🏷️ *Category:* ${escapeMarkdown(data.category || 'Unknown')}
-🌐 *Language:* ${escapeMarkdown(data.language || 'Unknown')}
-🎤 *Reciter:* ${escapeMarkdown(data.reciter || 'Unknown')}
-👤 *Uploaded by:* ${escapeMarkdown(data.uploader_name || 'Unknown')}
+📌 *Title:* ${escapeMarkdown(String(data.title ?? 'Untitled'))}
+🏷️ *Category:* ${escapeMarkdown(String(data.category ?? 'Unknown'))}
+🌐 *Language:* ${escapeMarkdown(String(data.language ?? 'Unknown'))}
+🎤 *Reciter:* ${escapeMarkdown(String(data.reciter ?? 'Unknown'))}
+👤 *Uploaded by:* ${escapeMarkdown(String(data.uploader_name ?? 'Unknown'))}
 
 ⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
 }
@@ -81,11 +81,11 @@ function formatNewRecitationMessage(data: Record<string, unknown>): string {
 function formatQuestionMessage(data: Record<string, unknown>): string {
   return `❓ *NEW QUESTION*
 
-👤 *From:* ${escapeMarkdown(data.user_name || 'Anonymous')}
-📧 *Email:* ${escapeMarkdown(data.user_email || 'Not provided')}
+👤 *From:* ${escapeMarkdown(String(data.user_name ?? 'Anonymous'))}
+📧 *Email:* ${escapeMarkdown(String(data.user_email ?? 'Not provided'))}
 
 💬 *Question:*
-${escapeMarkdown(data.question || 'No question')}
+${escapeMarkdown(String(data.question ?? 'No question'))}
 
 ⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
 }
