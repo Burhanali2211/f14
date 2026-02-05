@@ -308,11 +308,6 @@ export function generateWebSiteStructuredData(siteUrl?: string): Record<string, 
       },
       'query-input': 'required name=search_term_string',
     },
-    aggregateRating: {
-      '@type': 'AggregateRating',
-      ratingValue: '5',
-      ratingCount: '1000',
-    },
     inLanguage: ['en', 'ur', 'ar', 'fa'],
     keywords: 'Followers of 14, khanda azaadars, lyrics hub, naat, noha, dua, manqabat, marsiya, islamic poetry, recitation lyrics',
   };
