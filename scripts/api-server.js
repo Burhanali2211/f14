@@ -638,6 +638,46 @@ app.get('/api/r2-audio-proxy', async (req, res) => {
   }
 });
 
+const ALLOWED_IMAGE_HOSTS = ['supabase.co', 'supabase.in'];
+
+function isAllowedImageUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ALLOWED_IMAGE_HOSTS.some((h) => parsed.hostname.endsWith(h));
+  } catch {
+    return false;
+  }
+}
+
+app.get('/api/image-proxy', async (req, res) => {
+  try {
+    const targetUrl = req.query.url;
+    if (!targetUrl) {
+      return res.status(400).json({ error: 'Missing url parameter' });
+    }
+    const decodedUrl = decodeURIComponent(String(targetUrl));
+    if (!isAllowedImageUrl(decodedUrl)) {
+      return res.status(400).json({ error: 'URL not allowed' });
+    }
+    const fetchRes = await fetch(decodedUrl, {
+      method: 'GET',
+      headers: { 'User-Agent': 'FollowersOf14-ImageProxy/1.0' },
+    });
+    if (!fetchRes.ok) {
+      return res.status(fetchRes.status).json({ error: 'Failed to fetch image' });
+    }
+    const contentType = fetchRes.headers.get('Content-Type') || 'image/jpeg';
+    const cacheControl = fetchRes.headers.get('Cache-Control') || 'public, max-age=86400, s-maxage=604800';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', cacheControl);
+    const buffer = Buffer.from(await fetchRes.arrayBuffer());
+    return res.send(buffer);
+  } catch (error) {
+    console.error('Error proxying image:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,

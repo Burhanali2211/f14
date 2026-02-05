@@ -105,6 +105,30 @@ export function getFirstImageUrl(imageUrl: string | null | string[] | undefined)
   return normalized.length > 0 ? normalized[0] : null;
 }
 
+/** Supabase storage hosts - proxy these to avoid __cf_bm cookie rejection in cross-origin img loads */
+const PROXY_IMAGE_HOSTS = ['supabase.co', 'supabase.in'];
+
+function shouldProxyImageUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return PROXY_IMAGE_HOSTS.some((h) => parsed.hostname.endsWith(h));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Returns a same-origin proxy URL for external images (e.g. Supabase Storage).
+ * Fixes "Cookie __cf_bm has been rejected for invalid domain" when loading
+ * images from Cloudflare-backed CDNs in cross-origin context.
+ */
+export function getProxiedImageUrl(url: string | null | undefined): string | null {
+  if (!url || typeof url !== 'string' || !url.trim()) return null;
+  const trimmed = url.trim();
+  if (!shouldProxyImageUrl(trimmed)) return trimmed;
+  return `/api/image-proxy?url=${encodeURIComponent(trimmed)}`;
+}
+
 /**
  * Gets a Karbala sacred place placeholder image
  * Returns a random placeholder from the available Karbala sacred places
