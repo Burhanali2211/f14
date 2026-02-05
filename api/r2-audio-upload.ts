@@ -54,8 +54,21 @@ function isValidR2Key(key: string | null | undefined): boolean {
   }
 }
 
-function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('Origin') || '';
+/** Get header value - works with Web API Headers and Node.js IncomingMessage.headers */
+function getHeader(headers: Headers | Record<string, string | string[] | undefined>, name: string): string {
+  if (!headers) return '';
+  if (typeof (headers as Headers).get === 'function') {
+    return (headers as Headers).get(name) || '';
+  }
+  const obj = headers as Record<string, string | string[] | undefined>;
+  const lower = name.toLowerCase();
+  const v = obj[lower] ?? obj[name];
+  if (Array.isArray(v)) return v[0] || '';
+  return typeof v === 'string' ? v : '';
+}
+
+function getCorsHeaders(headers: Headers | Record<string, string | string[] | undefined>): Record<string, string> {
+  const origin = getHeader(headers, 'Origin') || '';
   const isAllowed = ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin);
   const allowOrigin = isAllowed ? origin : (ALLOWED_ORIGINS[0] || '*');
   return {
@@ -66,7 +79,7 @@ function getCorsHeaders(request: Request): Record<string, string> {
 }
 
 export default async function handler(request: Request) {
-  const corsHeaders = getCorsHeaders(request);
+  const corsHeaders = getCorsHeaders(request.headers);
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -87,7 +100,7 @@ export default async function handler(request: Request) {
       });
     }
 
-    const contentType = request.headers.get('Content-Type') || '';
+    const contentType = getHeader(request.headers, 'Content-Type') || '';
     
     if (!contentType.includes('multipart/form-data')) {
       return new Response(JSON.stringify({ error: 'Content-Type must be multipart/form-data' }), {

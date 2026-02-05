@@ -2,6 +2,7 @@ import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 export const config = {
+  runtime: 'nodejs',
   maxDuration: 30,
 };
 
@@ -17,8 +18,42 @@ const MAX_FILE_SIZE = 500 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean) || [];
 
-function getCorsHeaders(request: Request): Record<string, string> {
-  const origin = request.headers.get('Origin') || '';
+/** Read body as JSON - works with Web API Request and Node.js IncomingMessage */
+async function getJsonBody(req: Request | NodeJS.ReadableStream & { json?: () => Promise<unknown> }): Promise<unknown> {
+  if (typeof (req as Request).json === 'function') {
+    return (req as Request).json();
+  }
+  const nodeReq = req as NodeJS.ReadableStream;
+  const chunks: Buffer[] = [];
+  return new Promise<unknown>((resolve, reject) => {
+    nodeReq.on('data', (chunk: Buffer | Uint8Array) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    nodeReq.on('end', () => {
+      try {
+        const text = Buffer.concat(chunks).toString('utf-8');
+        resolve(text ? JSON.parse(text) : {});
+      } catch (e) {
+        reject(e);
+      }
+    });
+    nodeReq.on('error', reject);
+  });
+}
+
+/** Get header value - works with Web API Headers and Node.js IncomingMessage.headers */
+function getHeader(headers: Headers | Record<string, string | string[] | undefined>, name: string): string {
+  if (!headers) return '';
+  if (typeof (headers as Headers).get === 'function') {
+    return (headers as Headers).get(name) || '';
+  }
+  const obj = headers as Record<string, string | string[] | undefined>;
+  const lower = name.toLowerCase();
+  const v = obj[lower] ?? obj[name];
+  if (Array.isArray(v)) return v[0] || '';
+  return typeof v === 'string' ? v : '';
+}
+
+function getCorsHeaders(headers: Headers | Record<string, string | string[] | undefined>): Record<string, string> {
+  const origin = getHeader(headers, 'Origin') || '';
   const isAllowed = ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin);
   const allowOrigin = isAllowed ? origin : (ALLOWED_ORIGINS[0] || '*');
   return {
@@ -103,7 +138,7 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
 }
 
 export default async function handler(request: Request) {
-  const corsHeaders = getCorsHeaders(request);
+  const corsHeaders = getCorsHeaders(request.headers);
 
   if (request.method === 'OPTIONS') {
     return new Response(null, {
@@ -127,13 +162,13 @@ export default async function handler(request: Request) {
       });
     }
 
-    const auth = await verifyUser(request.headers.get('authorization'));
+    const auth = await verifyUser(getHeader(request.headers, 'authorization') || null);
     const rawUserId = auth?.userId || 'anonymous';
     const userId = rawUserId === 'anonymous'
       ? 'anonymous'
       : String(rawUserId).slice(0, 128).replace(/[^a-zA-Z0-9-]/g, '_');
 
-    const body = await request.json();
+    const body = (await getJsonBody(request)) as Record<string, unknown>;
     const { filename, contentType, fileSize, pieceId } = body;
 
     if (!filename || !contentType || !fileSize) {
