@@ -15,6 +15,18 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 8000;
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean) || [];
+
+function getCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('Origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin);
+  const allowOrigin = isAllowed ? origin : (ALLOWED_ORIGINS[0] || '*');
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  };
+}
 
 async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: number } = {}): Promise<Response> {
   const { timeout = FETCH_TIMEOUT_MS, ...fetchOptions } = options;
@@ -91,21 +103,19 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
 }
 
 export default async function handler(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
+
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
+      headers: corsHeaders,
     });
   }
 
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 
@@ -113,12 +123,15 @@ export default async function handler(request: Request) {
     if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
       return new Response(JSON.stringify({ error: 'R2 credentials not configured' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
     const auth = await verifyUser(request.headers.get('authorization'));
-    const userId = auth?.userId || 'anonymous';
+    const rawUserId = auth?.userId || 'anonymous';
+    const userId = rawUserId === 'anonymous'
+      ? 'anonymous'
+      : String(rawUserId).slice(0, 128).replace(/[^a-zA-Z0-9-]/g, '_');
 
     const body = await request.json();
     const { filename, contentType, fileSize, pieceId } = body;
@@ -126,21 +139,21 @@ export default async function handler(request: Request) {
     if (!filename || !contentType || !fileSize) {
       return new Response(JSON.stringify({ error: 'Missing required fields: filename, contentType, fileSize' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
     if (!isValidAudioContentType(contentType, filename)) {
       return new Response(JSON.stringify({ error: 'Invalid content type. Please upload an audio file.' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
     if (fileSize > MAX_FILE_SIZE) {
       return new Response(JSON.stringify({ error: `File too large. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB` }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
@@ -155,7 +168,7 @@ export default async function handler(request: Request) {
       if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
         return new Response(JSON.stringify({ error: 'Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.' }), {
           status: 500,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
       const insertResponse = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/user_audio_files`, {
@@ -181,7 +194,7 @@ export default async function handler(request: Request) {
         console.error('Failed to create audio record:', errorText);
         return new Response(JSON.stringify({ error: 'Failed to create audio record' }), {
           status: 500,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
       }
 
@@ -194,10 +207,7 @@ export default async function handler(request: Request) {
         expiresIn: 3600,
       }), {
         status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
       });
     }
 
@@ -208,22 +218,17 @@ export default async function handler(request: Request) {
       expiresIn: 3600,
     }), {
       status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   } catch (error) {
     const isTimeout = error instanceof Error && error.name === 'AbortError';
-    console.error('Error generating upload URL:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error generating upload URL:', errorMessage, 'Stack:', error instanceof Error ? error.stack : '');
     return new Response(JSON.stringify({
       error: isTimeout ? 'Request timed out. Please try again.' : 'Internal server error',
     }), {
       status: isTimeout ? 504 : 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });
   }
 }

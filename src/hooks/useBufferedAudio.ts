@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { fetchWithRetry } from '@/lib/fetchWithRetry';
 
 const CACHE_NAME = 'teleprompter-audio-v1';
 
@@ -64,10 +65,10 @@ export function useBufferedAudio(sourceUrl: string | null) {
 
         // Fetch if not from cache
         if (!blob) {
-          const res = await fetch(sourceUrl, {
+          const res = await fetchWithRetry(sourceUrl, {
             signal: abortRef.current?.signal,
             credentials: 'omit',
-          });
+          }, 3);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           blob = await res.blob();
           if (cancelled) return;

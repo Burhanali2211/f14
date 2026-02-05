@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query';
 import {
   Play, Pause, SkipBack, SkipForward, Settings, Clock,
-  Home, Edit2, ArrowLeft, Loader2, PlayCircle, X, Timer, ChevronDown
+  Home, Edit2, ArrowLeft, Loader2, PlayCircle, X, Timer, ChevronDown, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { cn, normalizeImageUrl } from '@/lib/utils';
+import { cn, normalizeImageUrl, getProxiedImageUrls } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { TeleprompterSegment } from '@/lib/teleprompter-types';
 import {
@@ -88,6 +88,10 @@ export default function TeleprompterPage() {
   const segments = useMemo(() => session?.segments || [], [session]);
 
   const [imageRegions, setImageRegions] = useState<ImageRegion[]>([]);
+  const [prefetchProgress, setPrefetchProgress] = useState(0);
+  const [isPrefetchReady, setIsPrefetchReady] = useState(false);
+  const [prefetchError, setPrefetchError] = useState<string | null>(null);
+  const [bufferHealth, setBufferHealth] = useState(100);
 
   const audioUrl = useMemo(() => {
     const audioR2Key = piece?.audio_url;
@@ -103,6 +107,10 @@ export default function TeleprompterPage() {
 
   const { playbackUrl, isBuffering, bufferingError } = useBufferedAudio(audioUrl);
 
+  useEffect(() => {
+    setBufferHealth(isBuffering ? 0 : (playbackUrl ? 100 : 0));
+  }, [isBuffering, playbackUrl]);
+
   const pdfUrl = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);
     return urls.find(u => u.toLowerCase().endsWith('.pdf')) || null;
@@ -110,7 +118,8 @@ export default function TeleprompterPage() {
 
   const imageUrls = useMemo(() => {
     const urls = normalizeImageUrl(piece?.image_url);
-    return urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
+    const images = urls.filter(u => !u.toLowerCase().endsWith('.pdf'));
+    return getProxiedImageUrls(images);
   }, [piece?.image_url]);
 
   const textContent = piece?.text_content || null;
@@ -128,6 +137,101 @@ export default function TeleprompterPage() {
     // Always start from the beginning when opening the teleprompter page
     resetProgress(existingSession.id);
   }, [id, audioUrl]);
+
+  // Prefetch audio via service worker for smooth teleprompter playback
+  useEffect(() => {
+    if (!audioUrl) {
+      setIsPrefetchReady(true);
+      setPrefetchProgress(100);
+      setPrefetchError(null);
+      return;
+    }
+    if (!audioUrl.includes('/api/r2-audio-proxy')) {
+      setIsPrefetchReady(true);
+      setPrefetchProgress(100);
+      return;
+    }
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let fallbackId: ReturnType<typeof setTimeout> | undefined;
+    const handler = (e: MessageEvent) => {
+      if (cancelled) return;
+      if (e.data?.type === 'PREFETCH_PROGRESS') {
+        setPrefetchProgress(e.data.progress ?? 0);
+        if (e.data.progress >= 100) setIsPrefetchReady(true);
+      } else if (e.data?.type === 'PREFETCH_ERROR') {
+        setPrefetchError(e.data.error ?? 'Prefetch failed');
+        setIsPrefetchReady(true);
+      }
+    };
+
+    setPrefetchProgress(0);
+    setIsPrefetchReady(false);
+    setPrefetchError(null);
+
+    (async () => {
+      try {
+        if (!('serviceWorker' in navigator)) {
+          setIsPrefetchReady(true);
+          setPrefetchProgress(100);
+          return;
+        }
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg?.active) {
+          await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          await navigator.serviceWorker.ready;
+        }
+
+        let fileSize = 0;
+        try {
+          const headRes = await fetch(audioUrl, { method: 'HEAD' });
+          const cl = headRes.headers.get('Content-Length');
+          if (cl) fileSize = parseInt(cl, 10) || 0;
+        } catch {
+          // Continue without fileSize - SW will do full fetch
+        }
+
+        navigator.serviceWorker.addEventListener('message', handler);
+
+        const active = (await navigator.serviceWorker.ready).active;
+        if (active) {
+          active.postMessage({ type: 'PREFETCH_AUDIO', audioUrl, fileSize });
+        } else {
+          setIsPrefetchReady(true);
+          setPrefetchProgress(100);
+        }
+
+        // Fallback: if SW doesn't support PREFETCH_AUDIO (e.g. workbox in prod), proceed after 3s
+        fallbackId = setTimeout(() => {
+          if (!cancelled) {
+            setIsPrefetchReady(true);
+            setPrefetchProgress(100);
+          }
+        }, 3000);
+
+        timeoutId = setTimeout(() => {
+          if (!cancelled) {
+            setIsPrefetchReady(true);
+            setPrefetchProgress(100);
+          }
+        }, 60000);
+      } catch (err) {
+        if (!cancelled) {
+          setPrefetchError(err instanceof Error ? err.message : 'Prefetch failed');
+          setIsPrefetchReady(true);
+          setPrefetchProgress(100);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      if (fallbackId) clearTimeout(fallbackId);
+      navigator.serviceWorker.removeEventListener('message', handler);
+    };
+  }, [audioUrl]);
 
   // Reset playback state and scroll to top when opening the page
   useEffect(() => {
@@ -161,6 +265,7 @@ export default function TeleprompterPage() {
           return;
         }
       } catch {
+        // Fall through to localStorage fallback
       }
 
       try {
@@ -488,6 +593,7 @@ export default function TeleprompterPage() {
       await containerRef.current?.requestFullscreen?.();
       setIsFullscreen(true);
     } catch {
+      // Fullscreen may fail (e.g. not user-initiated); continue without it
     }
     
     if (delaySeconds && delaySeconds > 0) {
@@ -525,7 +631,9 @@ export default function TeleprompterPage() {
     if (document.fullscreenElement) {
       try {
         await document.exitFullscreen?.();
-      } catch {}
+      } catch {
+        // Ignore exitFullscreen errors
+      }
     }
     setIsFullscreen(false);
   }, [stopPlayback]);
@@ -644,6 +752,28 @@ export default function TeleprompterPage() {
             Go Home
           </Link>
         </Button>
+      </div>
+    );
+  }
+
+  if (audioUrl && !isPrefetchReady) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8">
+        <Loader2 className="w-12 h-12 animate-spin text-primary mb-6" />
+        <h2 className="text-xl font-semibold mb-2">Preparing audio for recitation</h2>
+        <p className="text-muted-foreground text-center mb-6 max-w-md">
+          Please wait for complete download to prevent interruptions during recitation.
+        </p>
+        <div className="w-64 h-2 bg-muted rounded-full overflow-hidden">
+          <div
+            className="h-full bg-primary transition-all duration-300"
+            style={{ width: `${prefetchProgress}%` }}
+          />
+        </div>
+        <p className="text-sm text-muted-foreground mt-3">{prefetchProgress}%</p>
+        {prefetchError && (
+          <p className="text-sm text-destructive mt-2">{prefetchError}</p>
+        )}
       </div>
     );
   }
@@ -783,6 +913,22 @@ export default function TeleprompterPage() {
 
           <footer className="absolute bottom-0 left-0 right-0 z-50 opacity-0 hover:opacity-100 transition-opacity duration-300 pointer-events-none hover:pointer-events-auto">
               <div className="bg-gradient-to-t from-black/80 to-transparent pt-8">
+                {audioUrl && (
+                  <div className="px-4 pb-2 flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full transition-all duration-300",
+                          bufferHealth < 30 ? "bg-red-500" : bufferHealth < 60 ? "bg-amber-500" : "bg-green-500"
+                        )}
+                        style={{ width: `${bufferHealth}%` }}
+                      />
+                    </div>
+                    {bufferHealth < 30 && (
+                      <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" title="Low buffer" />
+                    )}
+                  </div>
+                )}
                 <TeleprompterPlaybackControls
                   currentTime={currentTimeDisplay}
                   duration={duration}
@@ -833,6 +979,18 @@ export default function TeleprompterPage() {
 
               <div className="flex items-center gap-2 shrink-0">
                 {((audioUrl && (isLoaded || isBuffering)) || segments.length > 0 || imageRegions.length > 0) && (
+                  <div className="flex items-center gap-2">
+                    {audioUrl && (
+                      <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden" title={`Buffer: ${bufferHealth}%`}>
+                        <div
+                          className={cn(
+                            "h-full transition-all duration-300",
+                            bufferHealth < 30 ? "bg-red-500" : bufferHealth < 60 ? "bg-amber-500" : "bg-green-500"
+                          )}
+                          style={{ width: `${bufferHealth}%` }}
+                        />
+                      </div>
+                    )}
                   <div className="flex items-center shadow-lg shadow-primary/10 rounded-full bg-primary overflow-hidden h-9">
                     {isBuffering ? (
                       <Button
@@ -885,6 +1043,7 @@ export default function TeleprompterPage() {
                     )}
                       </>
                     )}
+                  </div>
                   </div>
                 )}
                 <Popover open={showSettings} onOpenChange={setShowSettings}>

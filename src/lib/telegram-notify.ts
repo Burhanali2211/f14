@@ -1,4 +1,5 @@
 const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID || '';
+const TELEGRAM_WEBHOOK_SECRET = import.meta.env.VITE_TELEGRAM_WEBHOOK_SECRET || '';
 
 type NotificationType = 'contact' | 'new_user' | 'upload_request' | 'new_recitation' | 'question';
 
@@ -15,11 +16,16 @@ export async function sendTelegramNotification(
       ? `${window.location.origin}/api/telegram-notify`
       : '/api/telegram-notify';
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (TELEGRAM_WEBHOOK_SECRET) {
+      headers['X-Webhook-Secret'] = TELEGRAM_WEBHOOK_SECRET;
+    }
+
     const response = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: JSON.stringify({
         type,
         data: {

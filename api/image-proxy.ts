@@ -8,6 +8,19 @@ const ALLOWED_HOSTS = [
   'supabase.in',
 ];
 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean) || [];
+
+function getCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('Origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin);
+  const allowOrigin = isAllowed ? origin : (ALLOWED_ORIGINS[0] || '*');
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  };
+}
+
 function isAllowedUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -18,11 +31,7 @@ function isAllowedUrl(url: string): boolean {
 }
 
 export default async function handler(request: Request) {
-  const corsHeaders: HeadersInit = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-  };
+  const corsHeaders = getCorsHeaders(request);
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -80,8 +89,13 @@ export default async function handler(request: Request) {
       },
     });
   } catch (error) {
-    console.error('Error proxying image:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error proxying image:', errorMessage, 'Stack:', error instanceof Error ? error.stack : '');
+    const isProd = process.env.NODE_ENV === 'production';
+    return new Response(JSON.stringify({
+      error: 'Internal server error',
+      ...(isProd ? {} : { details: errorMessage }),
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });

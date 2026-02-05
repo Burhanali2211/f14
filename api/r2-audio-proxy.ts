@@ -7,6 +7,24 @@ const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'kalaam-reader';
 
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean) || [];
+
+function isValidR2Key(key: string | null | undefined): boolean {
+  if (key == null || typeof key !== 'string') return false;
+  if (!key.startsWith('audio/')) return false;
+  try {
+    const decoded = decodeURIComponent(key);
+    const normalized = decoded.replace(/\/+/g, '/').replace(/\\/g, '/');
+    if (normalized.includes('..')) return false;
+    if (!normalized.startsWith('audio/')) return false;
+    // eslint-disable-next-line no-control-regex -- intentional: reject control chars for security
+    if (/[\x00-\x1f\x7f]/.test(normalized)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function hmacSha256(key: BufferSource, message: string): Promise<ArrayBuffer> {
   const cryptoKey = await crypto.subtle.importKey(
     'raw',
@@ -89,12 +107,19 @@ async function createPresignedUrl(
   return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
 }
 
-export default async function handler(request: Request) {
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+function getCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get('Origin') || '';
+  const isAllowed = ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin);
+  const allowOrigin = isAllowed ? origin : (ALLOWED_ORIGINS[0] || '*');
+  return {
+    'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Range',
   };
+}
+
+export default async function handler(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
 
   if (request.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -118,7 +143,7 @@ export default async function handler(request: Request) {
     const url = new URL(request.url);
     const r2Key = url.searchParams.get('key');
 
-    if (!r2Key || !r2Key.startsWith('audio/')) {
+    if (!isValidR2Key(r2Key)) {
       return new Response(JSON.stringify({ error: 'Invalid or missing audio key' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json', ...corsHeaders },
@@ -172,8 +197,13 @@ export default async function handler(request: Request) {
       headers: responseHeaders,
     });
   } catch (error) {
-    console.error('Error proxying audio:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error proxying audio:', errorMessage, 'Stack:', error instanceof Error ? error.stack : '');
+    const isProd = process.env.NODE_ENV === 'production';
+    return new Response(JSON.stringify({
+      error: 'Internal server error',
+      ...(isProd ? {} : { details: errorMessage }),
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders },
     });

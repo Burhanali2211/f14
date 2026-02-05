@@ -1,5 +1,7 @@
 // Service Worker for Background Notifications and Update Detection
 const CACHE_NAME = 'sacred-recitations-v1';
+const AUDIO_CACHE_NAME = 'audio-chunks-v1';
+const AUDIO_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 const NOTIFICATION_TITLE = 'Upcoming Event';
 const UPDATE_NOTIFICATION_TITLE = 'Update Available';
 const VERSION_FILE = '/version.json';
@@ -223,6 +225,31 @@ async function checkForUpdates() {
   }
 }
 
+// Fetch event - cache audio proxy responses for teleprompter
+self.addEventListener('fetch', (event) => {
+  const url = event.request.url;
+  if (!url.includes('/api/r2-audio-proxy')) return;
+
+  event.respondWith(
+    (async () => {
+      try {
+        const cache = await caches.open(AUDIO_CACHE_NAME);
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+
+        const response = await fetch(event.request);
+        if (response.ok && (response.status === 200 || response.status === 206)) {
+          const clone = response.clone();
+          cache.put(event.request, clone);
+        }
+        return response;
+      } catch (err) {
+        return fetch(event.request);
+      }
+    })()
+  );
+});
+
 // Install event - cache resources and skip waiting
 self.addEventListener('install', (event) => {
   console.log('[Service Worker] Installing...');
@@ -234,10 +261,10 @@ self.addEventListener('activate', (event) => {
   console.log('[Service Worker] Activating...');
   event.waitUntil(
     (async () => {
-      // Clear all old caches
+      // Clear old caches (preserve CACHE_NAME and AUDIO_CACHE_NAME)
       const cacheNames = await caches.keys();
       const deletePromises = cacheNames.map((cacheName) => {
-        if (cacheName !== CACHE_NAME) {
+        if (cacheName !== CACHE_NAME && cacheName !== AUDIO_CACHE_NAME) {
           console.log('[Service Worker] Deleting old cache:', cacheName);
           return caches.delete(cacheName);
         }
@@ -472,6 +499,45 @@ self.addEventListener('message', (event) => {
       console.error('[Service Worker] Error checking for updates:', error);
       event.ports[0]?.postMessage({ success: false, error: error.message });
     });
+  }
+
+  // Handle audio prefetch for teleprompter - fetch in chunks with Range for progress, cache full response
+  if (event.data && event.data.type === 'PREFETCH_AUDIO') {
+    const { audioUrl, fileSize } = event.data;
+    const client = event.source;
+    if (!client || !audioUrl) return;
+
+    (async () => {
+      try {
+        const cache = await caches.open(AUDIO_CACHE_NAME);
+        const fullReq = new Request(audioUrl);
+        const cached = await cache.match(fullReq);
+        if (cached) {
+          client.postMessage({ type: 'PREFETCH_PROGRESS', progress: 100 });
+          return;
+        }
+
+        if (fileSize && fileSize > 0) {
+          const totalChunks = Math.ceil(fileSize / AUDIO_CHUNK_SIZE);
+          for (let i = 0; i < totalChunks; i++) {
+            const start = i * AUDIO_CHUNK_SIZE;
+            const end = Math.min(start + AUDIO_CHUNK_SIZE - 1, fileSize - 1);
+            const req = new Request(audioUrl, { headers: { Range: `bytes=${start}-${end}` } });
+            const res = await fetch(req);
+            if (res.ok) await cache.put(req, res.clone());
+            const progress = Math.round(((i + 1) / totalChunks) * 100);
+            client.postMessage({ type: 'PREFETCH_PROGRESS', progress });
+            if (i < totalChunks - 1) await new Promise((r) => setTimeout(r, 100));
+          }
+        }
+        const res = await fetch(audioUrl);
+        if (res.ok) await cache.put(fullReq, res.clone());
+        client.postMessage({ type: 'PREFETCH_PROGRESS', progress: 100 });
+      } catch (err) {
+        console.error('[SW] Prefetch error:', err);
+        client.postMessage({ type: 'PREFETCH_ERROR', error: err?.message || 'Prefetch failed' });
+      }
+    })();
   }
   
   // Removed ANNOUNCEMENT_NOTIFICATION and BROADCAST_ANNOUNCEMENT handlers

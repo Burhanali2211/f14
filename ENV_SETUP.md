@@ -14,6 +14,15 @@ Create a `.env` or `.env.local` file in the root directory with:
 ```env
 VITE_SUPABASE_URL=https://fryhcufmzoxgabdklpiq.supabase.co
 VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_aR5jdu8baiw64DOWXLewNw_wzRkK0sv
+
+# Optional: CORS and security (for production)
+CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+SITE_URL=https://yourdomain.com
+
+# Optional: Telegram webhook security (blocks unauthenticated notification spam)
+TELEGRAM_WEBHOOK_SECRET=generate_a_random_32_character_string
+VITE_TELEGRAM_WEBHOOK_SECRET=same_as_above_or_client_specific
 ```
 
 Or if you prefer the legacy key:

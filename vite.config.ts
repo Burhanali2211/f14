@@ -58,6 +58,21 @@ export default defineConfig(({ mode }) => {
         globIgnores: ['**/version.json'],
         runtimeCaching: [
           {
+            // Cache audio proxy for teleprompter - check cache first, then network
+            urlPattern: /\/api\/r2-audio-proxy/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'audio-chunks-v1',
+              expiration: {
+                maxEntries: 20,
+                maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200, 206],
+              },
+            },
+          },
+          {
             // API routes must never be cached - ensures upload/stream responses are fresh
             urlPattern: /\/api\/.*/i,
             handler: 'NetworkOnly',

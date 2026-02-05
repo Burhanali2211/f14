@@ -19,9 +19,13 @@ async function sendNewUserNotification(userData: {
       ? `${window.location.origin}/api/telegram-notify`
       : '/api/telegram-notify';
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const webhookSecret = import.meta.env.VITE_TELEGRAM_WEBHOOK_SECRET;
+    if (webhookSecret) headers['X-Webhook-Secret'] = webhookSecret;
+
     await fetch(apiUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         type: 'new_user',
         data: {

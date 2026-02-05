@@ -3,6 +3,9 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import fs from 'fs';
+import os from 'os';
+import { Readable } from 'stream';
 import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -15,6 +18,7 @@ dotenv.config({ path: join(__dirname, '..', '.env') });
 
 // --- Constants ---
 const PRESIGNED_EXPIRES_SEC = 3600;
+const FETCH_TIMEOUT_MS = 30000;
 const AWS_REGION = 'auto';
 const AWS_SERVICE = 's3';
 const AWS_SIGNING_TERMINATOR = 'aws4_request';
@@ -29,7 +33,7 @@ const corsOptions = {
   origin: process.env.NODE_ENV === 'production'
     ? (allowedOrigins?.length ? allowedOrigins : [SITE_URL.replace(/\/$/, '')])
     : true, // Allow all in dev for localhost flexibility
-  credentials: true,
+  credentials: false,
 };
 app.use(cors(corsOptions));
 app.use(express.json());
@@ -74,6 +78,16 @@ const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) 
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const AUDIO_EXTENSIONS = [
   '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
   '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
@@ -95,9 +109,17 @@ function isValidAudioContentType(contentType, filename) {
 function isValidR2Key(key) {
   if (!key || typeof key !== 'string') return false;
   if (!key.startsWith('audio/')) return false;
-  const normalized = key.replace(/\/+/g, '/');
-  if (normalized.includes('..')) return false;
-  return true;
+  try {
+    const decoded = decodeURIComponent(key);
+    const normalized = decoded.replace(/\/+/g, '/').replace(/\\/g, '/');
+    if (normalized.includes('..')) return false;
+    if (!normalized.startsWith('audio/')) return false;
+    // eslint-disable-next-line no-control-regex -- intentional: reject control chars for security
+    if (/[\x00-\x1f\x7f]/.test(normalized)) return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function hmacSha256(key, message) {
@@ -165,10 +187,6 @@ async function createPresignedUrl(bucket, key, method, contentType, expiresIn = 
   return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
 }
 
-async function createGetPresignedUrl(bucket, key, expiresIn = PRESIGNED_EXPIRES_SEC) {
-  return createPresignedUrl(bucket, key, 'GET', 'audio/mpeg', expiresIn);
-}
-
 async function verifyUser(authHeader) {
   if (!authHeader?.startsWith('Bearer ')) {
     return null;
@@ -193,9 +211,18 @@ async function verifyUser(authHeader) {
 }
 
 const multer = await import('multer');
-const upload = multer.default({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+const upload = multer.default({
+  storage: multer.diskStorage({
+    destination: os.tmpdir(),
+    filename: (_req, file, cb) => {
+      cb(null, `upload-${Date.now()}-${(file.originalname || 'file').replace(/[^a-zA-Z0-9.-]/g, '_')}`);
+    },
+  }),
+  limits: { fileSize: 100 * 1024 * 1024 },
+});
 
 app.post('/api/r2-audio-upload', upload.single('file'), async (req, res) => {
+  const tempPath = req.file?.path;
   try {
     if (!R2_ACCOUNT_ID || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
       return res.status(500).json({ error: 'R2 credentials not configured' });
@@ -211,53 +238,47 @@ app.post('/api/r2-audio-upload', upload.single('file'), async (req, res) => {
     if (!isValidR2Key(r2Key)) {
       return res.status(400).json({ error: 'Invalid r2Key - must start with audio/ and contain no path traversal' });
     }
+
+    const hash = crypto.createHash('sha256');
+    const readStream = fs.createReadStream(file.path);
+    await new Promise((resolve, reject) => {
+      readStream.on('data', (chunk) => hash.update(chunk));
+      readStream.on('end', resolve);
+      readStream.on('error', reject);
+    });
+    const payloadHash = hash.digest('hex');
+
     const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-    
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
     const dateStamp = amzDate.slice(0, 8);
-    
-    const payloadHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
-    
     const credentialScope = `${dateStamp}/${AWS_REGION}/${AWS_SERVICE}/${AWS_SIGNING_TERMINATOR}`;
     const canonicalUri = `/${R2_BUCKET_NAME}/${r2Key}`;
-    
     const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
     const canonicalHeaders = `content-type:${file.mimetype}\nhost:${host}\nx-amz-content-sha256:${payloadHash}\nx-amz-date:${amzDate}\n`;
     const signedHeaders = 'content-type;host;x-amz-content-sha256;x-amz-date';
-    
     const canonicalRequest = [
-      'PUT',
-      canonicalUri,
-      '',
-      canonicalHeaders,
-      signedHeaders,
-      payloadHash,
+      'PUT', canonicalUri, '', canonicalHeaders, signedHeaders, payloadHash,
     ].join('\n');
-    
     const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
-    
     const stringToSign = [
-      'AWS4-HMAC-SHA256',
-      amzDate,
-      credentialScope,
-      canonicalRequestHash,
+      'AWS4-HMAC-SHA256', amzDate, credentialScope, canonicalRequestHash,
     ].join('\n');
-    
     const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, AWS_REGION, AWS_SERVICE);
-    const signature = toHex(await hmacSha256(signingKey, stringToSign));
-    
+    const signature = toHex(hmacSha256(signingKey, stringToSign));
     const authorizationHeader = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
-    
-    const uploadResponse = await fetch(`${endpoint}${canonicalUri}`, {
+
+    const bodyStream = Readable.toWeb(fs.createReadStream(file.path));
+    const uploadResponse = await fetchWithTimeout(`${endpoint}${canonicalUri}`, {
       method: 'PUT',
       headers: {
         'Content-Type': file.mimetype,
+        'Content-Length': String(file.size),
         'x-amz-content-sha256': payloadHash,
         'x-amz-date': amzDate,
         'Authorization': authorizationHeader,
       },
-      body: file.buffer,
+      body: bodyStream,
     });
 
     if (!uploadResponse.ok) {
@@ -270,6 +291,12 @@ app.post('/api/r2-audio-upload', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('Error uploading audio:', error);
     return res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    if (tempPath) {
+      fs.unlink(tempPath, (err) => {
+        if (err) console.error('[api] Failed to cleanup temp file:', err?.message);
+      });
+    }
   }
 });
 
@@ -284,21 +311,28 @@ app.post('/api/r2-upload-url', async (req, res) => {
 
     const { filename, contentType, fileSize, pieceId } = req.body;
 
-    if (!filename || !contentType || !fileSize) {
-      return res.status(400).json({ error: 'Missing required fields: filename, contentType, fileSize' });
+    if (!filename || typeof filename !== 'string' || filename.length > 255) {
+      return res.status(400).json({ error: 'Invalid filename' });
+    }
+    if (!contentType || typeof contentType !== 'string') {
+      return res.status(400).json({ error: 'Invalid contentType' });
+    }
+    const size = Number(fileSize);
+    if (!Number.isFinite(size) || size <= 0) {
+      return res.status(400).json({ error: 'Invalid fileSize' });
     }
 
     if (!isValidAudioContentType(contentType, filename)) {
       return res.status(400).json({ error: 'Invalid content type. Please upload an audio file.' });
     }
 
-    if (fileSize > MAX_FILE_SIZE) {
+    if (size > MAX_FILE_SIZE) {
       return res.status(400).json({ error: `File too large. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB` });
     }
 
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = Date.now();
-    const safeUserId = userId === 'anonymous' ? 'anonymous' : String(userId).replace(/[^a-zA-Z0-9-]/g, '_');
+    const safeUserId = userId === 'anonymous' ? 'anonymous' : String(userId).slice(0, 128).replace(/[^a-zA-Z0-9-]/g, '_');
     const r2Key = `audio/${safeUserId}/${timestamp}_${sanitizedFilename}`;
 
     const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME, r2Key, 'PUT', contentType, PRESIGNED_EXPIRES_SEC);
@@ -311,7 +345,7 @@ app.post('/api/r2-upload-url', async (req, res) => {
           r2_key: r2Key,
           filename: sanitizedFilename,
           content_type: contentType,
-          size_bytes: fileSize,
+          size_bytes: size,
           piece_id: pieceId || null,
         })
         .select()
@@ -346,7 +380,7 @@ app.post('/api/r2-upload-url', async (req, res) => {
     } else if (error?.message?.includes('42P01') || error?.code === '42P01') {
       msg = 'user_audio_files table not found. Run: supabase db push';
     } else if (isDev && error?.message) {
-      msg = error.message;
+      msg = String(error.message).split('\n')[0];
     }
     return res.status(500).json({ error: msg });
   }
@@ -383,7 +417,7 @@ app.post('/api/r2-stream-url', async (req, res) => {
       return res.status(400).json({ error: 'Invalid r2Key' });
     }
 
-    const streamUrl = await createGetPresignedUrl(R2_BUCKET_NAME, key, PRESIGNED_EXPIRES_SEC);
+    const streamUrl = await createPresignedUrl(R2_BUCKET_NAME, key, 'GET', 'audio/mpeg', PRESIGNED_EXPIRES_SEC);
 
     return res.json({ streamUrl });
   } catch (error) {
@@ -438,6 +472,7 @@ const PORT = 3001;
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const TELEGRAM_WEBHOOK_SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
 function escapeMarkdown(text) {
   if (!text) return '';
@@ -508,8 +543,7 @@ ${escapeMarkdown(data.question || 'No question')}
 async function sendTelegramMessage(chatId, message) {
   try {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -526,7 +560,7 @@ async function sendTelegramMessage(chatId, message) {
       const errorText = await response.text();
       console.error('Telegram API error:', errorText);
       
-      const fallbackResponse = await fetch(url, {
+      const fallbackResponse = await fetchWithTimeout(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -550,6 +584,13 @@ async function sendTelegramMessage(chatId, message) {
 
 app.post('/api/telegram-notify', telegramLimiter, async (req, res) => {
   try {
+    if (TELEGRAM_WEBHOOK_SECRET) {
+      const providedSecret = req.headers['x-webhook-secret'];
+      if (providedSecret !== TELEGRAM_WEBHOOK_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+    }
+
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
       console.error('Telegram credentials not configured');
       return res.status(500).json({ error: 'Telegram not configured' });
@@ -604,17 +645,11 @@ app.get('/api/r2-audio-proxy', async (req, res) => {
       return res.status(400).json({ error: 'Invalid or missing audio key' });
     }
 
-    const presignedUrl = await createGetPresignedUrl(R2_BUCKET_NAME, r2Key, PRESIGNED_EXPIRES_SEC);
-    
+    const presignedUrl = await createPresignedUrl(R2_BUCKET_NAME, r2Key, 'GET', 'audio/mpeg', PRESIGNED_EXPIRES_SEC);
     const fetchHeaders = {};
-    if (req.headers.range) {
-      fetchHeaders['Range'] = req.headers.range;
-    }
+    if (req.headers.range) fetchHeaders['Range'] = req.headers.range;
 
-    const r2Response = await fetch(presignedUrl, {
-      method: 'GET',
-      headers: fetchHeaders,
-    });
+    const r2Response = await fetchWithTimeout(presignedUrl, { method: 'GET', headers: fetchHeaders });
 
     if (!r2Response.ok && r2Response.status !== 206) {
       console.error('R2 error:', r2Response.status, await r2Response.text());
@@ -624,14 +659,17 @@ app.get('/api/r2-audio-proxy', async (req, res) => {
     const contentType = r2Response.headers.get('Content-Type') || 'audio/mpeg';
     const contentLength = r2Response.headers.get('Content-Length');
     const contentRange = r2Response.headers.get('Content-Range');
-
     res.set('Content-Type', contentType);
     res.set('Accept-Ranges', 'bytes');
     if (contentLength) res.set('Content-Length', contentLength);
     if (contentRange) res.set('Content-Range', contentRange);
 
-    const buffer = Buffer.from(await r2Response.arrayBuffer());
-    return res.status(r2Response.status).send(buffer);
+    if (!r2Response.body) {
+      return res.status(500).json({ error: 'No response body' });
+    }
+    const nodeStream = Readable.fromWeb(r2Response.body);
+    res.status(r2Response.status);
+    return nodeStream.pipe(res);
   } catch (error) {
     console.error('Error proxying audio:', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -659,7 +697,7 @@ app.get('/api/image-proxy', async (req, res) => {
     if (!isAllowedImageUrl(decodedUrl)) {
       return res.status(400).json({ error: 'URL not allowed' });
     }
-    const fetchRes = await fetch(decodedUrl, {
+    const fetchRes = await fetchWithTimeout(decodedUrl, {
       method: 'GET',
       headers: { 'User-Agent': 'FollowersOf14-ImageProxy/1.0' },
     });
@@ -670,8 +708,11 @@ app.get('/api/image-proxy', async (req, res) => {
     const cacheControl = fetchRes.headers.get('Cache-Control') || 'public, max-age=86400, s-maxage=604800';
     res.set('Content-Type', contentType);
     res.set('Cache-Control', cacheControl);
-    const buffer = Buffer.from(await fetchRes.arrayBuffer());
-    return res.send(buffer);
+    if (!fetchRes.body) {
+      return res.status(500).json({ error: 'No response body' });
+    }
+    const nodeStream = Readable.fromWeb(fetchRes.body);
+    return nodeStream.pipe(res);
   } catch (error) {
     console.error('Error proxying image:', error);
     return res.status(500).json({ error: 'Internal server error' });
@@ -681,9 +722,13 @@ app.get('/api/image-proxy', async (req, res) => {
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
-    r2: hasR2,
-    supabase: hasSupabase,
+    services: {
+      r2: hasR2,
+      supabase: hasSupabase,
+      telegram: !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID),
+    },
     timestamp: new Date().toISOString(),
+    uptime: Math.round(process.uptime()),
   });
 });
 
@@ -694,12 +739,19 @@ app.get('/api/sitemap', async (_req, res) => {
 });
 
 app.get('/api/og-redirect', (req, res) => {
-  const path = req.query.path || '/';
-  if (path.startsWith('//') || path.includes('://')) {
-    return res.status(400).json({ error: 'Invalid path' });
+  let path = String(req.query.path || '/');
+  try {
+    const decoded = decodeURIComponent(path);
+    if (decoded.includes('://') || decoded.startsWith('//') || decoded.includes('\\')) {
+      return res.status(400).json({ error: 'Invalid path' });
+    }
+    path = decoded;
+  } catch {
+    return res.status(400).json({ error: 'Invalid path encoding' });
   }
   const base = SITE_URL.replace(/\/$/, '');
-  res.redirect(base + (path.startsWith('/') ? path : '/' + path));
+  const safePath = path.startsWith('/') ? path : '/' + path;
+  res.redirect(base + safePath);
 });
 
 app.listen(PORT, () => {
