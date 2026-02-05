@@ -874,7 +874,7 @@ export default function TeleprompterPage() {
                     <Settings className="w-5 h-5" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-72" align="end">
+                <PopoverContent className="w-72 z-[100]" align="end" container={containerRef.current}>
                   <TeleprompterDisplaySettings
                     fontSize={fontSize}
                     onFontSizeChange={setFontSize}
@@ -882,6 +882,8 @@ export default function TeleprompterPage() {
                     onImageZoomChange={setImageZoom}
                     highlightMode={highlightMode}
                     onHighlightModeChange={setHighlightMode}
+                    scrollBehavior={scrollBehavior}
+                    onScrollBehaviorChange={setScrollBehavior}
                   />
                 </PopoverContent>
               </Popover>
