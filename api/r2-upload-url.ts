@@ -1,15 +1,32 @@
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
+export const config = {
+  maxDuration: 30,
+};
+
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'kalaam-reader';
 
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_URL = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
+const FETCH_TIMEOUT_MS = 8000;
+
+async function fetchWithTimeout(url: string, options: RequestInit & { timeout?: number } = {}): Promise<Response> {
+  const { timeout = FETCH_TIMEOUT_MS, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, { ...fetchOptions, signal: controller.signal });
+    return res;
+  } finally {
+    clearTimeout(id);
+  }
+}
 
 function isValidAudioContentType(contentType: string, filename: string): boolean {
   if (contentType.startsWith('audio/')) return true;
@@ -54,11 +71,13 @@ async function verifyUser(authHeader: string | null): Promise<{ userId: string }
 
   const token = authHeader.slice(7);
 
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) return null;
+
   try {
-    const response = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    const response = await fetchWithTimeout(`${SUPABASE_URL}/auth/v1/user`, {
       headers: {
         'Authorization': `Bearer ${token}`,
-        'apikey': SUPABASE_SERVICE_KEY!,
+        'apikey': SUPABASE_SERVICE_KEY,
       },
     });
 
@@ -131,7 +150,13 @@ export default async function handler(request: Request) {
 
     if (useProxy) {
       if (userId !== 'anonymous') {
-        const insertResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_audio_files`, {
+        if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+          return new Response(JSON.stringify({ error: 'Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.' }), {
+            status: 500,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        }
+        const insertResponse = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/user_audio_files`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -152,7 +177,7 @@ export default async function handler(request: Request) {
         if (!insertResponse.ok) {
           const errorText = await insertResponse.text();
           console.error('Failed to create audio record:', errorText);
-          return new Response(JSON.stringify({ error: 'Failed to create audio record' }), {
+          return new Response(JSON.stringify({ error: 'Failed to create audio record', details: errorText }), {
             status: 500,
             headers: { 'Content-Type': 'application/json' },
           });
@@ -189,11 +214,17 @@ export default async function handler(request: Request) {
     const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME!, r2Key, contentType, 3600);
 
     if (userId !== 'anonymous') {
-      const insertResponse = await fetch(`${SUPABASE_URL}/rest/v1/user_audio_files`, {
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
+        return new Response(JSON.stringify({ error: 'Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      const insertResponse = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/user_audio_files`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': SUPABASE_SERVICE_KEY!,
+          'apikey': SUPABASE_SERVICE_KEY,
           'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
           'Prefer': 'return=representation',
         },
@@ -245,10 +276,16 @@ export default async function handler(request: Request) {
       },
     });
   } catch (error) {
+    const isTimeout = error instanceof Error && error.name === 'AbortError';
     console.error('Error generating upload URL:', error);
-    return new Response(JSON.stringify({ error: 'Internal server error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
+    return new Response(JSON.stringify({
+      error: isTimeout ? 'Request timed out. Please try again.' : 'Internal server error',
+    }), {
+      status: isTimeout ? 504 : 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
     });
   }
 }

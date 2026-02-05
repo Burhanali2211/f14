@@ -33,6 +33,8 @@ const MAX_FILE_SIZE = 500 * 1024 * 1024;
 const PROXY_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 /** Timeout for upload - production can be slower than localhost */
 const UPLOAD_TIMEOUT_MS = 90_000;
+/** Timeout for the initial upload-url request - fail fast if API hangs */
+const UPLOAD_URL_REQUEST_TIMEOUT_MS = 30_000;
 const AUDIO_EXTENSIONS = [
   '.mp3', '.wav', '.ogg', '.webm', '.aac', '.m4a', '.mp4', '.flac',
   '.opus', '.wma', '.aiff', '.aif', '.amr', '.3gp', '.3gpp', '.3g2',
@@ -120,6 +122,8 @@ export function useR2Audio(): UseR2AudioReturn {
             headers['Authorization'] = `Bearer ${token}`;
           }
 
+          const uploadUrlController = new AbortController();
+          const uploadUrlTimeoutId = setTimeout(() => uploadUrlController.abort(), UPLOAD_URL_REQUEST_TIMEOUT_MS);
           const uploadUrlResponse = await fetch('/api/r2-upload-url', {
             method: 'POST',
             headers,
@@ -130,7 +134,9 @@ export function useR2Audio(): UseR2AudioReturn {
               pieceId,
               useProxy,
             }),
+            signal: uploadUrlController.signal,
           });
+          clearTimeout(uploadUrlTimeoutId);
 
       if (!uploadUrlResponse.ok) {
         const errData = await uploadUrlResponse.json().catch(() => ({}));
@@ -254,7 +260,9 @@ export function useR2Audio(): UseR2AudioReturn {
 
       return audioFile;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upload failed';
+      const message = err instanceof Error && err.name === 'AbortError'
+        ? 'Upload request timed out. Check your connection and try again.'
+        : (err instanceof Error ? err.message : 'Upload failed');
       setError(message);
       throw err;
     } finally {
