@@ -78,7 +78,8 @@ export default async function handler(request: Request) {
     }
 
     const contentType = res.headers.get('Content-Type') || 'image/jpeg';
-    const cacheControl = res.headers.get('Cache-Control') || 'public, max-age=86400, s-maxage=604800';
+    // Long cache for stable URLs (render URLs include width/height, so immutable per variant)
+    const cacheControl = 'public, max-age=604800, s-maxage=31536000, immutable';
 
     return new Response(res.body, {
       status: 200,

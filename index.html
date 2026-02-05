@@ -12,6 +12,14 @@
     </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <!-- Critical CSS for above-the-fold paint -->
+    <style>
+      :root{--background:42 35% 97%;--foreground:155 30% 12%;--primary:162 70% 24%;--accent:38 90% 50%;--card:0 0% 100%;--muted:42 25% 92%;--border:42 30% 88%;--radius:1rem}
+      .dark{--background:162 30% 6%;--foreground:40 35% 94%;--primary:38 90% 52%;--accent:38 80% 48%;--card:162 25% 10%;--muted:162 18% 16%;--border:162 20% 16%}
+      html,body{overflow-x:hidden!important;width:100%!important;max-width:100%!important;touch-action:pan-x pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+      .hero-pattern{background:radial-gradient(ellipse 100% 60% at 50% -10%,hsl(var(--primary)/.12),transparent),radial-gradient(ellipse 70% 50% at 85% 50%,hsl(var(--accent)/.08),transparent),radial-gradient(ellipse 60% 40% at 15% 70%,hsl(var(--primary)/.05),transparent)}
+      #root{min-height:100vh;background-color:hsl(var(--background))}
+    </style>
     <script>
       (function() {
         var lastTouchEnd = 0;
@@ -97,17 +105,22 @@
     <meta name="twitter:description" content="Find any Islamic recitation by name - Naat, Noha, Dua, Manqabat, Marsiya with text, audio & video. Free access to thousands of pieces." />
     <meta name="twitter:image" content="https://followersof14.vercel.app/main.png" />
 
-    <!-- Preconnect to improve font loading -->
+    <!-- Preconnect - early connection to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://ysacmemkrnmczmtkfqad.supabase.co" crossorigin />
     
     <!-- DNS prefetch for external resources -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
     <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
     <link rel="dns-prefetch" href="https://ysacmemkrnmczmtkfqad.supabase.co" />
     
-    <!-- Arabic Fonts for Reader - optimized with font-display: swap -->
-    <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Nastaliq+Urdu:wght@400;500;600;700&family=Gulzar:wght@400&family=Scheherazade+New:wght@400;500;600;700&family=Lateef:wght@400;500;600;700;800&family=Noto+Sans+Arabic:wght@400;500;600;700&family=Reem+Kufi:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Critical fonts only: hero + categories (Plus Jakarta Sans, Noto Nastaliq Urdu) -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet" />
+    
+    <!-- Deferred fonts: load after FCP for reader/body -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700&family=Lateef:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&family=Cairo:wght@400;700&family=Tajawal:wght@400;700&family=Gulzar:wght@400&family=Scheherazade+New:wght@400;700&family=Reem+Kufi:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;700&family=Jameel+Noori+Nastaleeq&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700&family=Lateef:wght@400;700&family=Noto+Sans+Arabic:wght@400;700&family=Cairo:wght@400;700&family=Tajawal:wght@400;700&family=Gulzar:wght@400&family=Scheherazade+New:wght@400;700&family=Reem+Kufi:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;700&family=Jameel+Noori+Nastaleeq&display=swap" /></noscript>
     
     <!-- Structured Data: WebSite -->
     <script type="application/ld+json">

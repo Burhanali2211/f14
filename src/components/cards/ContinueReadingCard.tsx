@@ -41,7 +41,7 @@ export const ContinueReadingCard = memo(function ContinueReadingCard({ piece, in
       {/* Image - Compact square */}
       <div className="relative w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 overflow-hidden rounded-md bg-muted/20">
         <img 
-          src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
+          src={getProxiedImageUrl(firstImageUrl, { width: 160, height: 160 }) || getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-full h-full object-cover"
           loading="lazy"

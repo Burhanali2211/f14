@@ -111,7 +111,7 @@ export function SearchBar({
 
   return (
     <div ref={containerRef} className="relative max-w-2xl mx-auto z-50">
-      <div className={`relative transition-all duration-300 ${
+      <div className={`relative transition-[box-shadow,border-color] duration-300 ${
         isFocused && !isMobile ? 'ring-2 ring-primary/20 rounded-2xl' : ''
       }`}>
         {/* Glow effect - subtle on mobile */}
@@ -140,7 +140,7 @@ export function SearchBar({
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             placeholder={isMobile ? "Search recitations..." : placeholder}
-            className={`pl-12 pr-12 ${isMobile ? 'py-7 text-lg' : 'py-6 text-base'} rounded-2xl bg-card border-border shadow-soft focus:shadow-card transition-all duration-300 focus-visible:ring-0`}
+            className={`pl-12 pr-12 ${isMobile ? 'py-7 text-lg' : 'py-6 text-base'} rounded-2xl bg-card border-border shadow-soft focus:shadow-card transition-[box-shadow,border-color] duration-300 focus-visible:ring-0`}
             aria-label="Search for recitations"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">

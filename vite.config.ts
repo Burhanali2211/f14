@@ -201,7 +201,10 @@ export default defineConfig(({ mode }) => {
             '@radix-ui/react-toast'
           ],
           'supabase-vendor': ['@supabase/supabase-js'],
-          'utils-vendor': ['date-fns', 'zod', 'clsx', 'tailwind-merge']
+          'utils-vendor': ['date-fns', 'zod', 'clsx', 'tailwind-merge'],
+          'pdf-vendor': ['pdfjs-dist'],
+          'wavesurfer-vendor': ['wavesurfer.js', '@wavesurfer/react'],
+          'recharts-vendor': ['recharts']
         },
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',

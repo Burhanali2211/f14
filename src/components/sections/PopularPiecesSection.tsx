@@ -56,15 +56,17 @@ export function PopularPiecesSection() {
   hasMoreRef.current = hasMore;
 
   const checkScroll = useCallback(() => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setCanScrollLeft(scrollLeft > 10);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-      const nearEnd = scrollLeft >= scrollWidth - clientWidth - 50;
-      if (nearEnd && hasMoreRef.current && !loadingMoreRef.current && piecesRef.current.length >= PAGE_SIZE) {
-        fetchPopular(true);
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+        setCanScrollLeft(scrollLeft > 10);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+        const nearEnd = scrollLeft >= scrollWidth - clientWidth - 50;
+        if (nearEnd && hasMoreRef.current && !loadingMoreRef.current && piecesRef.current.length >= PAGE_SIZE) {
+          fetchPopular(true);
+        }
       }
-    }
+    });
   }, [fetchPopular]);
   
   useEffect(() => {
@@ -78,19 +80,22 @@ export function PopularPiecesSection() {
   
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = scrollRef.current.clientWidth * 0.8;
-      scrollRef.current.scrollBy({
+      const container = scrollRef.current;
+      const scrollAmount = container.clientWidth * 0.8;
+      container.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
       });
       if (direction === 'right' && hasMoreRef.current && !loadingMoreRef.current && piecesRef.current.length >= PAGE_SIZE) {
         setTimeout(() => {
-          if (scrollRef.current) {
-            const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-            if (scrollLeft >= scrollWidth - clientWidth - 150) {
-              fetchPopular(true);
+          requestAnimationFrame(() => {
+            if (scrollRef.current) {
+              const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+              if (scrollLeft >= scrollWidth - clientWidth - 150) {
+                fetchPopular(true);
+              }
             }
-          }
+          });
         }, 400);
       }
     }
@@ -165,7 +170,7 @@ function PopularCard({ piece, rank }: { piece: Piece; rank: number }) {
     >
       <div className="relative aspect-[4/5] rounded-xl overflow-hidden bg-card border border-border/40 hover:border-primary/30 transition-all shadow-sm hover:shadow-md">
         <img 
-          src={hasImage ? (getProxiedImageUrl(firstImageUrl) ?? firstImageUrl!) : getKarbalaPlaceholder(piece.id)} 
+          src={hasImage ? (getProxiedImageUrl(firstImageUrl, { width: 400, height: 500 }) ?? firstImageUrl!) : getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"

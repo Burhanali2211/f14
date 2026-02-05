@@ -1,3 +1,4 @@
+import '@/piece-reader.css';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { 

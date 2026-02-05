@@ -35,7 +35,7 @@ export const PopularPieceCard = memo(function PopularPieceCard({ piece, index, t
       {/* Image Section */}
       <div className="relative w-full h-52 sm:h-60 md:h-64 overflow-hidden bg-muted/30">
         <img 
-          src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
+          src={getProxiedImageUrl(firstImageUrl, { width: 400, height: 300 }) || getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"

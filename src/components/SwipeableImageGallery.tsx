@@ -65,10 +65,12 @@ export function SwipeableImageGallery({
       e.preventDefault();
       
       if (containerRef.current) {
-        const containerWidth = containerRef.current.offsetWidth;
-        const baseTranslate = -currentIndex * containerWidth;
-        const dragTranslate = deltaX;
-        setTranslateX(baseTranslate + dragTranslate);
+        const container = containerRef.current;
+        requestAnimationFrame(() => {
+          const containerWidth = container.offsetWidth;
+          const baseTranslate = -currentIndex * containerWidth;
+          setTranslateX(baseTranslate + deltaX);
+        });
       }
     }
   }, [isDragging, currentIndex]);
@@ -82,43 +84,47 @@ export function SwipeableImageGallery({
     
     if (!containerRef.current) return;
     
-    const containerWidth = containerRef.current.offsetWidth;
-    const threshold = containerWidth * 0.3; // 30% of container width
+    const container = containerRef.current;
+    requestAnimationFrame(() => {
+      const containerWidth = container.offsetWidth;
+      const threshold = containerWidth * 0.3; // 30% of container width
+      
+      const deltaX = translateX - (-currentIndex * containerWidth);
     
-    const deltaX = translateX - (-currentIndex * containerWidth);
-    
-    if (isSwipeRef.current && Math.abs(deltaX) > threshold) {
-      if (deltaX > 0 && currentIndex > 0) {
-        // Swipe right - go to previous
-        setCurrentIndex(currentIndex - 1);
-      } else if (deltaX < 0 && currentIndex < images.length - 1) {
-        // Swipe left - go to next
-        setCurrentIndex(currentIndex + 1);
+      if (isSwipeRef.current && Math.abs(deltaX) > threshold) {
+        if (deltaX > 0 && currentIndex > 0) {
+          setCurrentIndex(currentIndex - 1);
+        } else if (deltaX < 0 && currentIndex < images.length - 1) {
+          setCurrentIndex(currentIndex + 1);
+        } else {
+          setTranslateX(-currentIndex * containerWidth);
+        }
       } else {
-        // Snap back to current
         setTranslateX(-currentIndex * containerWidth);
       }
-    } else {
-      // Snap back to current
-      setTranslateX(-currentIndex * containerWidth);
-    }
-    
-    isSwipeRef.current = false;
+      isSwipeRef.current = false;
+    });
   }, [isDragging, currentIndex, translateX, images.length]);
 
   // Initialize translateX on mount
   useEffect(() => {
-    if (containerRef.current) {
-      const containerWidth = containerRef.current.offsetWidth;
-      setTranslateX(-currentIndex * containerWidth);
+    const container = containerRef.current;
+    if (container) {
+      requestAnimationFrame(() => {
+        const containerWidth = container.offsetWidth;
+        setTranslateX(-currentIndex * containerWidth);
+      });
     }
   }, []);
 
   // Update translateX when currentIndex changes
   useEffect(() => {
-    if (containerRef.current && !isDragging) {
-      const containerWidth = containerRef.current.offsetWidth;
-      setTranslateX(-currentIndex * containerWidth);
+    const container = containerRef.current;
+    if (container && !isDragging) {
+      requestAnimationFrame(() => {
+        const containerWidth = container.offsetWidth;
+        setTranslateX(-currentIndex * containerWidth);
+      });
     }
   }, [currentIndex, isDragging]);
 

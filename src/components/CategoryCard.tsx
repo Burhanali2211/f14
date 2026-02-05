@@ -48,7 +48,7 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
   const iconBg = iconBgMap[category.icon] || iconBgMap.book;
   
   // Get background image settings from admin dashboard (proxied to avoid __cf_bm cookie issues)
-  const bgImageUrl = getProxiedImageUrl(category.bg_image_url) ?? category.bg_image_url;
+  const bgImageUrl = getProxiedImageUrl(category.bg_image_url, { width: 400, height: 400, quality: 80 }) ?? category.bg_image_url;
   const bgImagePosition = category.bg_image_position || 'center';
   const bgImageSize = category.bg_image_size || 'cover';
   // Adjust opacity for light mode - need stronger overlay for better text readability
@@ -71,7 +71,7 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
         theme === 'light' 
           ? 'to-card border-border/70 shadow-lg hover:shadow-xl' 
           : 'to-card/80 dark:to-card/80 border-border/60 dark:border-border/40 shadow-lg dark:shadow-lg hover:shadow-xl dark:hover:shadow-xl'
-      } transition-all duration-500 hover:-translate-y-2 active:scale-[0.98] animate-fade-in`}
+      } transition-[transform,opacity,box-shadow] duration-500 hover:-translate-y-2 active:scale-[0.98] animate-fade-in`}
       style={{ 
         animationDelay: `${index * 0.08}s`,
       }}
@@ -82,8 +82,8 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
       {/* Background Image Layer - from admin dashboard */}
       {bgImageUrl && (
         <>
-          <div 
-            className="absolute inset-0 transition-transform duration-1000 ease-out group-hover:scale-110"
+          <div
+            className="absolute inset-0 transition-transform duration-1000 ease-out group-hover:scale-110 will-change-transform"
             style={{
               backgroundImage: `url(${bgImageUrl})`,
               backgroundPosition: bgImagePosition,
@@ -93,8 +93,8 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
             }}
           />
           {/* Dynamic blur overlay */}
-          <div 
-            className="absolute inset-0 transition-all duration-700 group-hover:backdrop-blur-[2px]"
+          <div
+            className="absolute inset-0 transition-[backdrop-filter,opacity] duration-700 group-hover:backdrop-blur-[2px]"
             style={{
               backdropFilter: `blur(${bgImageBlur}px)`,
             }}
@@ -139,7 +139,7 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
           {/* Top section */}
           <div className="flex-1 flex flex-col">
             {/* Icon with modern glassmorphism - adjusted for light mode */}
-            <div className={`w-10 h-10 sm:w-16 sm:h-16 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-lg sm:rounded-xl md:rounded-2xl ${iconBg} backdrop-blur-xl border-2 flex items-center justify-center mb-2 sm:mb-5 md:mb-4 lg:mb-5 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 ${
+            <div className={`w-10 h-10 sm:w-16 sm:h-16 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-lg sm:rounded-xl md:rounded-2xl ${iconBg} backdrop-blur-xl border-2 flex items-center justify-center mb-2 sm:mb-5 md:mb-4 lg:mb-5 group-hover:scale-110 group-hover:rotate-6 transition-[transform,box-shadow] duration-500 ${
               theme === 'light'
                 ? 'shadow-md group-hover:shadow-lg'
                 : 'shadow-lg dark:shadow-lg group-hover:shadow-xl dark:group-hover:shadow-xl'
@@ -182,7 +182,7 @@ export const CategoryCard = memo(function CategoryCard({ category, index = 0 }: 
               }`}>
                 Explore
               </span>
-              <div className={`w-6 h-6 sm:w-9 sm:h-9 md:w-8 md:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-12 ${
+              <div className={`w-6 h-6 sm:w-9 sm:h-9 md:w-8 md:h-8 lg:w-9 lg:h-9 rounded-full flex items-center justify-center transition-[transform,background-color,border-color] duration-500 group-hover:scale-110 group-hover:rotate-12 ${
                 theme === 'light'
                   ? 'bg-primary/20 group-hover:bg-primary/30 border border-primary/40 group-hover:border-primary/60'
                   : 'bg-primary/15 dark:bg-primary/10 group-hover:bg-primary/25 dark:group-hover:bg-primary/20 border border-primary/30 dark:border-primary/20 group-hover:border-primary/50 dark:group-hover:border-primary/40'

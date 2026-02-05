@@ -108,6 +108,9 @@ export function getFirstImageUrl(imageUrl: string | null | string[] | undefined)
 /** Supabase storage hosts - proxy these to avoid __cf_bm cookie rejection in cross-origin img loads */
 const PROXY_IMAGE_HOSTS = ['supabase.co', 'supabase.in'];
 
+/** Supabase object storage path pattern for conversion to render URL */
+const SUPABASE_OBJECT_PATH = /\/storage\/v1\/object\/public\/(.+)/;
+
 function shouldProxyImageUrl(url: string): boolean {
   try {
     const parsed = new URL(url);
@@ -118,15 +121,54 @@ function shouldProxyImageUrl(url: string): boolean {
 }
 
 /**
+ * Converts Supabase object URL to render URL with transform params (Pro plan).
+ * From: https://PROJECT.supabase.co/storage/v1/object/public/BUCKET/PATH
+ * To:   https://PROJECT.supabase.co/storage/v1/render/image/public/BUCKET/PATH?width=W&height=H&quality=Q
+ */
+function toSupabaseRenderUrl(
+  url: string,
+  options: { width?: number; height?: number; quality?: number }
+): string | null {
+  const match = url.match(SUPABASE_OBJECT_PATH);
+  if (!match) return null;
+  const bucketPath = match[1];
+  const base = url.replace(SUPABASE_OBJECT_PATH, '');
+  const renderBase = `${base}/storage/v1/render/image/public/${bucketPath}`;
+  const params = new URLSearchParams();
+  if (options.width != null) params.set('width', String(Math.round(options.width)));
+  if (options.height != null) params.set('height', String(Math.round(options.height)));
+  if (options.quality != null) params.set('quality', String(Math.min(100, Math.max(1, options.quality))));
+  const query = params.toString();
+  return query ? `${renderBase}?${query}` : renderBase;
+}
+
+export interface GetProxiedImageUrlOptions {
+  width?: number;
+  height?: number;
+  quality?: number;
+}
+
+/**
  * Returns a same-origin proxy URL for external images (e.g. Supabase Storage).
  * Fixes "Cookie __cf_bm has been rejected for invalid domain" when loading
  * images from Cloudflare-backed CDNs in cross-origin context.
+ * For Supabase Storage URLs, supports size params via render API (Pro plan) to reduce overfetch.
  */
-export function getProxiedImageUrl(url: string | null | undefined): string | null {
+export function getProxiedImageUrl(
+  url: string | null | undefined,
+  options?: GetProxiedImageUrlOptions
+): string | null {
   if (!url || typeof url !== 'string' || !url.trim()) return null;
   const trimmed = url.trim();
   if (!shouldProxyImageUrl(trimmed)) return trimmed;
-  return `/api/image-proxy?url=${encodeURIComponent(trimmed)}`;
+
+  let targetUrl = trimmed;
+  if (options && (options.width != null || options.height != null || options.quality != null)) {
+    const renderUrl = toSupabaseRenderUrl(trimmed, options);
+    if (renderUrl) targetUrl = renderUrl;
+  }
+
+  return `/api/image-proxy?url=${encodeURIComponent(targetUrl)}`;
 }
 
 /** Proxies an array of image URLs for display (Supabase URLs go through same-origin proxy). */

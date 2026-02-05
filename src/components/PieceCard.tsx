@@ -31,7 +31,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
         onMouseDown={handleTouchStart}
         onMouseUp={handleTouchEnd}
         onMouseLeave={() => setIsPressed(false)}
-        className={`group relative overflow-hidden bg-card rounded-2xl shadow-md border-2 border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-lg active:scale-[0.98] animate-slide-up opacity-0 ${isPressed ? 'scale-[0.98] shadow-sm border-primary/50' : ''}`}
+        className={`group relative overflow-hidden bg-card rounded-2xl shadow-md border-2 border-border/40 hover:border-primary/40 transition-[transform,box-shadow,border-color] duration-300 hover:shadow-lg active:scale-[0.98] animate-slide-up opacity-0 ${isPressed ? 'scale-[0.98] shadow-sm border-primary/50' : ''}`}
         style={{ 
           animationDelay: `${index * 0.04}s`,
           animationFillMode: 'forwards',
@@ -40,7 +40,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
       >
         <div className="relative h-36 sm:h-40 md:h-44 overflow-hidden bg-secondary">
           <img 
-            src={hasImage ? firstImageUrl! : getKarbalaPlaceholder(piece.id)} 
+            src={hasImage ? (getProxiedImageUrl(firstImageUrl, { width: 400, height: 300 }) || getKarbalaPlaceholder(piece.id)) : getKarbalaPlaceholder(piece.id)} 
             alt={piece.title}
             className={`w-full h-full object-cover transition-transform duration-500 ${isPressed ? 'scale-100' : 'group-hover:scale-105'}`}
             loading="lazy"
@@ -113,7 +113,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
       onMouseDown={handleTouchStart}
       onMouseUp={handleTouchEnd}
       onMouseLeave={() => setIsPressed(false)}
-      className={`group relative overflow-hidden bg-card rounded-2xl md:rounded-3xl shadow-lg border-2 border-border/40 hover:border-primary/40 transition-all duration-300 hover:shadow-xl active:scale-[0.98] animate-slide-up opacity-0 ${isPressed ? 'scale-[0.98] shadow-md border-primary/50' : ''}`}
+      className={`group relative overflow-hidden bg-card rounded-2xl md:rounded-3xl shadow-lg border-2 border-border/40 hover:border-primary/40 transition-[transform,box-shadow,border-color] duration-300 hover:shadow-xl active:scale-[0.98] animate-slide-up opacity-0 ${isPressed ? 'scale-[0.98] shadow-md border-primary/50' : ''}`}
       style={{ 
         animationDelay: `${index * 0.06}s`,
         animationFillMode: 'forwards',
@@ -122,7 +122,7 @@ export const PieceCard = memo(function PieceCard({ piece, index = 0, compact = f
     >
       <div className="relative h-44 sm:h-48 md:h-52 lg:h-56 overflow-hidden bg-secondary">
         <img 
-          src={hasImage ? (getProxiedImageUrl(getFirstImageUrl(piece.image_url)) || getKarbalaPlaceholder(piece.id)) : getKarbalaPlaceholder(piece.id)} 
+          src={hasImage ? (getProxiedImageUrl(getFirstImageUrl(piece.image_url), { width: 400, height: 300 }) || getKarbalaPlaceholder(piece.id)) : getKarbalaPlaceholder(piece.id)} 
           alt={`${piece.title}${piece.reciter ? ` by ${piece.reciter}` : ''}`}
           className={`w-full h-full object-cover transition-transform duration-500 ${isPressed ? 'scale-100' : 'group-hover:scale-105'}`}
           loading="lazy"

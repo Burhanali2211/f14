@@ -65,7 +65,7 @@ function RecentItem({ piece, index }: { piece: Piece; index: number }) {
     >
       <div className="relative w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
         <img 
-          src={getProxiedImageUrl(firstImageUrl) || getKarbalaPlaceholder(piece.id)} 
+          src={getProxiedImageUrl(firstImageUrl, { width: 96, height: 96 }) || getKarbalaPlaceholder(piece.id)} 
           alt={piece.title}
           className="w-full h-full object-cover"
           loading="lazy"

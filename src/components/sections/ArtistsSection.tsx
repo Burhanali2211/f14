@@ -21,11 +21,13 @@ export function ArtistsSection({ artists }: ArtistsSectionProps) {
   const [canScrollRight, setCanScrollRight] = useState(true);
 
   const checkScroll = () => {
-    if (scrollRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-      setCanScrollLeft(scrollLeft > 10);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
-    }
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+        setCanScrollLeft(scrollLeft > 10);
+        setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+      }
+    });
   };
 
   useEffect(() => {
@@ -43,8 +45,9 @@ export function ArtistsSection({ artists }: ArtistsSectionProps) {
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
-      const scrollAmount = scrollRef.current.clientWidth * 0.7;
-      scrollRef.current.scrollBy({
+      const container = scrollRef.current;
+      const scrollAmount = container.clientWidth * 0.7;
+      container.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
       });
@@ -132,7 +135,7 @@ export function ArtistsSection({ artists }: ArtistsSectionProps) {
                   <Avatar className="w-16 h-16 group-hover:scale-110 transition-transform duration-300">
                     {artist.image_url ? (
                       <img
-                        src={getProxiedImageUrl(artist.image_url) ?? artist.image_url}
+                        src={getProxiedImageUrl(artist.image_url, { width: 128, height: 128 }) ?? artist.image_url}
                         alt={artist.name}
                         className="w-full h-full object-cover rounded-full"
                         loading="lazy"

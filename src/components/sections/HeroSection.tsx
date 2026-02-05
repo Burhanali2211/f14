@@ -54,16 +54,9 @@ export function HeroSection({
     return undefined;
   }, [hasImage, heroGradientPreset, siteSettings?.hero_gradient_opacity]);
 
-  const bgImageStyles = useMemo(() => {
-    if (!hasImage) return undefined;
-    return {
-      backgroundImage: `url(${getProxiedImageUrl(siteSettings?.hero_image_url) ?? siteSettings?.hero_image_url})`,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      opacity: siteSettings?.hero_image_opacity ?? 1.0,
-    };
-  }, [hasImage, siteSettings?.hero_image_url, siteSettings?.hero_image_opacity]);
+  const heroImageSrc = hasImage
+    ? (getProxiedImageUrl(siteSettings?.hero_image_url, { width: 1920, height: 1080, quality: 85 }) ?? siteSettings?.hero_image_url ?? '')
+    : '';
 
   return (
     <section 
@@ -72,9 +65,18 @@ export function HeroSection({
       }`}
       style={sectionStyles}
     >
-      {/* Hero Background Image with opacity control */}
-      {hasImage && (
-        <div className="absolute inset-0 z-0" style={bgImageStyles} />
+      {/* LCP: Hero image as img (not background-image) for faster discovery + fetchpriority */}
+      {hasImage && heroImageSrc && (
+        <img
+          src={heroImageSrc}
+          alt=""
+          fetchPriority="high"
+          decoding="async"
+          width={1920}
+          height={1080}
+          className="absolute inset-0 z-0 w-full h-full object-cover"
+          style={{ opacity: siteSettings?.hero_image_opacity ?? 1.0 }}
+        />
       )}
       
       {/* Light mode overlay for better text readability when image is present */}
