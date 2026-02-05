@@ -17,9 +17,8 @@ if (typeof window !== 'undefined') {
     const filterPatterns = [
       /www-player\.css/i,
       /www-embed-player/i,
-      /Unknown property.*-moz-/i,
-      /Unknown pseudo-class.*-moz-/i,
-      /Unknown pseudo-class.*-ms-/i,
+      /Unknown property/i,
+      /Unknown pseudo-class/i,
       /Error in parsing value/i,
       /Declaration dropped/i,
       /Ruleset ignored/i,
@@ -33,6 +32,12 @@ if (typeof window !== 'undefined') {
       /WebSocket connection.*failed/i,
       /Max reconnect attempts reached/i,
       /OpaqueResponseBlocking/i,
+      /vercel\.live/i,
+      /feedback\.html/i,
+      /Cookie.*rejected for invalid domain/i,
+      /:host selector/i,
+      /Default export is deprecated.*zustand/i,
+      /DEPRECATED.*create.*zustand/i,
     ];
   
   const shouldFilter = (message: string): boolean => {

@@ -51,6 +51,8 @@ export function WaveformTimeline({
   const initWavesurfer = useCallback(async () => {
     if (!audioUrl || !waveformRef.current || initAttemptedRef.current) return;
     if (wavesurferRef.current) return;
+    // Only load valid URLs - prevent "Invalid URI" when audio_url contains UUID or bad data
+    if (!/^(https?:|\/|blob:|data:)/.test(audioUrl)) return;
     
     initAttemptedRef.current = true;
     setIsLoading(true);

@@ -29,8 +29,6 @@ interface UseR2AudioReturn {
 }
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
-/** Proxy upload avoids CORS; Vercel serverless body limit ~4.5MB */
-const PROXY_UPLOAD_MAX_BYTES = 4 * 1024 * 1024;
 /** Timeout for upload - production can be slower than localhost */
 const UPLOAD_TIMEOUT_MS = 90_000;
 /** Timeout for the initial upload-url request - fail fast if API hangs */
@@ -111,7 +109,6 @@ export function useR2Audio(): UseR2AudioReturn {
 
       setIsUploading(true);
       const contentType = getAudioMimeType(file);
-      const useProxy = file.size <= PROXY_UPLOAD_MAX_BYTES;
 
         try {
           const token = await getAuthToken();
@@ -124,7 +121,8 @@ export function useR2Audio(): UseR2AudioReturn {
 
           const uploadUrlController = new AbortController();
           const uploadUrlTimeoutId = setTimeout(() => uploadUrlController.abort(), UPLOAD_URL_REQUEST_TIMEOUT_MS);
-          const uploadUrlResponse = await fetch('/api/r2-upload-url', {
+          const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+          const uploadUrlResponse = await fetch(`${apiBase}/api/r2-upload-url`, {
             method: 'POST',
             headers,
             body: JSON.stringify({
@@ -132,9 +130,9 @@ export function useR2Audio(): UseR2AudioReturn {
               contentType: contentType,
               fileSize: file.size,
               pieceId,
-              useProxy,
             }),
             signal: uploadUrlController.signal,
+            cache: 'no-store',
           });
           clearTimeout(uploadUrlTimeoutId);
 
@@ -144,62 +142,9 @@ export function useR2Audio(): UseR2AudioReturn {
         throw new Error(msg);
       }
 
-      const { uploadUrl, r2Key, audioId, useProxy: proxyMode } = await uploadUrlResponse.json();
+      const { uploadUrl, r2Key, audioId } = await uploadUrlResponse.json();
 
-      if (proxyMode) {
-        abortControllerRef.current = new AbortController();
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('r2Key', r2Key);
-
-        const xhr = new XMLHttpRequest();
-        const uploadPromise = new Promise<void>((resolve, reject) => {
-          xhr.upload.addEventListener('progress', (event) => {
-            if (event.lengthComputable) {
-              setUploadProgress({
-                loaded: event.loaded,
-                total: event.total,
-                percentage: Math.round((event.loaded / event.total) * 100),
-              });
-            }
-          });
-
-          xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-              resolve();
-            } else {
-              try {
-                const errData = JSON.parse(xhr.responseText || '{}');
-                reject(new Error(errData.error || `Upload failed with status ${xhr.status}`));
-              } catch {
-                reject(new Error(`Upload failed with status ${xhr.status}`));
-              }
-            }
-          });
-
-          xhr.addEventListener('error', () => {
-            reject(new Error('Upload failed due to network error'));
-          });
-
-          xhr.addEventListener('abort', () => {
-            reject(new Error('Upload was cancelled'));
-          });
-
-          abortControllerRef.current?.signal.addEventListener('abort', () => {
-            xhr.abort();
-          });
-
-          xhr.open('POST', '/api/r2-audio-upload');
-          if (token) {
-            xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-          }
-          xhr.send(formData);
-        });
-        const timeoutPromise = new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error('Upload timed out. Try a smaller file or check your connection.')), UPLOAD_TIMEOUT_MS)
-        );
-        await Promise.race([uploadPromise, timeoutPromise]);
-      } else {
+      {
         abortControllerRef.current = new AbortController();
 
         const directUploadPromise = new Promise<void>((resolve, reject) => {
@@ -287,10 +232,12 @@ export function useR2Audio(): UseR2AudioReturn {
         ? { r2Key: audioIdOrR2Key }
         : { audioId: audioIdOrR2Key };
 
-      const response = await fetch('/api/r2-stream-url', {
+      const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+      const response = await fetch(`${apiBase}/api/r2-stream-url`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body),
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -316,13 +263,15 @@ export function useR2Audio(): UseR2AudioReturn {
         throw new Error('Authentication required to delete audio');
       }
 
-      const response = await fetch('/api/r2-delete', {
+      const apiBase = typeof window !== 'undefined' ? window.location.origin : '';
+      const response = await fetch(`${apiBase}/api/r2-delete`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ audioId }),
+        cache: 'no-store',
       });
 
       if (!response.ok) {

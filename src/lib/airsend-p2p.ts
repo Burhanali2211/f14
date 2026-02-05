@@ -9,6 +9,7 @@ export interface AirSendFile {
 
 type SignalingMessage = 
   | { type: 'ready' }
+  | { type: 'request-restart' }
   | { type: 'offer'; sdp: RTCSessionDescriptionInit }
   | { type: 'answer'; sdp: RTCSessionDescriptionInit }
   | { type: 'ice-candidate'; candidate: RTCIceCandidateInit };
@@ -23,9 +24,9 @@ const CHUNK_SIZE = 64 * 1024;
 const BUFFER_THRESHOLD = CHUNK_SIZE * 8;
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 /** Connection timeout - allow time for user to browse files (e.g. open file manager) */
-const CONNECTION_TIMEOUT_MS = 90_000;
+const CONNECTION_TIMEOUT_MS = 120_000;
 /** Grace period for 'disconnected' - often recovers when user returns to app */
-const DISCONNECTED_GRACE_MS = 30_000;
+const DISCONNECTED_GRACE_MS = 60_000;
 
 export class AirSendP2P {
   private pc: RTCPeerConnection | null = null;
@@ -127,34 +128,36 @@ export class AirSendP2P {
         }
       } else if (state === 'failed') {
         this.clearDisconnectedGraceTimeout();
-        if (!this.isReceiver && this.currentRetry < this.maxRetries) {
+        if (this.currentRetry < this.maxRetries) {
           this.currentRetry++;
           this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
-          this.restartIce();
+          if (this.isReceiver) {
+            this.sendSignalingMessage({ type: 'request-restart' });
+          } else {
+            this.restartIce();
+          }
         } else {
-          this.onStatusChange?.('Connection failed. Please refresh.');
+          this.onStatusChange?.('Connection failed. Please try again.');
         }
       } else if (state === 'disconnected') {
         this.onStatusChange?.('Connection paused - take your time selecting a file');
-        if (!this.isReceiver && this.currentRetry < this.maxRetries) {
+        if (this.currentRetry < this.maxRetries) {
           this.clearDisconnectedGraceTimeout();
           this.disconnectedGraceTimeout = setTimeout(() => {
             if (!this.destroyed && this.pc?.connectionState === 'disconnected') {
               this.disconnectedGraceTimeout = null;
               this.currentRetry++;
               this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
-              this.restartIce();
+              if (this.isReceiver) {
+                this.sendSignalingMessage({ type: 'request-restart' });
+              } else {
+                this.restartIce();
+              }
             }
           }, DISCONNECTED_GRACE_MS);
-        } else if (this.isReceiver) {
+        } else {
           this.clearDisconnectedGraceTimeout();
-          this.onStatusChange?.('Connection paused - sender may be selecting a file');
-          this.disconnectedGraceTimeout = setTimeout(() => {
-            if (!this.destroyed && this.pc?.connectionState === 'disconnected') {
-              this.disconnectedGraceTimeout = null;
-              this.onStatusChange?.('Connection lost. Please refresh the QR code.');
-            }
-          }, DISCONNECTED_GRACE_MS);
+          this.onStatusChange?.('Connection lost. Session will recover when you return.');
         }
       } else if (state === 'connecting') {
         this.clearDisconnectedGraceTimeout();
@@ -268,19 +271,36 @@ export class AirSendP2P {
     try {
       switch (message.type) {
         case 'ready':
-          if (!this.isReceiver && !this.dataChannel) {
-            await this.initiateConnection();
+          if (!this.isReceiver) {
+            if (!this.dataChannel || this.dataChannel.readyState !== 'open') {
+              await this.initiateConnection();
+            }
+          }
+          break;
+        case 'request-restart':
+          if (!this.isReceiver && this.currentRetry < this.maxRetries) {
+            this.currentRetry++;
+            this.onStatusChange?.(`Reconnecting (${this.currentRetry}/${this.maxRetries})...`);
+            this.restartIce();
           }
           break;
         case 'offer':
           if (this.isReceiver) {
             this.iceCandidatesQueue = [];
-            await this.pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
-            this.remoteDescriptionSet = true;
-            await this.processQueuedIceCandidates();
-            const answer = await this.pc.createAnswer();
-            await this.pc.setLocalDescription(answer);
-            this.sendSignalingMessage({ type: 'answer', sdp: answer });
+            const needsNewPc = !this.pc || this.pc.connectionState === 'failed' || this.pc.connectionState === 'closed';
+            if (needsNewPc) {
+              this.pc?.close();
+              this.dataChannel = null;
+              this.setupPeerConnection();
+            }
+            if (this.pc) {
+              await this.pc.setRemoteDescription(new RTCSessionDescription(message.sdp));
+              this.remoteDescriptionSet = true;
+              await this.processQueuedIceCandidates();
+              const answer = await this.pc.createAnswer();
+              await this.pc.setLocalDescription(answer);
+              this.sendSignalingMessage({ type: 'answer', sdp: answer });
+            }
           }
           break;
         case 'answer':

@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { airsendSupabase } from '@/integrations/supabase/airsend-client';
 import { AirSendP2P, AirSendFile } from '@/lib/airsend-p2p';
-import { getAirSendUrl, AIRSEND_SESSION_EXPIRY_MINUTES } from '@/lib/airsend-constants';
+import { getAirSendUrl, AIRSEND_SESSION_EXPIRY_MINUTES, getStoredSession, setStoredSession, clearStoredSession } from '@/lib/airsend-constants';
 import { toast } from 'sonner';
 import { useR2Audio, AudioFile } from '@/hooks/useR2Audio';
 import { Progress } from '@/components/ui/progress';
@@ -61,8 +61,67 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
     setReceivedUrl(null);
   }, []);
 
-  const createSession = useCallback(async () => {
+  const startP2P = useCallback((code: string) => {
+    if (p2pRef.current) {
+      p2pRef.current.destroy();
+    }
+    p2pRef.current = new AirSendP2P(code, true);
+    p2pRef.current.start({
+      onStatusChange: (s) => {
+        setP2PStatus(s);
+        if (s.includes('Channel open')) {
+          setStatus('connecting');
+        }
+        if (s.includes('Receiving')) {
+          setStatus('receiving');
+        }
+        if (s.includes('failed') || s.includes('timeout') || s.includes('error')) {
+          setStatus('error');
+          toast.error(s || 'Transfer failed');
+        }
+        if (s.includes('complete')) {
+          setStatus('completed');
+        }
+      },
+      onProgress: (p) => setProgress(p),
+      onFileReceived: (file) => {
+        setReceivedFile(file);
+        receivedFileRef.current = file;
+        saveFileHandlerRef.current(file);
+      }
+    });
+  }, []);
+
+  const createSession = useCallback(async (forceNew = false) => {
     cleanupObjectUrl();
+    
+    if (!forceNew) {
+      const stored = getStoredSession();
+      if (stored) {
+        const { data, error } = await airsendSupabase
+          .from('airsend_sessions')
+          .select('session_code, expires_at')
+          .eq('session_code', stored.sessionCode)
+          .maybeSingle();
+        
+        if (!error && data) {
+          const expiresAt = new Date(data.expires_at);
+          if (expiresAt > new Date()) {
+            setSessionCode(stored.sessionCode);
+            setStatus('waiting');
+            setReceivedFile(null);
+            receivedFileRef.current = null;
+            const secsLeft = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+            setExpiresIn(Math.max(0, secsLeft));
+            setProgress(0);
+            setSavedToDisk(false);
+            startP2P(stored.sessionCode);
+            return;
+          }
+        }
+        clearStoredSession();
+      }
+    }
     
     let code = generateSessionCode();
     let attempts = 0;
@@ -95,6 +154,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
       return;
     }
 
+    setStoredSession({ sessionCode: code, pieceId: pieceId ?? null, createdAt: new Date().toISOString() });
     setSessionCode(code);
     setStatus('waiting');
     setReceivedFile(null);
@@ -103,36 +163,8 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
     setProgress(0);
     setSavedToDisk(false);
 
-    if (p2pRef.current) {
-      p2pRef.current.destroy();
-    }
-    
-    p2pRef.current = new AirSendP2P(code, true);
-    p2pRef.current.start({
-      onStatusChange: (s) => {
-        setP2PStatus(s);
-        if (s.includes('Channel open')) {
-          setStatus('connecting');
-        }
-        if (s.includes('Receiving')) {
-          setStatus('receiving');
-        }
-        if (s.includes('failed') || s.includes('timeout') || s.includes('error')) {
-          setStatus('error');
-          toast.error(s);
-        }
-        if (s.includes('complete')) {
-          setStatus('completed');
-        }
-      },
-      onProgress: (p) => setProgress(p),
-      onFileReceived: (file) => {
-        setReceivedFile(file);
-        receivedFileRef.current = file;
-        saveFileHandlerRef.current(file);
-      }
-    });
-  }, [pieceId ?? null, cleanupObjectUrl]);
+    startP2P(code);
+  }, [pieceId ?? null, cleanupObjectUrl, startP2P]);
 
   const handleSaveReceivedFile = async (file: AirSendFile) => {
     setStatus('saving');
@@ -209,6 +241,7 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
         .delete()
         .eq('session_code', sessionCode)
         .then(() => {});
+      clearStoredSession();
     }
     if (p2pRef.current) {
       p2pRef.current.destroy();
@@ -275,15 +308,28 @@ export function AirSendDialog({ open, onOpenChange, pieceId = null, mode = 'audi
     return () => clearInterval(timer);
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !sessionCode || status !== 'waiting') return;
+    const heartbeat = setInterval(() => {
+      airsendSupabase
+        .from('airsend_sessions')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('session_code', sessionCode)
+        .then(() => {});
+    }, 5000);
+    return () => clearInterval(heartbeat);
+  }, [open, sessionCode, status]);
+
   const handleRefresh = useCallback(async () => {
     if (sessionCode) {
       await airsendSupabase
         .from('airsend_sessions')
         .delete()
         .eq('session_code', sessionCode);
+      clearStoredSession();
     }
     setSessionCode(null);
-    createSession();
+    createSession(true);
   }, [sessionCode, createSession]);
 
   const copyLink = useCallback(async () => {

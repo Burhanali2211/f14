@@ -34,6 +34,12 @@ export function useAudioPlayer({ audioUrl, onTimeUpdate }: UseAudioPlayerOptions
       audioRef.current = null;
       return;
     }
+    // Only load valid URLs - prevent "Invalid URI" when audio_url contains UUID or bad data
+    const isValidUrl = /^(https?:|\/|blob:|data:)/.test(audioUrl);
+    if (!isValidUrl) {
+      audioRef.current = null;
+      return;
+    }
 
     const audio = new Audio(audioUrl);
     audio.preload = 'metadata';

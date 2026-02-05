@@ -216,7 +216,8 @@ export default defineConfig(({ mode }) => {
       'date-fns',
       'zod',
       'clsx',
-      'tailwind-merge'
+      'tailwind-merge',
+      'lucide-react'
     ],
     exclude: [],
     esbuildOptions: {

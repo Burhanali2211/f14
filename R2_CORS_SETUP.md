@@ -7,37 +7,26 @@ Audio uploads **under 4MB** use a proxy and work without CORS. For **files over 
 - Uploads **under 4MB**: No action needed (proxy upload)
 - Uploads **over 4MB**: Configure CORS on your R2 bucket
 
+## Local Network Access (192.168.x.x)
+
+If uploads work on `localhost:8080` but **fail when accessing via your local IP** (e.g. `http://192.168.31.96:8080`), the R2 bucket CORS must include that origin. R2 does not support wildcards for origins—each must be listed explicitly.
+
+1. Edit `scripts/r2-cors.json` and add your origin, e.g. `http://192.168.31.96:8080`
+2. Re-apply CORS (see Option 2 below)
+3. If your IP changes (DHCP), repeat with the new IP
+
 ## How to Configure CORS
 
 ### Option 1: Cloudflare Dashboard
 
 1. Go to [Cloudflare Dashboard](https://dash.cloudflare.com) → R2 → your bucket
 2. Open **Settings** → **CORS policy**
-3. Add this configuration:
-
-```json
-[
-  {
-    "AllowedOrigins": [
-      "https://followersof14.vercel.app",
-      "https://www.followersof14.vercel.app",
-      "http://localhost:5173",
-      "http://localhost:8000"
-    ],
-    "AllowedMethods": ["GET", "PUT", "HEAD"],
-    "AllowedHeaders": ["*"],
-    "ExposeHeaders": ["ETag"],
-    "MaxAgeSeconds": 3600
-  }
-]
-```
-
-4. Replace the origins with your actual domain(s)
-5. Save
+3. Add origins for production, localhost, and your local network IP (e.g. `http://192.168.31.96:8080`)
+4. Save
 
 ### Option 2: Wrangler CLI
 
-1. Use the existing `scripts/r2-cors.json` (or edit it to add your domains)
+1. Edit `scripts/r2-cors.json` to add your domains and local IP origins
 2. Run:
 
 ```bash

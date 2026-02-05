@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -8,12 +10,48 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env from project root only (not .env.local)
+// Load .env from project root (matches Vite's .env loading; .env.local is Vite-specific)
 dotenv.config({ path: join(__dirname, '..', '.env') });
 
+// --- Constants ---
+const PRESIGNED_EXPIRES_SEC = 3600;
+const AWS_REGION = 'auto';
+const AWS_SERVICE = 's3';
+const AWS_SIGNING_TERMINATOR = 'aws4_request';
+const DEFAULT_TIMEZONE = process.env.TZ || 'UTC';
+const SITE_URL = process.env.SITE_URL || process.env.VITE_SITE_URL || 'http://localhost:8000';
+
 const app = express();
-app.use(cors());
+
+// CORS: restrict origins in production
+const allowedOrigins = process.env.CORS_ORIGINS?.split(',').map((o) => o.trim()).filter(Boolean);
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production'
+    ? (allowedOrigins?.length ? allowedOrigins : [SITE_URL.replace(/\/$/, '')])
+    : true, // Allow all in dev for localhost flexibility
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(express.json());
+
+// Rate limiting: general API
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 100,
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/', apiLimiter);
+
+// Stricter rate limit for notification endpoint (prevents abuse)
+const telegramLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'Too many notification requests.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
@@ -23,14 +61,16 @@ const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'kalaam-reader';
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Log env status at startup (no secrets)
+// Validate required env at startup (fail fast for critical paths)
 const hasR2 = !!(R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY);
 const hasSupabase = !!(SUPABASE_URL && SUPABASE_SERVICE_KEY);
-console.log(`[api] Loaded .env: R2=${hasR2 ? 'ok' : 'MISSING'}, Supabase=${hasSupabase ? 'ok' : 'MISSING'}`);
+console.log(`[api] Loaded .env: R2=${hasR2 ? 'ok' : 'MISSING'}, Supabase=${hasSupabase ? 'ok' : 'MISSING'}, SITE_URL=${SITE_URL}`);
 
-const supabase = SUPABASE_URL && SUPABASE_SERVICE_KEY 
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-  : null;
+if (!hasR2) {
+  console.warn('[api] R2 credentials missing - upload/stream/delete endpoints will return 500');
+}
+
+const supabase = hasSupabase ? createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY) : null;
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
@@ -51,51 +91,57 @@ function isValidAudioContentType(contentType, filename) {
   return false;
 }
 
-async function hmacSha256(key, message) {
-  const crypto = await import('crypto');
+/** Reject path traversal and ensure key stays under audio/ */
+function isValidR2Key(key) {
+  if (!key || typeof key !== 'string') return false;
+  if (!key.startsWith('audio/')) return false;
+  const normalized = key.replace(/\/+/g, '/');
+  if (normalized.includes('..')) return false;
+  return true;
+}
+
+function hmacSha256(key, message) {
   return crypto.createHmac('sha256', key).update(message).digest();
 }
 
 async function getSignatureKey(secretKey, dateStamp, region, service) {
-  const kDate = await hmacSha256('AWS4' + secretKey, dateStamp);
-  const kRegion = await hmacSha256(kDate, region);
-  const kService = await hmacSha256(kRegion, service);
-  return hmacSha256(kService, 'aws4_request');
+  const kDate = hmacSha256('AWS4' + secretKey, dateStamp);
+  const kRegion = hmacSha256(kDate, region);
+  const kService = hmacSha256(kRegion, service);
+  return hmacSha256(kService, AWS_SIGNING_TERMINATOR);
 }
 
 function toHex(buffer) {
   return buffer.toString('hex');
 }
 
-async function createPresignedUrl(bucket, key, method, contentType, expiresIn = 3600) {
-  const crypto = await import('crypto');
+async function createPresignedUrl(bucket, key, method, contentType, expiresIn = PRESIGNED_EXPIRES_SEC) {
   const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-  const region = 'auto';
-  const service = 's3';
-  
+  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
   const now = new Date();
   const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
   const dateStamp = amzDate.slice(0, 8);
-  
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+  const credentialScope = `${dateStamp}/${AWS_REGION}/${AWS_SERVICE}/${AWS_SIGNING_TERMINATOR}`;
   const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
-  
-  const canonicalUri = `/${bucket}/${key}`;
-  
+
+  const canonicalUri = method === 'GET'
+    ? `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, '/')}`
+    : `/${bucket}/${key}`;
+
+  const signedHeaders = method === 'GET' ? 'host' : 'content-type;host';
   const queryParams = new URLSearchParams({
     'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
     'X-Amz-Credential': credential,
     'X-Amz-Date': amzDate,
     'X-Amz-Expires': expiresIn.toString(),
-    'X-Amz-SignedHeaders': 'content-type;host',
+    'X-Amz-SignedHeaders': signedHeaders,
   });
-  
   const canonicalQueryString = queryParams.toString().split('&').sort().join('&');
-  
-  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-  const canonicalHeaders = `content-type:${contentType}\nhost:${host}\n`;
-  const signedHeaders = 'content-type;host';
-  
+
+  const canonicalHeaders = method === 'GET'
+    ? `host:${host}\n`
+    : `content-type:${contentType}\nhost:${host}\n`;
+
   const canonicalRequest = [
     method,
     canonicalUri,
@@ -104,87 +150,44 @@ async function createPresignedUrl(bucket, key, method, contentType, expiresIn = 
     signedHeaders,
     'UNSIGNED-PAYLOAD',
   ].join('\n');
-  
+
   const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
-  
   const stringToSign = [
     'AWS4-HMAC-SHA256',
     amzDate,
     credentialScope,
     canonicalRequestHash,
   ].join('\n');
-  
-  const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
-  const signature = toHex(await hmacSha256(signingKey, stringToSign));
-  
+
+  const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, AWS_REGION, AWS_SERVICE);
+  const signature = toHex(hmacSha256(signingKey, stringToSign));
+
   return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
 }
 
-async function createGetPresignedUrl(bucket, key, expiresIn = 3600) {
-  const crypto = await import('crypto');
-  const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-  const region = 'auto';
-  const service = 's3';
-  
-  const now = new Date();
-  const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
-  const dateStamp = amzDate.slice(0, 8);
-  
-  const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
-  const credential = `${R2_ACCESS_KEY_ID}/${credentialScope}`;
-  
-  const canonicalUri = `/${bucket}/${encodeURIComponent(key).replace(/%2F/g, '/')}`;
-  
-  const queryParams = new URLSearchParams({
-    'X-Amz-Algorithm': 'AWS4-HMAC-SHA256',
-    'X-Amz-Credential': credential,
-    'X-Amz-Date': amzDate,
-    'X-Amz-Expires': expiresIn.toString(),
-    'X-Amz-SignedHeaders': 'host',
-  });
-  
-  const canonicalQueryString = queryParams.toString().split('&').sort().join('&');
-  
-  const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-  const canonicalHeaders = `host:${host}\n`;
-  const signedHeaders = 'host';
-  
-  const canonicalRequest = [
-    'GET',
-    canonicalUri,
-    canonicalQueryString,
-    canonicalHeaders,
-    signedHeaders,
-    'UNSIGNED-PAYLOAD',
-  ].join('\n');
-  
-  const canonicalRequestHash = crypto.createHash('sha256').update(canonicalRequest).digest('hex');
-  
-  const stringToSign = [
-    'AWS4-HMAC-SHA256',
-    amzDate,
-    credentialScope,
-    canonicalRequestHash,
-  ].join('\n');
-  
-  const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
-  const signature = toHex(await hmacSha256(signingKey, stringToSign));
-  
-  return `${endpoint}${canonicalUri}?${canonicalQueryString}&X-Amz-Signature=${signature}`;
+async function createGetPresignedUrl(bucket, key, expiresIn = PRESIGNED_EXPIRES_SEC) {
+  return createPresignedUrl(bucket, key, 'GET', 'audio/mpeg', expiresIn);
 }
 
 async function verifyUser(authHeader) {
-  if (!authHeader?.startsWith('Bearer ') || !supabase) {
+  if (!authHeader?.startsWith('Bearer ')) {
+    return null;
+  }
+  if (!supabase) {
     return null;
   }
 
   const token = authHeader.slice(7);
-
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
-    if (error || !user) return null;
+    if (error) {
+      console.warn('[api] Auth verification failed:', error.message);
+      return null;
+    }
+    if (!user) return null;
     return { userId: user.id };
-  } catch {
+  } catch (err) {
+    console.warn('[api] Auth verification error:', err?.message || err);
     return null;
   }
 }
@@ -205,14 +208,10 @@ app.post('/api/r2-audio-upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Missing file or r2Key' });
     }
 
-    if (!r2Key.startsWith('audio/')) {
-      return res.status(400).json({ error: 'Invalid r2Key - must start with audio/' });
+    if (!isValidR2Key(r2Key)) {
+      return res.status(400).json({ error: 'Invalid r2Key - must start with audio/ and contain no path traversal' });
     }
-
-    const crypto = await import('crypto');
     const endpoint = `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
-    const region = 'auto';
-    const service = 's3';
     
     const now = new Date();
     const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '');
@@ -220,7 +219,7 @@ app.post('/api/r2-audio-upload', upload.single('file'), async (req, res) => {
     
     const payloadHash = crypto.createHash('sha256').update(file.buffer).digest('hex');
     
-    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+    const credentialScope = `${dateStamp}/${AWS_REGION}/${AWS_SERVICE}/${AWS_SIGNING_TERMINATOR}`;
     const canonicalUri = `/${R2_BUCKET_NAME}/${r2Key}`;
     
     const host = `${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
@@ -245,7 +244,7 @@ app.post('/api/r2-audio-upload', upload.single('file'), async (req, res) => {
       canonicalRequestHash,
     ].join('\n');
     
-    const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, region, service);
+    const signingKey = await getSignatureKey(R2_SECRET_ACCESS_KEY, dateStamp, AWS_REGION, AWS_SERVICE);
     const signature = toHex(await hmacSha256(signingKey, stringToSign));
     
     const authorizationHeader = `AWS4-HMAC-SHA256 Credential=${R2_ACCESS_KEY_ID}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
@@ -299,9 +298,10 @@ app.post('/api/r2-upload-url', async (req, res) => {
 
     const sanitizedFilename = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
     const timestamp = Date.now();
-    const r2Key = `audio/${userId}/${timestamp}_${sanitizedFilename}`;
+    const safeUserId = userId === 'anonymous' ? 'anonymous' : String(userId).replace(/[^a-zA-Z0-9-]/g, '_');
+    const r2Key = `audio/${safeUserId}/${timestamp}_${sanitizedFilename}`;
 
-    const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME, r2Key, 'PUT', contentType, 3600);
+    const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME, r2Key, 'PUT', contentType, PRESIGNED_EXPIRES_SEC);
 
     if (userId !== 'anonymous' && supabase) {
       const { data: audioRecord, error: insertError } = await supabase
@@ -327,7 +327,7 @@ app.post('/api/r2-upload-url', async (req, res) => {
         uploadUrl,
         r2Key,
         audioId: audioRecord.id,
-        expiresIn: 3600,
+        expiresIn: PRESIGNED_EXPIRES_SEC,
       });
     }
 
@@ -335,7 +335,7 @@ app.post('/api/r2-upload-url', async (req, res) => {
       uploadUrl,
       r2Key,
       audioId: `anon_${timestamp}`,
-      expiresIn: 3600,
+      expiresIn: PRESIGNED_EXPIRES_SEC,
     });
   } catch (error) {
     console.error('Error generating upload URL:', error);
@@ -379,7 +379,11 @@ app.post('/api/r2-stream-url', async (req, res) => {
       return res.status(400).json({ error: 'Missing audioId or r2Key' });
     }
 
-    const streamUrl = await createPresignedUrl(R2_BUCKET_NAME, key, 'GET', 'audio/mpeg', 3600);
+    if (!isValidR2Key(key)) {
+      return res.status(400).json({ error: 'Invalid r2Key' });
+    }
+
+    const streamUrl = await createGetPresignedUrl(R2_BUCKET_NAME, key, PRESIGNED_EXPIRES_SEC);
 
     return res.json({ streamUrl });
   } catch (error) {
@@ -450,7 +454,7 @@ function formatContactMessage(data) {
 💬 *Message:*
 ${escapeMarkdown(data.message || 'No message')}
 
-⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
+⏰ *Time:* ${new Date().toLocaleString('en-US', { timeZone: DEFAULT_TIMEZONE })}`;
 }
 
 function formatNewUserMessage(data) {
@@ -461,7 +465,7 @@ function formatNewUserMessage(data) {
 📱 *Phone:* ${escapeMarkdown(data.phone_number || 'Not provided')}
 📍 *Address:* ${escapeMarkdown(data.address || 'Not provided')}
 
-⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
+⏰ *Time:* ${new Date().toLocaleString('en-US', { timeZone: DEFAULT_TIMEZONE })}`;
 }
 
 function formatUploadRequestMessage(data) {
@@ -474,7 +478,7 @@ function formatUploadRequestMessage(data) {
 💬 *Details:*
 ${escapeMarkdown(data.details || 'No details provided')}
 
-⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
+⏰ *Time:* ${new Date().toLocaleString('en-US', { timeZone: DEFAULT_TIMEZONE })}`;
 }
 
 function formatNewRecitationMessage(data) {
@@ -486,7 +490,7 @@ function formatNewRecitationMessage(data) {
 🎤 *Reciter:* ${escapeMarkdown(data.reciter || 'Unknown')}
 👤 *Uploaded by:* ${escapeMarkdown(data.uploader_name || 'Unknown')}
 
-⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
+⏰ *Time:* ${new Date().toLocaleString('en-US', { timeZone: DEFAULT_TIMEZONE })}`;
 }
 
 function formatQuestionMessage(data) {
@@ -498,7 +502,7 @@ function formatQuestionMessage(data) {
 💬 *Question:*
 ${escapeMarkdown(data.question || 'No question')}
 
-⏰ *Time:* ${new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })}`;
+⏰ *Time:* ${new Date().toLocaleString('en-US', { timeZone: DEFAULT_TIMEZONE })}`;
 }
 
 async function sendTelegramMessage(chatId, message) {
@@ -544,7 +548,7 @@ async function sendTelegramMessage(chatId, message) {
   }
 }
 
-app.post('/api/telegram-notify', async (req, res) => {
+app.post('/api/telegram-notify', telegramLimiter, async (req, res) => {
   try {
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
       console.error('Telegram credentials not configured');
@@ -596,11 +600,11 @@ app.get('/api/r2-audio-proxy', async (req, res) => {
 
     const r2Key = req.query.key;
 
-    if (!r2Key || !r2Key.startsWith('audio/')) {
+    if (!isValidR2Key(r2Key)) {
       return res.status(400).json({ error: 'Invalid or missing audio key' });
     }
 
-    const presignedUrl = await createGetPresignedUrl(R2_BUCKET_NAME, r2Key, 3600);
+    const presignedUrl = await createGetPresignedUrl(R2_BUCKET_NAME, r2Key, PRESIGNED_EXPIRES_SEC);
     
     const fetchHeaders = {};
     if (req.headers.range) {
@@ -634,13 +638,28 @@ app.get('/api/r2-audio-proxy', async (req, res) => {
   }
 });
 
-app.get('/api/sitemap', async (req, res) => {
-  res.set('Content-Type', 'application/xml');
-  res.send('<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>http://localhost:8000/</loc></url></urlset>');
+app.get('/api/health', (_req, res) => {
+  res.json({
+    ok: true,
+    r2: hasR2,
+    supabase: hasSupabase,
+    timestamp: new Date().toISOString(),
+  });
 });
 
-app.get('/api/og-redirect', async (req, res) => {
-  res.redirect('http://localhost:8000' + (req.query.path || '/'));
+app.get('/api/sitemap', async (_req, res) => {
+  const base = SITE_URL.replace(/\/$/, '');
+  res.set('Content-Type', 'application/xml');
+  res.send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>${base}/</loc></url></urlset>`);
+});
+
+app.get('/api/og-redirect', (req, res) => {
+  const path = req.query.path || '/';
+  if (path.startsWith('//') || path.includes('://')) {
+    return res.status(400).json({ error: 'Invalid path' });
+  }
+  const base = SITE_URL.replace(/\/$/, '');
+  res.redirect(base + (path.startsWith('/') ? path : '/' + path));
 });
 
 app.listen(PORT, () => {

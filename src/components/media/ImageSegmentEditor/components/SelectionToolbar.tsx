@@ -111,9 +111,11 @@ function MiniPlayer({
     }
   }, [region.startTime, seekTo, isPlaying]);
 
+  const isValidAudioUrl = audioUrl && /^(https?:|\/|blob:|data:)/.test(audioUrl);
+
   return (
     <div className="flex items-center gap-2 px-3 border-l">
-      <audio ref={audioRef} src={audioUrl} preload="auto" />
+      {isValidAudioUrl ? <audio ref={audioRef} src={audioUrl} preload="auto" /> : null}
       
       <Button
         variant="ghost"
@@ -156,7 +158,8 @@ function SelectionToolbarComponent({
 }: SelectionToolbarProps) {
   if (selectedCount === 0) return null;
 
-  const showMiniPlayer = selectedCount === 1 && selectedRegion && audioUrl;
+  const isValidAudioUrl = audioUrl && /^(https?:|\/|blob:|data:)/.test(audioUrl);
+  const showMiniPlayer = selectedCount === 1 && selectedRegion && isValidAudioUrl;
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">

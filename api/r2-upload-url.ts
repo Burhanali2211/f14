@@ -121,7 +121,7 @@ export default async function handler(request: Request) {
     const userId = auth?.userId || 'anonymous';
 
     const body = await request.json();
-    const { filename, contentType, fileSize, pieceId, useProxy } = body;
+    const { filename, contentType, fileSize, pieceId } = body;
 
     if (!filename || !contentType || !fileSize) {
       return new Response(JSON.stringify({ error: 'Missing required fields: filename, contentType, fileSize' }), {
@@ -148,69 +148,7 @@ export default async function handler(request: Request) {
     const timestamp = Date.now();
     const r2Key = `audio/${userId}/${timestamp}_${sanitizedFilename}`;
 
-    if (useProxy) {
-      if (userId !== 'anonymous') {
-        if (!SUPABASE_URL || !SUPABASE_SERVICE_KEY) {
-          return new Response(JSON.stringify({ error: 'Database not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in Vercel.' }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-        const insertResponse = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/user_audio_files`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_SERVICE_KEY!,
-            'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`,
-            'Prefer': 'return=representation',
-          },
-          body: JSON.stringify({
-            user_id: userId,
-            r2_key: r2Key,
-            filename: sanitizedFilename,
-            content_type: contentType,
-            size_bytes: fileSize,
-            piece_id: pieceId || null,
-          }),
-        });
-
-        if (!insertResponse.ok) {
-          const errorText = await insertResponse.text();
-          console.error('Failed to create audio record:', errorText);
-          return new Response(JSON.stringify({ error: 'Failed to create audio record', details: errorText }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' },
-          });
-        }
-
-        const [audioRecord] = await insertResponse.json();
-
-        return new Response(JSON.stringify({
-          r2Key,
-          audioId: audioRecord.id,
-          useProxy: true,
-        }), {
-          status: 200,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*',
-          },
-        });
-      }
-
-      return new Response(JSON.stringify({
-        r2Key,
-        audioId: `anon_${timestamp}`,
-        useProxy: true,
-      }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
-        },
-      });
-    }
-
+    // Always use direct upload (presigned URL) - matches api-server behavior, works in dev and prod
     const uploadUrl = await createPresignedUrl(R2_BUCKET_NAME!, r2Key, contentType, 3600);
 
     if (userId !== 'anonymous') {

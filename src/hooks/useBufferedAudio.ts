@@ -21,6 +21,14 @@ export function useBufferedAudio(sourceUrl: string | null) {
       return;
     }
 
+    // Skip invalid URLs (UUID, malformed) - prevents "Invalid URI" when audio_url is wrong
+    if (!/^(https?:|\/|blob:|data:)/.test(sourceUrl)) {
+      setPlaybackUrl(null);
+      setIsBuffering(false);
+      setBufferingError('Invalid audio URL');
+      return;
+    }
+
     // Skip buffering for already-local URLs (blob, data)
     if (sourceUrl.startsWith('blob:') || sourceUrl.startsWith('data:')) {
       setPlaybackUrl(sourceUrl);
