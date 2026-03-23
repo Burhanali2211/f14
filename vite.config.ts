@@ -191,20 +191,37 @@ export default defineConfig(({ mode }) => {
     },
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'ui-vendor': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-toast'
-          ],
-          'supabase-vendor': ['@supabase/supabase-js'],
-          'utils-vendor': ['date-fns', 'zod', 'clsx', 'tailwind-merge'],
-          'pdf-vendor': ['pdfjs-dist'],
-          'wavesurfer-vendor': ['wavesurfer.js', '@wavesurfer/react'],
-          'recharts-vendor': ['recharts']
+        // Function form avoids Rollup "cross-chunk dependency" warnings that occur
+      // when src/ modules are both statically imported (into a vendor chunk) AND
+      // pulled into lazy page chunks via dynamic import. Only node_modules are
+      // pinned here; src/ modules are left to Rollup's automatic code splitting.
+      manualChunks(id) {
+          if (id.includes('node_modules/react-dom') || id.includes('node_modules/react/') || id.includes('node_modules/react-router')) {
+            return 'react-vendor';
+          }
+          if (id.includes('node_modules/@radix-ui')) {
+            return 'ui-vendor';
+          }
+          if (id.includes('node_modules/@supabase')) {
+            return 'supabase-vendor';
+          }
+          if (
+            id.includes('node_modules/date-fns') ||
+            id.includes('node_modules/zod') ||
+            id.includes('node_modules/clsx') ||
+            id.includes('node_modules/tailwind-merge')
+          ) {
+            return 'utils-vendor';
+          }
+          if (id.includes('node_modules/pdfjs-dist')) {
+            return 'pdf-vendor';
+          }
+          if (id.includes('node_modules/wavesurfer') || id.includes('node_modules/@wavesurfer')) {
+            return 'wavesurfer-vendor';
+          }
+          if (id.includes('node_modules/recharts')) {
+            return 'recharts-vendor';
+          }
         },
         chunkFileNames: 'assets/js/[name]-[hash].js',
         entryFileNames: 'assets/js/[name]-[hash].js',

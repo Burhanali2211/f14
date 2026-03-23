@@ -52,6 +52,8 @@ const FiqhTopicPage = lazy(() => import("./pages/FiqhTopicPage"));
 const QuranPage = lazy(() => import("./pages/QuranPage"));
 const QuranSurahPage = lazy(() => import("./pages/QuranSurahPage"));
 const QuranParaPage = lazy(() => import("./pages/QuranParaPage"));
+const DuasZiyaratPage = lazy(() => import("./pages/DuasZiyaratPage"));
+const DuaDetailPage = lazy(() => import("./pages/DuaDetailPage"));
 const TeleprompterPage = lazy(() => import("./pages/TeleprompterPage"));
 const TeleprompterEditorPage = lazy(() => import("./pages/TeleprompterEditorPage"));
 const TeleprompterStudioPage = lazy(() => import("./pages/TeleprompterStudioPage"));
@@ -173,6 +175,8 @@ function AppRoutes() {
           <Route path="/quran" element={<QuranPage />} />
           <Route path="/quran/surah/:surahNumber" element={<QuranSurahPage />} />
             <Route path="/quran/para/:paraNumber" element={<QuranParaPage />} />
+            <Route path="/duas" element={<DuasZiyaratPage />} />
+            <Route path="/duas/:id" element={<DuaDetailPage />} />
             <Route path="/airsend" element={<AirSendMobilePage />} />
             <Route path="/sitemap.xml" element={<SitemapPage />} />
 

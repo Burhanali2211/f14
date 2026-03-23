@@ -1,87 +1,24 @@
-import type { SurahVerses } from './surah-1';
 export type { Ayah, SurahVerses } from './surah-1';
+import type { SurahVerses } from './surah-1';
 
-// Each surah file is only fetched when that specific surah is opened.
-// Nothing is loaded at module init time.
-const surahLoaders: Record<number, () => Promise<SurahVerses>> = {
-  1:   () => import('./surah-1').then(m => m.surah1AlFatiha),
-  31:  () => import('./surah-31').then(m => m.surah31Luqman),
-  32:  () => import('./surah-32').then(m => m.surah32AsSajdah),
-  35:  () => import('./surah-35').then(m => m.surah35Fatir),
-  45:  () => import('./surah-45').then(m => m.surah45AlJathiyah),
-  46:  () => import('./surah-46').then(m => m.surah46AlAhqaf),
-  47:  () => import('./surah-47').then(m => m.surah47Muhammad),
-  48:  () => import('./surah-48').then(m => m.surah48AlFath),
-  49:  () => import('./surah-49').then(m => m.surah49AlHujurat),
-  50:  () => import('./surah-50').then(m => m.surah50Qaf),
-  51:  () => import('./surah-51').then(m => m.surah51AzZariyat),
-  52:  () => import('./surah-52').then(m => m.surah52AtTur),
-  53:  () => import('./surah-53').then(m => m.surah53AnNajm),
-  54:  () => import('./surah-54').then(m => m.surah54AlQamar),
-  55:  () => import('./surah-55').then(m => m.surah55ArRahman),
-  56:  () => import('./surah-56').then(m => m.surah56AlWaqiah),
-  57:  () => import('./surah-57').then(m => m.surah57AlHadid),
-  58:  () => import('./surah-58').then(m => m.surah58AlMujadalah),
-  59:  () => import('./surah-59').then(m => m.surah59AlHashr),
-  60:  () => import('./surah-60').then(m => m.surah60AlMumtahanah),
-  61:  () => import('./surah-61').then(m => m.surah61AsSaff),
-  62:  () => import('./surah-62').then(m => m.surah62AlJumah),
-  63:  () => import('./surah-63').then(m => m.surah63AlMunafiqun),
-  64:  () => import('./surah-64').then(m => m.surah64AtTaghabun),
-  65:  () => import('./surah-65').then(m => m.surah65AtTalaq),
-  66:  () => import('./surah-66').then(m => m.surah66AtTahrim),
-  67:  () => import('./surah-67').then(m => m.surah67AlMulk),
-  68:  () => import('./surah-68').then(m => m.surah68AlQalam),
-  69:  () => import('./surah-69').then(m => m.surah69AlHaqqah),
-  70:  () => import('./surah-70').then(m => m.surah70AlMaarij),
-  71:  () => import('./surah-71').then(m => m.surah71Nuh),
-  72:  () => import('./surah-72').then(m => m.surah72AlJinn),
-  73:  () => import('./surah-73').then(m => m.surah73AlMuzzammil),
-  74:  () => import('./surah-74').then(m => m.surah74AlMuddaththir),
-  75:  () => import('./surah-75').then(m => m.surah75AlQiyamah),
-  76:  () => import('./surah-76').then(m => m.surah76AlInsan),
-  77:  () => import('./surah-77').then(m => m.surah77AlMursalat),
-  78:  () => import('./surah-78').then(m => m.surah78AnNaba),
-  79:  () => import('./surah-79').then(m => m.surah79AnNaziat),
-  80:  () => import('./surah-80').then(m => m.surah80Abasa),
-  81:  () => import('./surah-81').then(m => m.surah81AtTakwir),
-  82:  () => import('./surah-82').then(m => m.surah82AlInfitar),
-  83:  () => import('./surah-83').then(m => m.surah83AlMutaffifin),
-  84:  () => import('./surah-84').then(m => m.surah84AlInshiqaq),
-  85:  () => import('./surah-85').then(m => m.surah85AlBuruj),
-  86:  () => import('./surah-86').then(m => m.surah86AtTariq),
-  87:  () => import('./surah-87').then(m => m.surah87AlAla),
-  88:  () => import('./surah-88').then(m => m.surah88AlGhashiyah),
-  89:  () => import('./surah-89').then(m => m.surah89AlFajr),
-  90:  () => import('./surah-90').then(m => m.surah90AlBalad),
-  91:  () => import('./surah-91').then(m => m.surah91AshShams),
-  92:  () => import('./surah-92').then(m => m.surah92AlLayl),
-  93:  () => import('./surah-93').then(m => m.surah93AdDuha),
-  94:  () => import('./surah-94').then(m => m.surah94AshSharh),
-  95:  () => import('./surah-95').then(m => m.surah95AtTin),
-  96:  () => import('./surah-96').then(m => m.surah96AlAlaq),
-  97:  () => import('./surah-97').then(m => m.surah97AlQadr),
-  98:  () => import('./surah-98').then(m => m.surah98AlBayyinah),
-  99:  () => import('./surah-99').then(m => m.surah99AzZalzalah),
-  100: () => import('./surah-100').then(m => m.surah100AlAdiyat),
-  101: () => import('./surah-101').then(m => m.surah101AlQariah),
-  102: () => import('./surah-102').then(m => m.surah102AtTakathur),
-  103: () => import('./surah-103').then(m => m.surah103AlAsr),
-  104: () => import('./surah-104').then(m => m.surah104AlHumazah),
-  105: () => import('./surah-105').then(m => m.surah105AlFil),
-  106: () => import('./surah-106').then(m => m.surah106Quraish),
-  107: () => import('./surah-107').then(m => m.surah107AlMaun),
-  108: () => import('./surah-108').then(m => m.surah108AlKawthar),
-  109: () => import('./surah-109').then(m => m.surah109AlKafirun),
-  110: () => import('./surah-110').then(m => m.surah110AnNasr),
-  111: () => import('./surah-111').then(m => m.surah111AlMasad),
-  112: () => import('./surah-112').then(m => m.surah112AlIkhlas),
-  113: () => import('./surah-113').then(m => m.surah113AlFalaq),
-  114: () => import('./surah-114').then(m => m.surah114AnNas),
-};
+// import.meta.glob creates one lazy chunk per surah file that actually exists on disk.
+// Rollup resolves glob patterns against the filesystem at build time — so there is
+// never a "could not resolve" error even if some surah files are not yet added.
+// Adding a new surah-N.ts automatically makes it available here with no edits required.
+const surahGlob = import.meta.glob<Record<string, SurahVerses>>('./surah-*.ts');
 
 export async function getSurahVerses(surahNumber: number): Promise<SurahVerses | undefined> {
-  const loader = surahLoaders[surahNumber];
+  const path = `./surah-${surahNumber}.ts`;
+  const loader = surahGlob[path];
   if (!loader) return undefined;
-  return loader();
+  const mod = await loader();
+  // Each file exports exactly one SurahVerses object as a named export.
+  // Find it by matching the surahNumber field.
+  return Object.values(mod).find(
+    (v): v is SurahVerses =>
+      typeof v === 'object' &&
+      v !== null &&
+      'surahNumber' in v &&
+      (v as SurahVerses).surahNumber === surahNumber
+  );
 }

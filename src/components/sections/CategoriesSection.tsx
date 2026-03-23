@@ -1,5 +1,6 @@
 import { CategoryCard } from '@/components/CategoryCard';
 import { QuranCategoryCard } from '@/components/quran/QuranCategoryCard';
+import { DuasCategoryCard } from '@/components/duas/DuasCategoryCard';
 import { useTheme } from '@/hooks/use-theme';
 import type { Category } from '@/lib/supabase-types';
 import { Sparkles } from 'lucide-react';
@@ -12,13 +13,13 @@ interface CategoriesSectionProps {
 export function CategoriesSection({ categories, loading }: CategoriesSectionProps) {
   const { theme } = useTheme();
   
-  // Determine optimal columns based on category count for better spacing
+  // Determine optimal columns based on total card count (Quran + Duas + db categories)
     const getGridCols = () => {
-      const count = categories.length;
-      if (count <= 2) return 'grid-cols-2 sm:grid-cols-2';
-      if (count <= 3) return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3';
-      if (count <= 4) return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4';
-      // For 5+ categories, use 2 cols on mobile, scale up on larger screens
+      const total = categories.length + 2; // +2 for Quran and Duas cards
+      if (total <= 2) return 'grid-cols-2 sm:grid-cols-2';
+      if (total <= 3) return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3';
+      if (total <= 4) return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4';
+      // For 5+ cards, use 2 cols on mobile, scale up on larger screens
       return 'grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4';
     };
 
@@ -66,38 +67,18 @@ export function CategoriesSection({ categories, loading }: CategoriesSectionProp
                 />
               ))}
             </div>
-        ) : categories.length > 0 ? (
+        ) : (
             <div className={`grid ${getGridCols()} gap-3 sm:gap-5 md:gap-4 lg:gap-5 w-full`}>
               <QuranCategoryCard index={0} />
+              <DuasCategoryCard index={1} />
               {categories.map((category, i) => (
-                <CategoryCard 
-                  key={category.id} 
-                  category={category} 
-                  index={i + 1}
+                <CategoryCard
+                  key={category.id}
+                  category={category}
+                  index={i + 2}
                 />
               ))}
             </div>
-          ) : (
-          <div className="text-center py-16 sm:py-20 md:py-24">
-            <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-6 sm:mb-8 rounded-3xl bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center border border-border/40 shadow-lg">
-                <svg 
-                  className="w-10 h-10 sm:w-12 sm:h-12 text-muted-foreground" 
-                  fill="none" 
-                  viewBox="0 0 24 24" 
-                  stroke="currentColor"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                </svg>
-              </div>
-              <h3 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground mb-2 sm:mb-3">
-                No Categories Yet
-              </h3>
-              <p className="text-muted-foreground text-sm sm:text-base md:text-lg">
-                Categories will appear here once they're added through the admin dashboard.
-              </p>
-            </div>
-          </div>
         )}
       </div>
     </section>

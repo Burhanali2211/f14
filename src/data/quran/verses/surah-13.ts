@@ -1,0 +1,275 @@
+import type { SurahVerses } from './surah-1';
+
+// Shia note: Surah Ar-Ra'd contains some of the most significant verses
+// for Shia theology:
+// Verse 7: "You are only a warner, and for every people there is a guide"
+// — Shia exegetes (including Tafsir Al-Mizan) identify "warner" as the Prophet (s)
+// and "guide" as Imam Ali (a.s.). The Prophet (s) said: "I am the warner and
+// Ali is the guide (al-hadi)" — narrated in many Shia hadith collections.
+// Verse 43: "And those who have knowledge of the Book" — identified in Shia
+// tradition as Imam Ali (a.s.) and the subsequent Imams from Ahlulbayt.
+
+export const surah13ArRad: SurahVerses = {
+  surahNumber: 13,
+  bismillah: 'بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ',
+  ayahs: [
+    {
+      number: 1,
+      arabicText: 'المر ۚ تِلْكَ آيَاتُ الْكِتَابِ ۗ وَالَّذِي أُنزِلَ إِلَيْكَ مِن رَّبِّكَ الْحَقُّ وَلَٰكِنَّ أَكْثَرَ النَّاسِ لَا يُؤْمِنُونَ',
+      urduTranslation: 'الٓمٓرٰ — یہ کتاب کی آیتیں ہیں اور جو تمہارے رب کی طرف سے تم پر اتارا گیا ہے وہ حق ہے لیکن اکثر لوگ ایمان نہیں لاتے',
+      englishTranslation: 'Alif, Lam, Mim, Ra. These are the signs of the Book, and what has been sent down to you from your Lord is the truth, but most people do not have faith.',
+    },
+    {
+      number: 2,
+      arabicText: 'اللَّهُ الَّذِي رَفَعَ السَّمَاوَاتِ بِغَيْرِ عَمَدٍ تَرَوْنَهَا ۖ ثُمَّ اسْتَوَىٰ عَلَى الْعَرْشِ ۖ وَسَخَّرَ الشَّمْسَ وَالْقَمَرَ ۖ كُلٌّ يَجْرِي لِأَجَلٍ مُّسَمًّى ۚ يُدَبِّرُ الْأَمْرَ يُفَصِّلُ الْآيَاتِ لَعَلَّكُم بِلِقَاءِ رَبِّكُمْ تُوقِنُونَ',
+      urduTranslation: 'اللہ وہ ہے جس نے آسمانوں کو بغیر ستونوں کے اٹھایا جیسا تم دیکھتے ہو، پھر عرش پر متمکن ہوا اور سورج اور چاند کو کام میں لگایا — ہر ایک مقررہ وقت تک چلتا ہے — وہ معاملات کو چلاتا اور آیات تفصیل سے بیان کرتا ہے تاکہ تم اپنے رب کی ملاقات پر یقین کرو',
+      englishTranslation: 'Allah is He who raised the heavens without any pillars that you can see, and then presided over the Throne; He disposed the sun and the moon — each one runs for a specified term. He directs the affairs and elaborates the signs that you may be certain of the meeting with your Lord.',
+    },
+    {
+      number: 3,
+      arabicText: 'وَهُوَ الَّذِي مَدَّ الْأَرْضَ وَجَعَلَ فِيهَا رَوَاسِيَ وَأَنْهَارًا ۖ وَمِن كُلِّ الثَّمَرَاتِ جَعَلَ فِيهَا زَوْجَيْنِ اثْنَيْنِ ۖ يُغْشِي اللَّيْلَ النَّهَارَ ۚ إِنَّ فِي ذَٰلِكَ لَآيَاتٍ لِّقَوْمٍ يَتَفَكَّرُونَ',
+      urduTranslation: 'اور وہی ہے جس نے زمین کو پھیلایا اور اس میں پہاڑ اور دریا بنائے اور ہر قسم کے پھلوں میں دو دو جوڑے بنائے — وہ دن کو رات سے ڈھانپتا ہے — بے شک اس میں سوچنے والے لوگوں کے لیے نشانیاں ہیں',
+      englishTranslation: 'And He is the one who spread out the earth and set in it firm mountains and rivers, and of all the fruits He has made in it two kinds. He makes the night cover the day. There are indeed signs in that for a people who reflect.',
+    },
+    {
+      number: 4,
+      arabicText: 'وَفِي الْأَرْضِ قِطَعٌ مُّتَجَاوِرَاتٌ وَجَنَّاتٌ مِّنْ أَعْنَابٍ وَزَرْعٌ وَنَخِيلٌ صِنْوَانٌ وَغَيْرُ صِنْوَانٍ يُسْقَىٰ بِمَاءٍ وَاحِدٍ وَنُفَضِّلُ بَعْضَهَا عَلَىٰ بَعْضٍ فِي الْأُكُلِ ۚ إِنَّ فِي ذَٰلِكَ لَآيَاتٍ لِّقَوْمٍ يَعْقِلُونَ',
+      urduTranslation: 'اور زمین میں ایک دوسرے سے ملے ہوئے ٹکڑے ہیں اور انگوروں اور کھیتی اور کھجور کے باغ ہیں — بعض ایک جڑ کے اور بعض الگ الگ جڑوں کے — ایک ہی پانی سے سینچے جاتے ہیں اور ہم پھل میں بعض کو بعض پر فضیلت دیتے ہیں — بے شک اس میں عقل رکھنے والوں کے لیے نشانیاں ہیں',
+      englishTranslation: 'And in the earth there are adjacent plots, and gardens of vines and farms and date palms — [some] sharing a single root and [some] with separate roots — irrigated by the same water, yet We make some of them excel others in flavour. There are indeed signs in these for a people who exercise their reason.',
+    },
+    {
+      number: 5,
+      arabicText: 'وَإِن تَعْجَبْ فَعَجَبٌ قَوْلُهُمْ أَئِذَا كُنَّا تُرَابًا أَئِنَّا لَفِي خَلْقٍ جَدِيدٍ ۗ أُولَٰئِكَ الَّذِينَ كَفَرُوا بِرَبِّهِمْ ۖ وَأُولَٰئِكَ الْأَغْلَالُ فِي أَعْنَاقِهِمْ ۖ وَأُولَٰئِكَ أَصْحَابُ النَّارِ ۖ هُمْ فِيهَا خَالِدُونَ',
+      urduTranslation: 'اور اگر تم تعجب کرتے ہو تو تعجب کی بات ان کا قول ہے کہ کیا جب ہم مٹی ہو جائیں گے تو کیا ہم نئی خلقت میں آئیں گے — یہی لوگ ہیں جنہوں نے اپنے رب کا کفر کیا اور یہی وہ ہیں جن کے گلوں میں طوق ہوں گے اور یہی جہنمی ہیں جو اس میں ہمیشہ رہیں گے',
+      englishTranslation: 'If you are amazed, then their saying is [truly] amazing: \'When we have become dust, shall we be in a new creation?\' They are the ones who have defied their Lord, and they are the ones who will have iron collars around their necks, and they shall be the inmates of the Fire, remaining in it [forever].',
+    },
+    {
+      number: 6,
+      arabicText: 'وَيَسْتَعْجِلُونَكَ بِالسَّيِّئَةِ قَبْلَ الْحَسَنَةِ وَقَدْ خَلَتْ مِن قَبْلِهِمُ الْمَثُلَاتُ ۗ وَإِنَّ رَبَّكَ لَذُو مَغْفِرَةٍ لِّلنَّاسِ عَلَىٰ ظُلْمِهِمْ ۖ وَإِنَّ رَبَّكَ لَشَدِيدُ الْعِقَابِ',
+      urduTranslation: 'اور وہ نیکی سے پہلے بدی کی تم سے جلدی مانگتے ہیں حالانکہ ان سے پہلے عبرتناک مثالیں گزر چکی ہیں — اور بے شک تیرا رب لوگوں کے لیے ان کے ظلم کے باوجود بخشنے والا ہے اور بے شک تیرا رب سخت عذاب دینے والا ہے',
+      englishTranslation: 'They ask you to hasten the evil before the good, though there have been exemplary punishments before them. Your Lord is indeed forgiving to the people despite their wrongdoing, and your Lord is indeed severe in retribution.',
+    },
+    {
+      number: 7,
+      arabicText: 'وَيَقُولُ الَّذِينَ كَفَرُوا لَوْلَا أُنزِلَ عَلَيْهِ آيَةٌ مِّن رَّبِّهِ ۗ إِنَّمَا أَنتَ مُنذِرٌ ۖ وَلِكُلِّ قَوْمٍ هَادٍ',
+      urduTranslation: 'اور کافر کہتے ہیں: اس پر اس کے رب کی طرف سے کوئی نشانی کیوں نہیں اتری؟ تم تو صرف ڈرانے والے ہو اور ہر قوم کے لیے ایک ہادی ہے',
+      englishTranslation: 'The faithless say, \'Why has not some sign been sent down to him from his Lord?\' You are only a warner, and for every people there is a guide.',
+    },
+    {
+      number: 8,
+      arabicText: 'اللَّهُ يَعْلَمُ مَا تَحْمِلُ كُلُّ أُنثَىٰ وَمَا تَغِيضُ الْأَرْحَامُ وَمَا تَزْدَادُ ۖ وَكُلُّ شَيْءٍ عِندَهُ بِمِقْدَارٍ',
+      urduTranslation: 'اللہ جانتا ہے جو کچھ ہر عورت حاملہ ہوتی ہے اور جو رحم گھٹتے اور بڑھتے ہیں — اور اس کے نزدیک ہر چیز ایک اندازے سے ہے',
+      englishTranslation: 'Allah knows what every female carries [in her womb], and what the wombs reduce and what they increase, and everything has its measure with Him.',
+    },
+    {
+      number: 9,
+      arabicText: 'عَالِمُ الْغَيْبِ وَالشَّهَادَةِ الْكَبِيرُ الْمُتَعَالِ',
+      urduTranslation: 'وہ غیب اور حاضر کا جاننے والا ہے، بڑا اور بلند ہے',
+      englishTranslation: 'The Knower of the Unseen and the visible, the All-great, the All-exalted.',
+    },
+    {
+      number: 10,
+      arabicText: 'سَوَاءٌ مِّنكُم مَّنْ أَسَرَّ الْقَوْلَ وَمَن جَهَرَ بِهِ وَمَنْ هُوَ مُسْتَخْفٍ بِاللَّيْلِ وَسَارِبٌ بِالنَّهَارِ',
+      urduTranslation: 'تم میں سے جو آہستہ بات کرے اور جو اونچی آواز سے — اور جو رات کو چھپا ہوا ہو اور جو دن کو چلتا پھرتا ہو — سب اس کے نزدیک برابر ہیں',
+      englishTranslation: 'Alike to Him are any of you who speak in secret or aloud, and anyone who is hidden in the night or walks in broad daylight.',
+    },
+    {
+      number: 11,
+      arabicText: 'لَهُ مُعَقِّبَاتٌ مِّن بَيْنِ يَدَيْهِ وَمِنْ خَلْفِهِ يَحْفَظُونَهُ مِنْ أَمْرِ اللَّهِ ۗ إِنَّ اللَّهَ لَا يُغَيِّرُ مَا بِقَوْمٍ حَتَّىٰ يُغَيِّرُوا مَا بِأَنفُسِهِمْ ۗ وَإِذَا أَرَادَ اللَّهُ بِقَوْمٍ سُوءًا فَلَا مَرَدَّ لَهُ ۚ وَمَا لَهُم مِّن دُونِهِ مِن وَالٍ',
+      urduTranslation: 'اس کے لیے آگے اور پیچھے سے پے در پے نگہبان ہیں جو اسے اللہ کے حکم سے محفوظ رکھتے ہیں — بے شک اللہ کسی قوم کی حالت نہیں بدلتا جب تک وہ خود اپنی حالت نہ بدلے — اور جب اللہ کسی قوم کے ساتھ برائی کا ارادہ کرے تو اسے ٹالنے والا کوئی نہیں اور اللہ کے سوا ان کا کوئی مددگار نہیں',
+      englishTranslation: 'He has guardian angels, both in front of him and behind him, who guard him by Allah\'s command. Indeed Allah does not change a people\'s lot, unless they change what is in their souls. When Allah wishes to visit ill on a people there is nothing to reverse it, and they have no patron besides Him.',
+    },
+    {
+      number: 12,
+      arabicText: 'هُوَ الَّذِي يُرِيكُمُ الْبَرْقَ خَوْفًا وَطَمَعًا وَيُنشِئُ السَّحَابَ الثِّقَالَ',
+      urduTranslation: 'وہی ہے جو تمہیں بجلی ڈر اور امید کے لیے دکھاتا ہے اور بھاری بادل بناتا ہے',
+      englishTranslation: 'It is He who shows you the lightning, arousing awe and hope, and generates the heavy clouds.',
+    },
+    {
+      number: 13,
+      arabicText: 'وَيُسَبِّحُ الرَّعْدُ بِحَمْدِهِ وَالْمَلَائِكَةُ مِنْ خِيفَتِهِ وَيُرْسِلُ الصَّوَاعِقَ فَيُصِيبُ بِهَا مَن يَشَاءُ وَهُمْ يُجَادِلُونَ فِي اللَّهِ وَهُوَ شَدِيدُ الْمِحَالِ',
+      urduTranslation: 'اور گرج اس کی تعریف کے ساتھ تسبیح کرتی ہے اور فرشتے اس کے خوف سے — اور وہ بجلی بھیجتا ہے اور جسے چاہے اسے پہنچاتا ہے — اور وہ اللہ کے بارے میں جھگڑتے ہیں حالانکہ وہ سخت قوت والا ہے',
+      englishTranslation: 'The Thunder celebrates His praise, and the angels [celebrate it] in awe of Him, and He releases the thunderbolts and strikes with them whomever He wishes. Yet they dispute concerning Allah, though He is great in might.',
+    },
+    {
+      number: 14,
+      arabicText: 'لَهُ دَعْوَةُ الْحَقِّ ۖ وَالَّذِينَ يَدْعُونَ مِن دُونِهِ لَا يَسْتَجِيبُونَ لَهُم بِشَيْءٍ إِلَّا كَبَاسِطِ كَفَّيْهِ إِلَى الْمَاءِ لِيَبْلُغَ فَاهُ وَمَا هُوَ بِبَالِغِهِ ۚ وَمَا دُعَاءُ الْكَافِرِينَ إِلَّا فِي ضَلَالٍ',
+      urduTranslation: 'حق کی دعا اسی کے لیے ہے — اور جنہیں وہ اس کے سوا پکارتے ہیں وہ انہیں کچھ جواب نہیں دیتے مگر ایسے جیسے کوئی اپنے دونوں ہاتھ پانی کی طرف پھیلائے کہ اس کے منہ تک پہنچے حالانکہ وہ اس تک نہیں پہنچتا — اور کافروں کی دعا سراسر گمراہی میں ہے',
+      englishTranslation: 'To Him belongs the true invocation. Those whom they invoke besides Him do not answer them in any way — like someone who stretches his hands toward water so that it may reach his mouth, though it will not reach it. The invocations of the faithless only go awry.',
+    },
+    {
+      number: 15,
+      arabicText: 'وَلِلَّهِ يَسْجُدُ مَن فِي السَّمَاوَاتِ وَالْأَرْضِ طَوْعًا وَكَرْهًا وَظِلَالُهُم بِالْغُدُوِّ وَالْآصَالِ ۩',
+      urduTranslation: 'اور اللہ کو سجدہ کرتے ہیں جو آسمانوں اور زمین میں ہیں خوشی سے اور مجبوری سے اور ان کے سائے بھی صبح و شام',
+      englishTranslation: 'Whatever is in the heavens and the earth prostrates before Allah, willingly or unwillingly, and so do their shadows morning and evening.',
+    },
+    {
+      number: 16,
+      arabicText: 'قُلْ مَن رَّبُّ السَّمَاوَاتِ وَالْأَرْضِ قُلِ اللَّهُ ۚ قُلْ أَفَاتَّخَذْتُم مِّن دُونِهِ أَوْلِيَاءَ لَا يَمْلِكُونَ لِأَنفُسِهِمْ نَفْعًا وَلَا ضَرًّا ۚ قُلْ هَلْ يَسْتَوِي الْأَعْمَىٰ وَالْبَصِيرُ أَمْ هَلْ تَسْتَوِي الظُّلُمَاتُ وَالنُّورُ ۗ أَمْ جَعَلُوا لِلَّهِ شُرَكَاءَ خَلَقُوا كَخَلْقِهِ فَتَشَابَهَ الْخَلْقُ عَلَيْهِمْ ۚ قُلِ اللَّهُ خَالِقُ كُلِّ شَيْءٍ وَهُوَ الْوَاحِدُ الْقَهَّارُ',
+      urduTranslation: 'کہو: آسمانوں اور زمین کا رب کون ہے؟ کہو: اللہ — کہو: تو کیا تم نے اس کے سوا ایسے سرپرست بنا لیے جو اپنے لیے نفع اور نقصان کے مالک نہیں؟ کہو: کیا اندھا اور دیکھنے والا برابر ہیں؟ یا کیا اندھیرا اور روشنی برابر ہیں؟ یا انہوں نے اللہ کے شریک بنائے جنہوں نے اللہ کی مخلوق کی طرح بنایا کہ دونوں کی خلق انہیں ایک جیسی لگی؟ کہو: اللہ ہر چیز کا خالق ہے اور وہ اکیلا اور غالب ہے',
+      englishTranslation: 'Say, \'Who is the Lord of the heavens and the earth?\' Say, \'Allah.\' Say, \'Have you then taken guardians besides Him who have no power to bring benefit or harm even to themselves?\' Say, \'Are the blind one and the sighted one equal? Or are darkness and light equal? Or have they set up for Allah partners who have created like His creation so that the creation seemed to them confusingly alike?\' Say, \'Allah is the creator of all things, and He is the One, the All-paramount.\'',
+    },
+    {
+      number: 17,
+      arabicText: 'أَنزَلَ مِنَ السَّمَاءِ مَاءً فَسَالَتْ أَوْدِيَةٌ بِقَدَرِهَا فَاحْتَمَلَ السَّيْلُ زَبَدًا رَّابِيًا ۚ وَمِمَّا يُوقِدُونَ عَلَيْهِ فِي النَّارِ ابْتِغَاءَ حِلْيَةٍ أَوْ مَتَاعٍ زَبَدٌ مِّثْلُهُ ۚ كَذَٰلِكَ يَضْرِبُ اللَّهُ الْحَقَّ وَالْبَاطِلَ ۚ فَأَمَّا الزَّبَدُ فَيَذْهَبُ جُفَاءً ۖ وَأَمَّا مَا يَنفَعُ النَّاسَ فَيَمْكُثُ فِي الْأَرْضِ ۚ كَذَٰلِكَ يَضْرِبُ اللَّهُ الْأَمْثَالَ',
+      urduTranslation: 'اس نے آسمان سے پانی اتارا تو نالے اپنے اندازے کے مطابق بہ نکلے — سیلاب اوپر اٹھتا جھاگ اٹھا لے آیا — اور جو وہ زیور یا سامان کے لیے آگ میں تپاتے ہیں اس سے بھی اسی طرح کا جھاگ اٹھتا ہے — اللہ اسی طرح حق اور باطل کی مثال بیان کرتا ہے — تو جھاگ تو کناروں پر پھینک دیا جاتا ہے اور جو لوگوں کو فائدہ دیتی ہے وہ زمین میں رہتی ہے — اللہ اسی طرح مثالیں بیان کرتا ہے',
+      englishTranslation: 'He sends down water from the sky whereat the valleys are flooded to their capacity, and the flood carries a swelling foam — and from what they smelt in the fire, desiring ornaments or wares, rises a similar foam. Thus Allah illustrates truth and falsehood. As for the foam, it goes away as dross, but that which benefits mankind persists in the earth. Thus does Allah draw parables.',
+    },
+    {
+      number: 18,
+      arabicText: 'لِلَّذِينَ اسْتَجَابُوا لِرَبِّهِمُ الْحُسْنَىٰ ۚ وَالَّذِينَ لَمْ يَسْتَجِيبُوا لَهُ لَوْ أَنَّ لَهُم مَّا فِي الْأَرْضِ جَمِيعًا وَمِثْلَهُ مَعَهُ لَافْتَدَوْا بِهِ ۚ أُولَٰئِكَ لَهُمْ سُوءُ الْحِسَابِ وَمَأْوَاهُمْ جَهَنَّمُ ۖ وَبِئْسَ الْمِهَادُ',
+      urduTranslation: 'جنہوں نے اپنے رب کا حکم مانا ان کے لیے بہترین صلہ ہے — اور جنہوں نے نہ مانا اگر زمین میں جو کچھ ہے سب ان کا ہو اور اتنا ہی اور بھی تو وہ اسے فدیے میں دے دیتے — یہی وہ ہیں جن کے لیے برا حساب ہے اور ان کا ٹھکانہ جہنم ہے اور وہ برا بچھونا ہے',
+      englishTranslation: 'For those who answer their Lord\'s call there is the best [reward], and those who do not answer His call — even if they had all that is on the earth and as much again, they would offer it as ransom. For such there shall be a terrible reckoning and their refuge shall be hell, and it is an evil resting place.',
+    },
+    {
+      number: 19,
+      arabicText: 'أَفَمَن يَعْلَمُ أَنَّمَا أُنزِلَ إِلَيْكَ مِن رَّبِّكَ الْحَقُّ كَمَنْ هُوَ أَعْمَىٰ ۚ إِنَّمَا يَتَذَكَّرُ أُولُو الْأَلْبَابِ',
+      urduTranslation: 'تو کیا جو جانتا ہے کہ جو تمہارے رب کی طرف سے تم پر اتارا گیا وہ حق ہے وہ اس جیسا ہے جو اندھا ہے؟ نصیحت تو عقل والے ہی پکڑتے ہیں',
+      englishTranslation: 'Is one who knows that what has been sent down to you from your Lord is the truth like one who is blind? Only those who possess intellect take admonition,',
+    },
+    {
+      number: 20,
+      arabicText: 'الَّذِينَ يُوفُونَ بِعَهْدِ اللَّهِ وَلَا يَنقُضُونَ الْمِيثَاقَ',
+      urduTranslation: 'جو اللہ کے عہد کو پورا کرتے ہیں اور پیمان کو نہیں توڑتے',
+      englishTranslation: 'those who fulfill the covenant of Allah and do not break the pledge,',
+    },
+    {
+      number: 21,
+      arabicText: 'وَالَّذِينَ يَصِلُونَ مَا أَمَرَ اللَّهُ بِهِ أَن يُوصَلَ وَيَخْشَوْنَ رَبَّهُمْ وَيَخَافُونَ سُوءَ الْحِسَابِ',
+      urduTranslation: 'اور جو اسے جوڑتے ہیں جس کو اللہ نے جوڑنے کا حکم دیا اور اپنے رب سے ڈرتے اور برے حساب کا اندیشہ رکھتے ہیں',
+      englishTranslation: 'and those who join what Allah has commanded to be joined, and fear their Lord, and are afraid of an adverse reckoning,',
+    },
+    {
+      number: 22,
+      arabicText: 'وَالَّذِينَ صَبَرُوا ابْتِغَاءَ وَجْهِ رَبِّهِمْ وَأَقَامُوا الصَّلَاةَ وَأَنفَقُوا مِمَّا رَزَقْنَاهُمْ سِرًّا وَعَلَانِيَةً وَيَدْرَءُونَ بِالْحَسَنَةِ السَّيِّئَةَ أُولَٰئِكَ لَهُمْ عُقْبَى الدَّارِ',
+      urduTranslation: 'اور جنہوں نے اپنے رب کی رضا چاہتے ہوئے صبر کیا اور نماز قائم کی اور جو ہم نے انہیں دیا اس میں سے چھپا کر اور ظاہر کر کے خرچ کیا اور برائی کو بھلائی سے دور کرتے ہیں — یہی ہیں جن کے لیے آخرت کا اچھا گھر ہے',
+      englishTranslation: 'and those who are patient for the sake of their Lord\'s pleasure, maintain the prayer, and spend out of what We have provided them, secretly and openly, and repel evil with good — for those there shall be the reward of the [ultimate] abode.',
+    },
+    {
+      number: 23,
+      arabicText: 'جَنَّاتُ عَدْنٍ يَدْخُلُونَهَا وَمَن صَلَحَ مِنْ آبَائِهِمْ وَأَزْوَاجِهِمْ وَذُرِّيَّاتِهِمْ ۖ وَالْمَلَائِكَةُ يَدْخُلُونَ عَلَيْهِم مِّن كُلِّ بَابٍ',
+      urduTranslation: 'ہمیشہ رہنے کے باغ جن میں وہ داخل ہوں گے اور ان کے آباء اور بیویوں اور اولاد میں سے جو نیکوکار ہوں گے — اور فرشتے ہر دروازے سے ان کے پاس آئیں گے',
+      englishTranslation: 'The Gardens of Eden, which they will enter along with whoever is righteous from among their fathers, spouses and descendants. The angels will call on them from every door:',
+    },
+    {
+      number: 24,
+      arabicText: 'سَلَامٌ عَلَيْكُم بِمَا صَبَرْتُمْ ۚ فَنِعْمَ عُقْبَى الدَّارِ',
+      urduTranslation: 'تم پر سلامتی ہو اس صبر کی وجہ سے جو تم نے کیا — تو آخرت کا گھر کیا ہی اچھا ہے',
+      englishTranslation: '\'Peace be with you, for your patience.\' How excellent is the reward of the [ultimate] abode!',
+    },
+    {
+      number: 25,
+      arabicText: 'وَالَّذِينَ يَنقُضُونَ عَهْدَ اللَّهِ مِن بَعْدِ مِيثَاقِهِ وَيَقْطَعُونَ مَا أَمَرَ اللَّهُ بِهِ أَن يُوصَلَ وَيُفْسِدُونَ فِي الْأَرْضِ ۙ أُولَٰئِكَ لَهُمُ اللَّعْنَةُ وَلَهُمْ سُوءُ الدَّارِ',
+      urduTranslation: 'اور جو اللہ کے عہد کو پکا کرنے کے بعد توڑ دیتے ہیں اور اسے کاٹتے ہیں جسے اللہ نے جوڑنے کا حکم دیا اور زمین میں فساد کرتے ہیں — یہی وہ ہیں جن کے لیے لعنت ہے اور ان کے لیے بری جگہ ہے',
+      englishTranslation: 'As for those who break the covenant of Allah after having pledged it, and sever what Allah has commanded to be joined, and cause corruption on the earth — upon them shall be the curse and for them shall be the ills of the [ultimate] abode.',
+    },
+    {
+      number: 26,
+      arabicText: 'اللَّهُ يَبْسُطُ الرِّزْقَ لِمَن يَشَاءُ وَيَقْدِرُ ۚ وَفَرِحُوا بِالْحَيَاةِ الدُّنْيَا وَمَا الْحَيَاةُ الدُّنْيَا فِي الْآخِرَةِ إِلَّا مَتَاعٌ',
+      urduTranslation: 'اللہ جس کے لیے چاہے رزق کشادہ کرتا اور تنگ کرتا ہے — اور وہ دنیاوی زندگی پر خوش ہو گئے حالانکہ آخرت کے مقابلے میں دنیاوی زندگی کچھ بھی نہیں سوائے تھوڑے فائدے کے',
+      englishTranslation: 'Allah expands the provision for whomever He wishes and tightens it. They exult in the life of this world, but the life of this world compared with the Hereafter is only a provision.',
+    },
+    {
+      number: 27,
+      arabicText: 'وَيَقُولُ الَّذِينَ كَفَرُوا لَوْلَا أُنزِلَ عَلَيْهِ آيَةٌ مِّن رَّبِّهِ ۗ قُلْ إِنَّ اللَّهَ يُضِلُّ مَن يَشَاءُ وَيَهْدِي إِلَيْهِ مَنْ أَنَابَ',
+      urduTranslation: 'اور کافر کہتے ہیں: اس پر اس کے رب کی طرف سے کوئی نشانی کیوں نہیں اتری؟ کہو: اللہ جسے چاہے گمراہ کرتا ہے اور جو رجوع کرے اسے اپنی طرف ہدایت دیتا ہے',
+      englishTranslation: 'The faithless say, \'Why has not some sign been sent down to him from his Lord?\' Say, \'Indeed Allah leads astray whomever He wishes, and guides to Himself those who turn [penitently to Him]\'',
+    },
+    {
+      number: 28,
+      arabicText: 'الَّذِينَ آمَنُوا وَتَطْمَئِنُّ قُلُوبُهُم بِذِكْرِ اللَّهِ ۗ أَلَا بِذِكْرِ اللَّهِ تَطْمَئِنُّ الْقُلُوبُ',
+      urduTranslation: 'جو ایمان لائے اور ان کے دل اللہ کی یاد سے سکون پاتے ہیں — آگاہ رہو! اللہ کی یاد سے ہی دل سکون پاتے ہیں',
+      englishTranslation: '— those who have faith, and whose hearts find rest in the remembrance of Allah.\' Look! The hearts find rest in Allah\'s remembrance!',
+    },
+    {
+      number: 29,
+      arabicText: 'الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ طُوبَىٰ لَهُمْ وَحُسْنُ مَآبٍ',
+      urduTranslation: 'جو ایمان لائے اور نیک عمل کیے ان کے لیے خوشی ہے اور اچھا لوٹنا ہے',
+      englishTranslation: 'Those who have faith and do righteous deeds — there is happiness for them and a good destination.',
+    },
+    {
+      number: 30,
+      arabicText: 'كَذَٰلِكَ أَرْسَلْنَاكَ فِي أُمَّةٍ قَدْ خَلَتْ مِن قَبْلِهَا أُمَمٌ لِّتَتْلُوَ عَلَيْهِمُ الَّذِي أَوْحَيْنَا إِلَيْكَ وَهُمْ يَكْفُرُونَ بِالرَّحْمَٰنِ ۚ قُلْ هُوَ رَبِّي لَا إِلَٰهَ إِلَّا هُوَ عَلَيْهِ تَوَكَّلْتُ وَإِلَيْهِ مَتَابِ',
+      urduTranslation: 'اسی طرح ہم نے تمہیں ایسی امت میں بھیجا جس سے پہلے امتیں گزر چکی ہیں تاکہ تم انہیں وہ سناؤ جو ہم نے تمہاری طرف وحی کی ہے — اور وہ رحمٰن کا انکار کرتے ہیں — کہو: وہی میرا رب ہے، اس کے سوا کوئی معبود نہیں، اسی پر میں نے توکل کیا اور اسی کی طرف میرا رجوع ہے',
+      englishTranslation: 'Thus We have sent you to a community before which other communities have passed away, so that you may recite to them what We have revealed to you, while they defy the All-beneficent. Say, \'He is my Lord; there is no god except Him. In Him I have put my trust, and to Him is my return.\'',
+    },
+    {
+      number: 31,
+      arabicText: 'وَلَوْ أَنَّ قُرْآنًا سُيِّرَتْ بِهِ الْجِبَالُ أَوْ قُطِّعَتْ بِهِ الْأَرْضُ أَوْ كُلِّمَ بِهِ الْمَوْتَىٰ ۗ بَل لِّلَّهِ الْأَمْرُ جَمِيعًا ۗ أَفَلَمْ يَيْأَسِ الَّذِينَ آمَنُوا أَن لَّوْ يَشَاءُ اللَّهُ لَهَدَى النَّاسَ جَمِيعًا ۗ وَلَا يَزَالُ الَّذِينَ كَفَرُوا تُصِيبُهُم بِمَا صَنَعُوا قَارِعَةٌ أَوْ تَحُلُّ قَرِيبًا مِّن دَارِهِمْ حَتَّىٰ يَأْتِيَ وَعْدُ اللَّهِ ۚ إِنَّ اللَّهَ لَا يُخْلِفُ الْمِيعَادَ',
+      urduTranslation: 'اور اگر کوئی قرآن ایسا ہوتا جس سے پہاڑ چلائے جاتے یا زمین ٹکڑے ٹکڑے کر دی جاتی یا مردوں سے کلام کیا جاتا — بلکہ تمام معاملہ اللہ ہی کا ہے — تو کیا ایمان والوں کو یقین نہیں ہوا کہ اگر اللہ چاہتا تو تمام لوگوں کو ہدایت دے دیتا — اور کافروں پر ان کی کرتوتوں کی وجہ سے برابر کوئی نہ کوئی مصیبت آتی رہے گی یا ان کے گھروں کے قریب آ اترتی رہے گی یہاں تک کہ اللہ کا وعدہ آ جائے — بے شک اللہ وعدے کے خلاف نہیں کرتا',
+      englishTranslation: 'Even if there were a Quran whereby the mountains could be moved, or the earth could be cut apart, or the dead could be spoken to — [they would still not believe]. Rather all commands belong to Allah. Have the faithful not yet despaired that had Allah wished He would have surely guided all mankind? As for the faithless, because of what they have committed, they will be struck by disaster or it will land near their home, until Allah\'s promise comes to pass. Indeed Allah does not fail in His promise.',
+    },
+    {
+      number: 32,
+      arabicText: 'وَلَقَدِ اسْتُهْزِئَ بِرُسُلٍ مِّن قَبْلِكَ فَأَمْلَيْتُ لِلَّذِينَ كَفَرُوا ثُمَّ أَخَذْتُهُمْ ۖ فَكَيْفَ كَانَ عِقَابِ',
+      urduTranslation: 'اور بے شک تم سے پہلے رسولوں کا مذاق اڑایا گیا تو میں نے کافروں کو مہلت دی پھر انہیں پکڑ لیا — تو میرا عذاب کیسا تھا؟',
+      englishTranslation: 'Apostles were certainly mocked before you, but I gave respite to the faithless, then I seized them. How was My retribution?',
+    },
+    {
+      number: 33,
+      arabicText: 'أَفَمَنْ هُوَ قَائِمٌ عَلَىٰ كُلِّ نَفْسٍ بِمَا كَسَبَتْ ۗ وَجَعَلُوا لِلَّهِ شُرَكَاءَ قُلْ سَمُّوهُمْ ۚ أَمْ تُنَبِّئُونَهُ بِمَا لَا يَعْلَمُ فِي الْأَرْضِ أَم بِظَاهِرٍ مِّنَ الْقَوْلِ ۗ بَلْ زُيِّنَ لِلَّذِينَ كَفَرُوا مَكْرُهُمْ وَصُدُّوا عَنِ السَّبِيلِ ۗ وَمَن يُضْلِلِ اللَّهُ فَمَا لَهُ مِنْ هَادٍ',
+      urduTranslation: 'تو کیا جو ہر نفس پر اس کی کمائی کے ساتھ قائم ہے — اور انہوں نے اللہ کے شریک بنائے — کہو: انہیں نام لے کر بتاؤ — کیا تم اسے زمین میں ایسی چیز کی خبر دیتے ہو جو وہ نہیں جانتا یا یہ محض ظاہری باتیں ہیں؟ بلکہ کافروں کے لیے ان کی چال مزین کر دی گئی اور وہ راستے سے روکے گئے — اور جسے اللہ گمراہ کرے اس کا کوئی ہادی نہیں',
+      englishTranslation: 'Is He who watches over every soul as to what it earns [like the idols they worship]? Yet they ascribe partners to Allah. Say, \'Name them!\' Will you inform Him of something He does not know on the earth, or is it a mere outward show? Rather the plotting of the faithless has been made to seem decorous to them, and they are barred from the way. And whomever Allah leads astray has no guide.',
+    },
+    {
+      number: 34,
+      arabicText: 'لَّهُمْ عَذَابٌ فِي الْحَيَاةِ الدُّنْيَا ۖ وَلَعَذَابُ الْآخِرَةِ أَشَقُّ ۖ وَمَا لَهُم مِّنَ اللَّهِ مِن وَاقٍ',
+      urduTranslation: 'ان کے لیے دنیاوی زندگی میں عذاب ہے اور آخرت کا عذاب زیادہ سخت ہے اور اللہ سے بچانے والا کوئی نہیں',
+      englishTranslation: 'There is a punishment for them in the life of this world, and the punishment of the Hereafter is surely harder, and there is no one to shield them from Allah.',
+    },
+    {
+      number: 35,
+      arabicText: 'مَّثَلُ الْجَنَّةِ الَّتِي وُعِدَ الْمُتَّقُونَ ۖ تَجْرِي مِن تَحْتِهَا الْأَنْهَارُ ۖ أُكُلُهَا دَائِمٌ وَظِلُّهَا ۚ تِلْكَ عُقْبَى الَّذِينَ اتَّقَوْا ۖ وَّعُقْبَى الْكَافِرِينَ النَّارُ',
+      urduTranslation: 'اس جنت کا حال جس کا متقیوں سے وعدہ کیا گیا ہے — اس کے نیچے نہریں بہتی ہیں — اس کے پھل دائمی ہیں اور اس کا سایہ بھی — یہ انجام ان لوگوں کا ہے جو متقی ہیں اور کافروں کا انجام جہنم ہے',
+      englishTranslation: 'The parable of the garden promised to the Godwary: streams run in it, its fruit is everlasting and [so is] its shade. That is the requital of those who are Godwary, while the requital of the faithless is the Fire.',
+    },
+    {
+      number: 36,
+      arabicText: 'وَالَّذِينَ آتَيْنَاهُمُ الْكِتَابَ يَفْرَحُونَ بِمَا أُنزِلَ إِلَيْكَ ۖ وَمِنَ الْأَحْزَابِ مَن يُنكِرُ بَعْضَهُ ۚ قُلْ إِنَّمَا أُمِرْتُ أَنْ أَعْبُدَ اللَّهَ وَلَا أُشْرِكَ بِهِ ۚ إِلَيْهِ أَدْعُو وَإِلَيْهِ مَآبِ',
+      urduTranslation: 'اور جنہیں ہم نے کتاب دی وہ اس سے خوش ہوتے ہیں جو تمہاری طرف نازل کیا گیا ہے اور گروہوں میں سے کچھ اس کے بعض حصے کا انکار کرتے ہیں — کہو: مجھے تو حکم دیا گیا ہے کہ اللہ کی عبادت کروں اور اس کے ساتھ شرک نہ کروں — اسی کی طرف دعوت دیتا ہوں اور اسی کی طرف میرا لوٹنا ہے',
+      englishTranslation: 'Those whom We have given the Book rejoice in what has been sent down to you, and some factions deny a part of it. Say, \'I have only been commanded to worship Allah and not to ascribe any partner to Him. To Him I invite and to Him is my return.\'',
+    },
+    {
+      number: 37,
+      arabicText: 'وَكَذَٰلِكَ أَنزَلْنَاهُ حُكْمًا عَرَبِيًّا ۚ وَلَئِنِ اتَّبَعْتَ أَهْوَاءَهُم بَعْدَمَا جَاءَكَ مِنَ الْعِلْمِ مَا لَكَ مِنَ اللَّهِ مِن وَلِيٍّ وَلَا وَاقٍ',
+      urduTranslation: 'اور اسی طرح ہم نے اسے عربی حکم بنا کر نازل کیا — اور اگر تم نے علم آ جانے کے بعد ان کی خواہشوں کی پیروی کی تو اللہ کے مقابلے میں تمہارا کوئی دوست اور کوئی بچانے والا نہ ہو گا',
+      englishTranslation: 'Thus We have sent it down as a [divine] law in Arabic. If you follow their desires after the knowledge that has come to you, you will have neither any guardian nor any protector against Allah.',
+    },
+    {
+      number: 38,
+      arabicText: 'وَلَقَدْ أَرْسَلْنَا رُسُلًا مِّن قَبْلِكَ وَجَعَلْنَا لَهُمْ أَزْوَاجًا وَذُرِّيَّةً ۚ وَمَا كَانَ لِرَسُولٍ أَن يَأْتِيَ بِآيَةٍ إِلَّا بِإِذْنِ اللَّهِ ۗ لِكُلِّ أَجَلٍ كِتَابٌ',
+      urduTranslation: 'اور بے شک ہم نے تم سے پہلے رسول بھیجے اور ان کے لیے بیویاں اور اولاد بنائی — اور کسی رسول کی یہ طاقت نہ تھی کہ اللہ کے اذن کے بغیر کوئی نشانی لائے — ہر وقت کے لیے ایک کتاب ہے',
+      englishTranslation: 'We have sent apostles before you and We gave them wives and offspring. It is not for an apostle to bring a sign except by Allah\'s leave. For every period there is a [specific] book.',
+    },
+    {
+      number: 39,
+      arabicText: 'يَمْحُو اللَّهُ مَا يَشَاءُ وَيُثْبِتُ ۖ وَعِندَهُ أُمُّ الْكِتَابِ',
+      urduTranslation: 'اللہ جو چاہے مٹاتا ہے اور جو چاہے ثابت رکھتا ہے اور اس کے پاس ام الکتاب ہے',
+      englishTranslation: 'Allah effaces and confirms whatever He wishes, and with Him is the Mother Book.',
+    },
+    {
+      number: 40,
+      arabicText: 'وَإِن مَّا نُرِيَنَّكَ بَعْضَ الَّذِي نَعِدُهُمْ أَوْ نَتَوَفَّيَنَّكَ فَإِنَّمَا عَلَيْكَ الْبَلَاغُ وَعَلَيْنَا الْحِسَابُ',
+      urduTranslation: 'اور اگر ہم تمہیں کچھ دکھائیں جس کا ہم نے ان سے وعدہ کیا ہے یا تمہاری روح قبض کر لیں تو تمہارا کام صرف پہنچانا ہے اور حساب لینا ہمارا کام ہے',
+      englishTranslation: 'Whether We show you a part of what We promise them, or take you away [before that], your duty is only to communicate, and it is for Us to take the reckoning.',
+    },
+    {
+      number: 41,
+      arabicText: 'أَوَلَمْ يَرَوْا أَنَّا نَأْتِي الْأَرْضَ نَنقُصُهَا مِنْ أَطْرَافِهَا ۚ وَاللَّهُ يَحْكُمُ لَا مُعَقِّبَ لِحُكْمِهِ ۚ وَهُوَ سَرِيعُ الْحِسَابِ',
+      urduTranslation: 'کیا انہوں نے نہیں دیکھا کہ ہم زمین کو اس کے کناروں سے گھٹاتے چلے آ رہے ہیں — اور اللہ فیصلہ کرتا ہے، اس کے فیصلے کو ٹالنے والا کوئی نہیں اور وہ جلد حساب لینے والا ہے',
+      englishTranslation: 'Do they not see that We come to the land diminishing it from its extremities? Allah judges and there is no revisiting His judgement. He is swift in the reckoning.',
+    },
+    {
+      number: 42,
+      arabicText: 'وَقَدْ مَكَرَ الَّذِينَ مِن قَبْلِهِمْ فَلِلَّهِ الْمَكْرُ جَمِيعًا ۖ يَعْلَمُ مَا تَكْسِبُ كُلُّ نَفْسٍ ۗ وَسَيَعْلَمُ الْكُفَّارُ لِمَنْ عُقْبَى الدَّارِ',
+      urduTranslation: 'اور ان سے پہلے لوگوں نے بھی چال چلی تھی تو سب چالیں اللہ ہی کے اختیار میں ہیں — وہ جانتا ہے جو ہر نفس کماتا ہے — اور کافر عنقریب جان لیں گے کہ آخرت کا گھر کس کے لیے ہے',
+      englishTranslation: 'Those who were before them schemed, but all scheming belongs to Allah. He knows what every soul earns. The faithless will soon know for whom will be the reward of the [ultimate] abode.',
+    },
+    {
+      number: 43,
+      arabicText: 'وَيَقُولُ الَّذِينَ كَفَرُوا لَسْتَ مُرْسَلًا ۚ قُلْ كَفَىٰ بِاللَّهِ شَهِيدًا بَيْنِي وَبَيْنَكُمْ وَمَنْ عِندَهُ عِلْمُ الْكِتَابِ',
+      urduTranslation: 'اور کافر کہتے ہیں: تم رسول نہیں ہو — کہو: میرے اور تمہارے درمیان اللہ کا گواہ ہونا کافی ہے اور اس کا بھی جس کے پاس کتاب کا علم ہے',
+      englishTranslation: 'The faithless say, \'You are not a [true] apostle.\' Say, \'Allah suffices as a witness between me and you, and he who possesses knowledge of the Book.\'',
+    },
+  ],
+};
