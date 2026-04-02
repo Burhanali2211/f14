@@ -111,7 +111,11 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => setIsPlaying(!isPlaying)}
+            onClick={() => {
+              const nextPlaying = !isPlaying;
+              setIsPlaying(nextPlaying);
+              if (!nextPlaying) setIsVisible(true); // Force show bar when pausing
+            }}
             className={cn(
               "rounded-full transition-all duration-200 flex-shrink-0 animate-in zoom-in-75",
               isPlaying 
