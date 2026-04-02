@@ -1,0 +1,140 @@
+import { SurahVerses } from './surah-1';
+
+export const surah58AlMujadalah: SurahVerses = {
+  surahNumber: 58,
+  bismillah: false,
+  ayahs: [
+    {
+      number: 1,
+      arabicText: "قَدْ سَمِعَ ٱللَّهُ قَوْلَ ٱلَّتِى تُجَـٰدِلُكَ فِى زَوْجِهَا وَتَشْتَكِىٓ إِلَى ٱللَّهِ وَٱللَّهُ يَسْمَعُ تَحَاوُرَكُمَآ ۚ إِنَّ ٱللَّهَ سَمِيعٌۢ بَصِيرٌ",
+      urduTranslation: "یقیناً اللہ نے اس عورت کی بات سن لی جو اپنے شوہر کے بارے میں آپ سے جھگڑ رہی تھی اور اللہ سے فریاد کر رہی تھی، اور اللہ تم دونوں کی گفتگو سن رہا تھا، بے شک اللہ سننے والا دیکھنے والا ہے۔",
+      englishTranslation: "Certainly has Allah heard the speech of the one who argues with you, [O Muhammad], concerning her husband and directs her complaint to Allah. And Allah hears your dialogue; indeed, Allah is Hearing and Seeing.",
+    },
+    {
+      number: 2,
+      arabicText: "ٱلَّذِينَ يُظَـٰهِرُونَ مِنكُم مِّن نِّسَآئِهِم مَّا هُنَّ أُمَّهَـٰتِهِمْ ۖ إِنْ أُمَّهَـٰتُهُمْ إِلَّا ٱلَّـٰٓـِٔى وَلَدْنَهُمْ ۚ وَإِنَّهُمْ لَيَقُولُونَ مُنكَرًۭا مِّنَ ٱلْقَوْلِ وَزُورًۭا ۚ وَإِنَّ ٱللَّهَ لَعَفُوٌّ غَفُورٌۭ",
+      urduTranslation: "تم میں سے جو لوگ اپنی بیویوں سے ظہار کریں تو وہ ان کی مائیں نہیں ہیں، ان کی مائیں تو صرف وہ ہیں جنہوں نے انہیں جنا ہے، اور بے شک وہ بری اور جھوٹی بات کہتے ہیں، اور اللہ یقیناً معاف کرنے والا بخشنے والا ہے۔",
+      englishTranslation: "Those who pronounce zihar among you [to separate] from their wives — they are not [consequently] their mothers. Their mothers are none but those who gave birth to them. And indeed, they are saying an objectionable statement and a falsehood. But indeed, Allah is Pardoning and Forgiving.",
+    },
+    {
+      number: 3,
+      arabicText: "وَٱلَّذِينَ يُظَـٰهِرُونَ مِن نِّسَآئِهِمْ ثُمَّ يَعُودُونَ لِمَا قَالُوا۟ فَتَحْرِيرُ رَقَبَةٍۢ مِّن قَبْلِ أَن يَتَمَآسَّا ۚ ذَٰلِكُمْ تُوعَظُونَ بِهِۦ ۚ وَٱللَّهُ بِمَا تَعْمَلُونَ خَبِيرٌۭ",
+      urduTranslation: "اور جو لوگ اپنی بیویوں سے ظہار کریں پھر وہ اپنی کہی ہوئی بات سے رجوع کریں تو ایک دوسرے کو چھونے سے پہلے ایک گردن آزاد کرنا ہے، اس سے تمہیں نصیحت کی جاتی ہے، اور اللہ جو تم کرتے ہو اس سے خبردار ہے۔",
+      englishTranslation: "And those who pronounce zihar from their wives and then [wish to] go back on what they said — then [there must be] the freeing of a slave before they touch one another. That is what you are admonished thereby; and Allah is Acquainted with what you do.",
+    },
+    {
+      number: 4,
+      arabicText: "فَمَن لَّمْ يَجِدْ فَصِيَامُ شَهْرَيْنِ مُتَتَابِعَيْنِ مِن قَبْلِ أَن يَتَمَآسَّا ۖ فَمَن لَّمْ يَسْتَطِعْ فَإِطْعَامُ سِتِّينَ مِسْكِينًۭا ۚ ذَٰلِكَ لِتُؤْمِنُوا۟ بِٱللَّهِ وَرَسُولِهِۦ ۚ وَتِلْكَ حُدُودُ ٱللَّهِ ۗ وَلِلْكَـٰفِرِينَ عَذَابٌ أَلِيمٌ",
+      urduTranslation: "جو نہ پائے تو ایک دوسرے کو چھونے سے پہلے دو ماہ کے مسلسل روزے، جو یہ بھی نہ کر سکے تو ساٹھ مسکینوں کو کھانا کھلائے، یہ اس لیے ہے کہ تم اللہ اور اس کے رسول پر ایمان رکھو، اور یہ اللہ کی حدیں ہیں، اور کافروں کے لیے دردناک عذاب ہے۔",
+      englishTranslation: "And he who does not find [a slave] — then a fast for two months consecutively before they touch one another; and he who is unable — then the feeding of sixty poor persons. That is for you to believe [completely] in Allah and His Messenger; and those are the limits [set by] Allah. And for the disbelievers is a painful punishment.",
+    },
+    {
+      number: 5,
+      arabicText: "إِنَّ ٱلَّذِينَ يُحَآدُّونَ ٱللَّهَ وَرَسُولَهُۥ كُبِتُوا۟ كَمَا كُبِتَ ٱلَّذِينَ مِن قَبْلِهِمْ ۚ وَقَدْ أَنزَلْنَآ ءَايَـٰتٍۭ بَيِّنَـٰتٍۢ ۚ وَلِلْكَـٰفِرِينَ عَذَابٌۭ مُّهِينٌۭ",
+      urduTranslation: "بے شک جو لوگ اللہ اور اس کے رسول کی مخالفت کرتے ہیں وہ ذلیل کیے جائیں گے جیسے ان سے پہلے والے ذلیل کیے گئے، اور ہم نے واضح آیات نازل کی ہیں، اور کافروں کے لیے رسوا کن عذاب ہے۔",
+      englishTranslation: "Indeed, those who oppose Allah and His Messenger are abased as those before them were abased. And We have certainly sent down verses of clear evidence. And for the disbelievers is a humiliating punishment.",
+    },
+    {
+      number: 6,
+      arabicText: "يَوْمَ يَبْعَثُهُمُ ٱللَّهُ جَمِيعًۭا فَيُنَبِّئُهُم بِمَا عَمِلُوٓا۟ ۚ أَحْصَىٰهُ ٱللَّهُ وَنَسُوهُ ۚ وَٱللَّهُ عَلَىٰ كُلِّ شَىْءٍۢ شَهِيدٌ",
+      urduTranslation: "جس دن اللہ انہیں سب کو اٹھائے گا اور انہیں بتائے گا جو انہوں نے کیا، اللہ نے اسے شمار کر رکھا ہے اور وہ اسے بھول گئے ہیں، اور اللہ ہر چیز پر گواہ ہے۔",
+      englishTranslation: "On the Day when Allah will resurrect them all and inform them of what they did. Allah had enumerated it, while they forgot it; and Allah is Witness over all things.",
+    },
+    {
+      number: 7,
+      arabicText: "أَلَمْ تَرَ أَنَّ ٱللَّهَ يَعْلَمُ مَا فِى ٱلسَّمَـٰوَٰتِ وَمَا فِى ٱلْأَرْضِ ۖ مَا يَكُونُ مِن نَّجْوَىٰ ثَلَـٰثَةٍ إِلَّا هُوَ رَابِعُهُمْ وَلَا خَمْسَةٍ إِلَّا هُوَ سَادِسُهُمْ وَلَآ أَدْنَىٰ مِن ذَٰلِكَ وَلَآ أَكْثَرَ إِلَّا هُوَ مَعَهُمْ أَيْنَ مَا كَانُوا۟ ۖ ثُمَّ يُنَبِّئُهُم بِمَا عَمِلُوا۟ يَوْمَ ٱلْقِيَـٰمَةِ ۚ إِنَّ ٱللَّهَ بِكُلِّ شَىْءٍ عَلِيمٌ",
+      urduTranslation: "کیا آپ نے نہیں دیکھا کہ اللہ جانتا ہے جو کچھ آسمانوں میں اور زمین میں ہے؟ تین کی کوئی سرگوشی نہیں ہوتی مگر وہ ان کا چوتھا ہوتا ہے اور نہ پانچ کی مگر وہ ان کا چھٹا ہوتا ہے، اور نہ اس سے کم نہ زیادہ مگر وہ ان کے ساتھ ہوتا ہے وہ جہاں بھی ہوں، پھر قیامت کے دن انہیں بتائے گا جو انہوں نے کیا، بے شک اللہ ہر چیز کو جاننے والا ہے۔",
+      englishTranslation: "Have you not considered that Allah knows what is in the heavens and what is on the earth? There is in no private conversation three but that He is the fourth of them, nor are there five but that He is the sixth of them — and no less than that and no more except that He is with them [in knowledge] wherever they are. Then He will inform them of what they did, on the Day of Resurrection. Indeed Allah is, of all things, Knowing.",
+    },
+    {
+      number: 8,
+      arabicText: "أَلَمْ تَرَ إِلَى ٱلَّذِينَ نُهُوا۟ عَنِ ٱلنَّجْوَىٰ ثُمَّ يَعُودُونَ لِمَا نُهُوا۟ عَنْهُ وَيَتَنَـٰجَوْنَ بِٱلْإِثْمِ وَٱلْعُدْوَٰنِ وَمَعْصِيَتِ ٱلرَّسُولِ وَإِذَا جَآءُوكَ حَيَّوْكَ بِمَا لَمْ يُحَيِّكَ بِهِ ٱللَّهُ وَيَقُولُونَ فِىٓ أَنفُسِهِمْ لَوْلَا يُعَذِّبُنَا ٱللَّهُ بِمَا نَقُولُ ۚ حَسْبُهُمْ جَهَنَّمُ يَصْلَوْنَهَا ۖ فَبِئْسَ ٱلْمَصِيرُ",
+      urduTranslation: "کیا آپ نے انہیں نہیں دیکھا جنہیں سرگوشی سے منع کیا گیا پھر وہ اس کی طرف پلٹتے ہیں جس سے انہیں منع کیا گیا اور گناہ، زیادتی اور رسول کی نافرمانی کی باتیں سرگوشی میں کرتے ہیں، اور جب آپ کے پاس آتے ہیں تو اس طریقے سے سلام کرتے ہیں جس طریقے سے اللہ نے آپ کو سلام نہیں کیا اور اپنے دلوں میں کہتے ہیں: اللہ ہمیں جو ہم کہتے ہیں اس پر عذاب کیوں نہیں دیتا؟ جہنم انہیں کافی ہے وہ اس میں داخل ہوں گے اور وہ برا ٹھکانا ہے۔",
+      englishTranslation: "Have you not considered those who were forbidden from private conversation, then they return to that which they were forbidden from and converse among themselves about sin and aggression and disobedience to the Messenger. And when they come to you, they greet you with that [word] by which Allah does not greet you and say among themselves: Why does Allah not punish us for what we say? Sufficient for them is Hell, which they will [enter to] burn, and wretched is the destination.",
+    },
+    {
+      number: 9,
+      arabicText: "يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوٓا۟ إِذَا تَنَـٰجَيْتُمْ فَلَا تَتَنَـٰجَوْا۟ بِٱلْإِثْمِ وَٱلْعُدْوَٰنِ وَمَعْصِيَتِ ٱلرَّسُولِ وَتَنَـٰجَوْا۟ بِٱلْبِرِّ وَٱلتَّقْوَىٰ ۖ وَٱتَّقُوا۟ ٱللَّهَ ٱلَّذِىٓ إِلَيْهِ تُحْشَرُونَ",
+      urduTranslation: "اے ایمان والو! جب تم سرگوشی کرو تو گناہ، زیادتی اور رسول کی نافرمانی کی باتیں سرگوشی میں مت کرو، بلکہ نیکی اور تقویٰ کی باتیں سرگوشی میں کرو اور اللہ سے ڈرو جس کی طرف تم اکٹھے کیے جاؤ گے۔",
+      englishTranslation: "O you who have believed, when you converse privately, do not converse about sin and aggression and disobedience to the Messenger but converse about righteousness and piety, and fear Allah, to whom you will be gathered.",
+    },
+    {
+      number: 10,
+      arabicText: "إِنَّمَا ٱلنَّجْوَىٰ مِنَ ٱلشَّيْطَـٰنِ لِيَحْزُنَ ٱلَّذِينَ ءَامَنُوا۟ وَلَيْسَ بِضَآرِّهِمْ شَيْـًٔا إِلَّا بِإِذْنِ ٱللَّهِ ۚ وَعَلَى ٱللَّهِ فَلْيَتَوَكَّلِ ٱلْمُؤْمِنُونَ",
+      urduTranslation: "سرگوشی تو شیطان کی طرف سے ہے تاکہ مومنوں کو غم دے اور وہ اللہ کی اجازت کے بغیر انہیں کچھ نقصان نہیں پہنچا سکتا، اور مومنوں کو اللہ ہی پر بھروسہ کرنا چاہیے۔",
+      englishTranslation: "Private conversation is only from Satan that he may grieve those who have believed, but he will not harm them at all except by permission of Allah. And upon Allah let the believers rely.",
+    },
+    {
+      number: 11,
+      arabicText: "يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوٓا۟ إِذَا قِيلَ لَكُمْ تَفَسَّحُوا۟ فِى ٱلْمَجَـٰلِسِ فَٱفْسَحُوا۟ يَفْسَحِ ٱللَّهُ لَكُمْ ۖ وَإِذَا قِيلَ ٱنشُزُوا۟ فَٱنشُزُوا۟ يَرْفَعِ ٱللَّهُ ٱلَّذِينَ ءَامَنُوا۟ مِنكُمْ وَٱلَّذِينَ أُوتُوا۟ ٱلْعِلْمَ دَرَجَـٰتٍۢ ۚ وَٱللَّهُ بِمَا تَعْمَلُونَ خَبِيرٌۭ",
+      urduTranslation: "اے ایمان والو! جب تم سے کہا جائے کہ مجلسوں میں جگہ کشادہ کرو تو جگہ کشادہ کرو، اللہ تمہارے لیے کشادگی کرے گا، اور جب کہا جائے اٹھو تو اٹھ جاؤ، اللہ تم میں سے ایمان والوں کو اور جن کو علم دیا گیا ہے انہیں درجات میں بلند کرے گا، اور اللہ جو تم کرتے ہو اس سے خبردار ہے۔",
+      englishTranslation: "O you who have believed, when you are told: Make room in assemblies, then make room; Allah will make room for you. And when you are told: Rise up, then rise up; Allah will raise those who have believed among you and those who were given knowledge, by degrees. And Allah is Acquainted with what you do.",
+    },
+    {
+      number: 12,
+      arabicText: "يَـٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوٓا۟ إِذَا نَـٰجَيْتُمُ ٱلرَّسُولَ فَقَدِّمُوا۟ بَيْنَ يَدَىْ نَجْوَىٰكُمْ صَدَقَةًۭ ۚ ذَٰلِكَ خَيْرٌۭ لَّكُمْ وَأَطْهَرُ ۚ فَإِن لَّمْ تَجِدُوا۟ فَإِنَّ ٱللَّهَ غَفُورٌۭ رَّحِيمٌ",
+      urduTranslation: "اے ایمان والو! جب تم رسول سے سرگوشی کرنا چاہو تو اپنی سرگوشی سے پہلے صدقہ پیش کرو، یہ تمہارے لیے بہتر اور پاکیزہ تر ہے، پس اگر نہ پاؤ تو اللہ بخشنے والا مہربان ہے۔",
+      englishTranslation: "O you who have believed, when you [wish to] privately consult the Messenger, present before your consultation a charity. That is better for you and purer. But if you find not [the means] — then indeed, Allah is Forgiving and Merciful.",
+    },
+    {
+      number: 13,
+      arabicText: "ءَأَشْفَقْتُمْ أَن تُقَدِّمُوا۟ بَيْنَ يَدَىْ نَجْوَىٰكُمْ صَدَقَـٰتٍۢ ۚ فَإِذْ لَمْ تَفْعَلُوا۟ وَتَابَ ٱللَّهُ عَلَيْكُمْ فَأَقِيمُوا۟ ٱلصَّلَوٰةَ وَءَاتُوا۟ ٱلزَّكَوٰةَ وَأَطِيعُوا۟ ٱللَّهَ وَرَسُولَهُۥ ۚ وَٱللَّهُ خَبِيرٌۢ بِمَا تَعْمَلُونَ",
+      urduTranslation: "کیا تم نے اس سے ڈر کر صدقے پیش کرنا چھوڑ دیا؟ جب تم نے نہیں کیا اور اللہ نے تمہاری توبہ قبول کر لی تو نماز قائم کرو، زکوٰۃ دو اور اللہ اور اس کے رسول کی اطاعت کرو، اور اللہ جو تم کرتے ہو اس سے خبردار ہے۔",
+      englishTranslation: "Have you feared to present before your private consultation charities? Then when you do not and Allah has forgiven you, then [at least] establish prayer and give zakah and obey Allah and His Messenger. And Allah is Acquainted with what you do.",
+    },
+    {
+      number: 14,
+      arabicText: "۞ أَلَمْ تَرَ إِلَى ٱلَّذِينَ تَوَلَّوْا۟ قَوْمًا غَضِبَ ٱللَّهُ عَلَيْهِم مَّا هُم مِّنكُمْ وَلَا مِنْهُمْ وَيَحْلِفُونَ عَلَى ٱلْكَذِبِ وَهُمْ يَعْلَمُونَ",
+      urduTranslation: "کیا آپ نے انہیں نہیں دیکھا جنہوں نے ایسے لوگوں کو دوست بنایا جن پر اللہ نے غضب فرمایا، وہ نہ تم میں سے ہیں نہ ان میں سے، اور وہ جانتے ہوئے جھوٹ پر قسمیں کھاتے ہیں۔",
+      englishTranslation: "Have you not considered those who make allies of a people with whom Allah has become angry? They are neither of you nor of them, and they swear to untruth while they know [they are lying].",
+    },
+    {
+      number: 15,
+      arabicText: "أَعَدَّ ٱللَّهُ لَهُمْ عَذَابًۭا شَدِيدًا ۖ إِنَّهُمْ سَآءَ مَا كَانُوا۟ يَعْمَلُونَ",
+      urduTranslation: "اللہ نے ان کے لیے سخت عذاب تیار کر رکھا ہے، بے شک وہ جو کچھ کرتے تھے وہ بہت برا تھا۔",
+      englishTranslation: "Allah has prepared for them a severe punishment. Indeed, it was evil that they were doing.",
+    },
+    {
+      number: 16,
+      arabicText: "ٱتَّخَذُوٓا۟ أَيْمَـٰنَهُمْ جُنَّةًۭ فَصَدُّوا۟ عَن سَبِيلِ ٱللَّهِ فَلَهُمْ عَذَابٌۭ مُّهِينٌۭ",
+      urduTranslation: "انہوں نے اپنی قسموں کو ڈھال بنا لیا اور اللہ کی راہ سے روکا، پس ان کے لیے رسوا کن عذاب ہے۔",
+      englishTranslation: "They took their oaths as a cover, so they averted [people] from the way of Allah; for them is a humiliating punishment.",
+    },
+    {
+      number: 17,
+      arabicText: "لَّن تُغْنِىَ عَنْهُمْ أَمْوَٰلُهُمْ وَلَآ أَوْلَـٰدُهُم مِّنَ ٱللَّهِ شَيْـًٔا ۚ أُو۟لَـٰٓئِكَ أَصْحَـٰبُ ٱلنَّارِ ۖ هُمْ فِيهَا خَـٰلِدُونَ",
+      urduTranslation: "ان کے مال اور ان کی اولاد اللہ کے مقابلے میں انہیں کچھ بھی کام نہیں آئیں گے، یہی جہنم والے ہیں وہ ہمیشہ اس میں رہیں گے۔",
+      englishTranslation: "Never will their wealth or their children avail them against Allah at all. Those are the companions of the Fire; they will abide therein eternally.",
+    },
+    {
+      number: 18,
+      arabicText: "يَوْمَ يَبْعَثُهُمُ ٱللَّهُ جَمِيعًۭا فَيَحْلِفُونَ لَهُۥ كَمَا يَحْلِفُونَ لَكُمْ ۖ وَيَحْسَبُونَ أَنَّهُمْ عَلَىٰ شَىْءٍ ۚ أَلَآ إِنَّهُمْ هُمُ ٱلْكَـٰذِبُونَ",
+      urduTranslation: "جس دن اللہ انہیں سب کو اٹھائے گا تو وہ اللہ کے سامنے قسمیں کھائیں گے جیسے تمہارے سامنے کھاتے ہیں اور خیال کریں گے کہ وہ کسی فائدے پر ہیں، سن لو! وہی جھوٹے ہیں۔",
+      englishTranslation: "On the Day when Allah resurrects them all, they will swear to Him as they swear to you and think that they are [standing] on something. Unquestionably, it is they who are the liars.",
+    },
+    {
+      number: 19,
+      arabicText: "ٱسْتَحْوَذَ عَلَيْهِمُ ٱلشَّيْطَـٰنُ فَأَنسَىٰهُمْ ذِكْرَ ٱللَّهِ ۚ أُو۟لَـٰٓئِكَ حِزْبُ ٱلشَّيْطَـٰنِ ۚ أَلَآ إِنَّ حِزْبَ ٱلشَّيْطَـٰنِ هُمُ ٱلْخَـٰسِرُونَ",
+      urduTranslation: "شیطان نے ان پر قابو پا لیا اور انہیں اللہ کی یاد بھلا دی، یہی شیطان کی پارٹی ہے، سن لو! شیطان کی پارٹی ہی خسارے والی ہے۔",
+      englishTranslation: "Satan has overcome them and made them forget the remembrance of Allah. Those are the party of Satan. Unquestionably, the party of Satan — they will be the losers.",
+    },
+    {
+      number: 20,
+      arabicText: "إِنَّ ٱلَّذِينَ يُحَآدُّونَ ٱللَّهَ وَرَسُولَهُۥٓ أُو۟لَـٰٓئِكَ فِى ٱلْأَذَلِّينَ",
+      urduTranslation: "بے شک جو لوگ اللہ اور اس کے رسول کی مخالفت کرتے ہیں وہ سب سے ذلیلوں میں ہیں۔",
+      englishTranslation: "Indeed, those who oppose Allah and His Messenger — those will be among the most humbled.",
+    },
+    {
+      number: 21,
+      arabicText: "كَتَبَ ٱللَّهُ لَأَغْلِبَنَّ أَنَا۠ وَرُسُلِىٓ ۚ إِنَّ ٱللَّهَ قَوِىٌّ عَزِيزٌۭ",
+      urduTranslation: "اللہ نے لکھ دیا ہے: میں اور میرے رسول ضرور غالب رہیں گے، بے شک اللہ طاقتور غالب ہے۔",
+      englishTranslation: "Allah has written: I will surely overcome, I and My messengers. Indeed, Allah is Powerful and Exalted in Might.",
+    },
+    {
+      number: 22,
+      arabicText: "لَّا تَجِدُ قَوْمًۭا يُؤْمِنُونَ بِٱللَّهِ وَٱلْيَوْمِ ٱلْـَٔاخِرِ يُوَآدُّونَ مَنْ حَآدَّ ٱللَّهَ وَرَسُولَهُۥ وَلَوْ كَانُوٓا۟ ءَابَآءَهُمْ أَوْ أَبْنَآءَهُمْ أَوْ إِخْوَٰنَهُمْ أَوْ عَشِيرَتَهُمْ ۚ أُو۟لَـٰٓئِكَ كَتَبَ فِى قُلُوبِهِمُ ٱلْإِيمَـٰنَ وَأَيَّدَهُم بِرُوحٍۢ مِّنْهُ ۖ وَيُدْخِلُهُمْ جَنَّـٰتٍۢ تَجْرِى مِن تَحْتِهَا ٱلْأَنْهَـٰرُ خَـٰلِدِينَ فِيهَا ۚ رَضِىَ ٱللَّهُ عَنْهُمْ وَرَضُوا۟ عَنْهُ ۚ أُو۟لَـٰٓئِكَ حِزْبُ ٱللَّهِ ۚ أَلَآ إِنَّ حِزْبَ ٱللَّهِ هُمُ ٱلْمُفْلِحُونَ",
+      urduTranslation: "آپ ایسے لوگوں کو نہیں پائیں گے جو اللہ اور یوم آخرت پر ایمان رکھتے ہوں اور ان لوگوں سے محبت کریں جو اللہ اور اس کے رسول کی مخالفت کرتے ہیں خواہ وہ ان کے باپ ہوں، یا بیٹے ہوں، یا بھائی ہوں، یا ان کا قبیلہ ہو، یہی وہ لوگ ہیں جن کے دلوں میں اللہ نے ایمان لکھ دیا ہے اور اپنی روح سے انہیں مدد دی ہے اور انہیں ایسی جنتوں میں داخل کرے گا جن کے نیچے نہریں جاری ہیں وہ ان میں ہمیشہ رہیں گے، اللہ ان سے راضی اور وہ اللہ سے راضی، یہی اللہ کی پارٹی ہے، سن لو! اللہ کی پارٹی ہی کامیاب ہے۔",
+      englishTranslation: "You will not find a people who believe in Allah and the Last Day having affection for those who oppose Allah and His Messenger, even if they were their fathers or their sons or their brothers or their kindred. Those — He has decreed within their hearts faith and supported them with spirit from Him. And He will admit them to gardens beneath which rivers flow, wherein they abide eternally. Allah is pleased with them, and they are pleased with Him — those are the party of Allah. Unquestionably, the party of Allah — they are the successful.",
+    },
+  ],
+};

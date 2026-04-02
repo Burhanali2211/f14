@@ -326,31 +326,32 @@
   .quran-arabic-text {
     font-family: 'AlMajeed', var(--font-arabic-heading);
     font-weight: 400;
-    line-height: 3.2;
+    line-height: 2.8;
     word-spacing: 0.12em;
     letter-spacing: 0.01em;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     display: block;
-    padding-top: 0.5em;
-    padding-bottom: 0.5em;
+    padding-top: 0.35em;
+    padding-bottom: 0.35em;
   }
 
   /* Quran Urdu translation text - optimized for readability */
   .quran-urdu-text {
     font-family: 'AlMajeed', 'Noto Nastaliq Urdu', var(--font-arabic);
     font-weight: 400;
-    line-height: 2.8;
+    line-height: 2.6;
     word-spacing: 0.1em;
     letter-spacing: 0.01em;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     display: block;
-    padding-top: 0.3em;
-    padding-bottom: 0.3em;
+    padding-top: 0.25em;
+    padding-bottom: 0.25em;
   }
+
 
   /* Selection styling */
   ::selection {

@@ -80,7 +80,7 @@ export function Header() {
       }`}
     >
       <div className="container mx-auto px-3 sm:px-4 md:px-5 lg:px-6">
-        <div className="flex items-center justify-between min-h-[4.5rem] sm:min-h-[5rem] md:min-h-[5.5rem] py-2 sm:py-3 md:py-3.5 gap-2 sm:gap-3 md:gap-4">
+        <div className="flex items-center justify-between min-h-[3.75rem] sm:min-h-[4.25rem] md:min-h-[4.75rem] py-1.5 sm:py-2 md:py-2.5 gap-2 sm:gap-3 md:gap-4">
           {/* Logo */}
           <Link 
             to="/" 

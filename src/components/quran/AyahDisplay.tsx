@@ -1,60 +1,143 @@
+import React, { useState, memo } from 'react';
+import { MoreHorizontal, Bookmark, BookOpen, Eye, EyeOff, Share2 } from 'lucide-react';
 import { toArabicNumber } from '@/lib/quran-types';
 import type { Ayah } from '@/data/quran/verses';
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
 interface AyahDisplayProps {
   ayah: Ayah;
+  surahNumber: number;
+  surahName?: string;
   showUrdu?: boolean;
   showEnglish?: boolean;
   arabicFontSize?: number;
   urduFontSize?: number;
   englishFontSize?: number;
   lineSpacing?: number;
+  charGap?: number;
 }
 
-export function AyahDisplay({
+const AyahDisplayComponent = ({
   ayah,
+  surahNumber,
+  surahName = '',
   showUrdu = true,
   showEnglish = true,
   arabicFontSize = 22,
   urduFontSize = 17,
   englishFontSize = 14,
   lineSpacing = 3.2,
-}: AyahDisplayProps) {
-  return (
-    <div className="bg-card rounded-xl sm:rounded-2xl border border-border/40 overflow-hidden">
-      <div className="p-4 sm:p-5">
+  charGap = 0.02,
+}: AyahDisplayProps) => {
+  const [localShowUrdu, setLocalShowUrdu] = useState(showUrdu);
+  const [localShowEnglish, setLocalShowEnglish] = useState(showEnglish);
 
-        {/* Ayah number badge */}
-        <div className="flex items-center gap-2.5 mb-2">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-            <span className="font-sans text-xs font-bold text-primary leading-none">{ayah.number}</span>
+  const saveBookmark = () => {
+    const existing = JSON.parse(localStorage.getItem('f14-bookmarks') || '[]');
+    const newBookmark = {
+      surahNumber,
+      surahName,
+      ayahNumber: ayah.number,
+      timestamp: Date.now()
+    };
+    // Avoid duplicates
+    const filtered = existing.filter((b: any) => !(b.surahNumber === surahNumber && b.ayahNumber === ayah.number));
+    localStorage.setItem('f14-bookmarks', JSON.stringify([newBookmark, ...filtered].slice(0, 50)));
+    alert('Ayah Bookmarked!');
+  };
+
+  const markLastRead = () => {
+    localStorage.setItem('f14-last-read', JSON.stringify({
+      surahNumber,
+      surahName,
+      ayahNumber: ayah.number,
+      timestamp: Date.now()
+    }));
+    alert('Last Read Position Updated!');
+  };
+
+  return (
+    <div className="group relative bg-card/60 backdrop-blur-sm rounded-2xl border border-border/40 overflow-hidden hover:border-primary/30 transition-all duration-500 shadow-soft hover:shadow-card">
+      <div className="p-4 sm:p-6">
+
+        {/* Ayah header with Menu */}
+        <div className="flex items-center justify-between mb-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="w-8 h-8 rounded-lg hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary border border-border/40">
+                <MoreHorizontal className="w-4.5 h-4.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuLabel className="text-xs">Ayah {surahNumber}:{ayah.number} Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setLocalShowUrdu(!localShowUrdu)} className="text-xs">
+                {localShowUrdu ? <EyeOff className="w-3.5 h-3.5 mr-2" /> : <Eye className="w-3.5 h-3.5 mr-2" />}
+                {localShowUrdu ? 'Hide' : 'Show'} Urdu
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setLocalShowEnglish(!localShowEnglish)} className="text-xs">
+                {localShowEnglish ? <EyeOff className="w-3.5 h-3.5 mr-2" /> : <Eye className="w-3.5 h-3.5 mr-2" />}
+                {localShowEnglish ? 'Hide' : 'Show'} English
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={markLastRead} className="text-xs">
+                <BookOpen className="w-3.5 h-3.5 mr-2" /> Mark as Last Read
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={saveBookmark} className="text-xs">
+                <Bookmark className="w-3.5 h-3.5 mr-2" /> Bookmark Ayah
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => {
+                const url = window.location.href.split('#')[0] + `#ayah-${ayah.number}`;
+                navigator.clipboard.writeText(url);
+                alert('Ayah link copied!');
+              }} className="text-xs">
+                <Share2 className="w-3.5 h-3.5 mr-2" /> Copy Share Link
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="flex items-center gap-1.5">
+             <span className="text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">
+                Ayah {ayah.number}
+             </span>
+             <div className="w-1.5 h-1.5 rounded-full bg-primary/20" />
           </div>
-          <div className="h-px flex-1 bg-border/25" />
         </div>
 
-        {/* Arabic text
-            The verse-end bracket ﴿١﴾ is rendered as plain inline text — no span,
-            no inline-block — so it naturally flows with the paragraph and never
-            orphans onto its own line with the quran-arabic-text padding applied. */}
-        <div dir="rtl" lang="ar" className="mb-1">
+        {/* Arabic text */}
+        <div dir="rtl" lang="ar" className="mb-0.5">
           <p
             className="quran-arabic-text text-foreground text-right"
-            style={{ fontSize: arabicFontSize, lineHeight: lineSpacing }}
+            style={{ fontSize: arabicFontSize, lineHeight: lineSpacing, letterSpacing: `${charGap}em` }}
           >
             {ayah.arabicText}
-            {' '}﴿{toArabicNumber(ayah.number)}﴾
+            {' '}
+            <span className="relative inline-flex items-center justify-center align-middle h-7 w-7">
+              <span className="quran-arabic-text text-2xl text-primary/40 leading-none absolute">﴿﴾</span>
+              <span className="text-[9px] font-bold text-primary select-none tabular-nums pt-1.5">
+                {toArabicNumber(ayah.number)}
+              </span>
+            </span>
           </p>
         </div>
 
         {/* Urdu translation */}
-        {showUrdu && (
+        {localShowUrdu && ayah.urduTranslation && (
           <div
             dir="rtl"
             lang="ur"
-            className="mt-3 pt-3 border-t border-border/25"
+            className="mt-2.5 pt-2.5 border-t border-border/20"
           >
             <p
-              className="quran-urdu-text text-muted-foreground text-right"
+              className="quran-urdu-text text-muted-foreground text-right leading-relaxed"
               style={{ fontSize: urduFontSize }}
             >
               {ayah.urduTranslation}
@@ -63,10 +146,10 @@ export function AyahDisplay({
         )}
 
         {/* English translation */}
-        {showEnglish && (
-          <div className="mt-3 pt-3 border-t border-border/25">
+        {localShowEnglish && ayah.englishTranslation && (
+          <div className="mt-2.5 pt-2.5 border-t border-border/20">
             <p
-              className="text-muted-foreground/85 font-sans leading-6"
+              className="text-muted-foreground/85 font-sans leading-relaxed"
               style={{ fontSize: englishFontSize }}
             >
               {ayah.englishTranslation}
@@ -74,7 +157,11 @@ export function AyahDisplay({
           </div>
         )}
 
+
       </div>
     </div>
   );
-}
+};
+
+export const AyahDisplay = memo(AyahDisplayComponent);
+AyahDisplay.displayName = 'AyahDisplay';

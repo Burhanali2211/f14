@@ -34,24 +34,24 @@ export const QuranCategoryCard = memo(function QuranCategoryCard({ index = 0 }: 
         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 dark:via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
       </div>
 
-        <div className="relative z-10 p-3 sm:p-6 md:p-5 lg:p-6 flex flex-col h-full min-h-[160px] sm:min-h-[220px] md:min-h-[200px] lg:min-h-[220px]">
+        <div className="relative z-10 p-3 sm:p-5 flex flex-col h-full min-h-[140px] sm:min-h-[180px] md:min-h-[170px]">
           <div className="flex-1 flex flex-col">
-            <div className={`w-10 h-10 sm:w-16 sm:h-16 md:w-14 md:h-14 lg:w-16 lg:h-16 rounded-lg sm:rounded-xl md:rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/10 border-emerald-500/30 dark:border-emerald-500/20 backdrop-blur-xl border-2 flex items-center justify-center mb-2 sm:mb-5 md:mb-4 lg:mb-5 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 ${
+            <div className={`w-9 h-9 sm:w-14 sm:h-14 rounded-lg sm:rounded-xl bg-emerald-500/15 dark:bg-emerald-500/10 border-emerald-500/30 dark:border-emerald-500/20 backdrop-blur-xl border-2 flex items-center justify-center mb-2 sm:mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 ${
               theme === 'light'
                 ? 'shadow-md group-hover:shadow-lg'
                 : 'shadow-lg group-hover:shadow-xl'
             }`}>
-              <BookOpen className="w-5 h-5 sm:w-8 sm:h-8 md:w-7 md:h-7 lg:w-8 lg:h-8 text-emerald-600 dark:text-emerald-400 transition-transform duration-500 group-hover:scale-110" />
+              <BookOpen className="w-5 h-5 sm:w-7 sm:h-7 text-emerald-600 dark:text-emerald-400 transition-transform duration-500 group-hover:scale-110" />
             </div>
             
-            <h3 className={`text-sm sm:text-2xl md:text-xl lg:text-2xl font-bold mb-0.5 sm:mb-1 transition-colors duration-500 leading-tight ${
+            <h3 className={`text-sm sm:text-xl md:text-lg font-bold mb-0.5 sm:mb-1 transition-colors duration-500 leading-tight ${
               theme === 'light'
                 ? 'text-foreground group-hover:text-emerald-600'
                 : 'text-foreground group-hover:text-emerald-400'
             }`}>
               القرآن الکریم
             </h3>
-            <h4 className={`text-xs sm:text-xl md:text-lg lg:text-xl font-semibold mb-1 sm:mb-3 md:mb-2 lg:mb-3 transition-colors duration-500 leading-tight ${
+            <h4 className={`text-xs sm:text-lg md:text-base font-semibold mb-1 sm:mb-2 transition-colors duration-500 leading-tight ${
               theme === 'light'
                 ? 'text-foreground/90 group-hover:text-emerald-600'
                 : 'text-foreground/90 group-hover:text-emerald-400'
@@ -59,7 +59,7 @@ export const QuranCategoryCard = memo(function QuranCategoryCard({ index = 0 }: 
               The Holy Quran
             </h4>
             
-            <p className={`text-[10px] sm:text-sm md:text-xs lg:text-sm line-clamp-2 leading-relaxed mb-2 sm:mb-4 md:mb-3 lg:mb-4 transition-colors duration-500 ${
+            <p className={`text-[10px] sm:text-sm md:text-xs line-clamp-2 leading-relaxed mb-2 sm:mb-3 transition-colors duration-500 ${
               theme === 'light'
                 ? 'text-foreground/75 group-hover:text-foreground/90'
                 : 'text-muted-foreground group-hover:text-foreground/80'
@@ -67,6 +67,7 @@ export const QuranCategoryCard = memo(function QuranCategoryCard({ index = 0 }: 
               Read and recite the Words of Allah...
             </p>
           </div>
+
 
           <div className={`mt-auto pt-2 sm:pt-4 md:pt-3 lg:pt-4 border-t transition-colors duration-500 ${
             theme === 'light'

@@ -6,21 +6,21 @@ export const surah108AlKawthar: SurahVerses = {
   ayahs: [
     {
       number: 1,
-      arabicText: 'إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ',
-      urduTranslation: 'بیشک ہم نے تمہیں کوثر عطا کی',
-      englishTranslation: 'Indeed, We have granted you al-Kawthar.',
+      arabicText: "إِنَّآ أَعْطَيْنَـٰكَ ٱلْكَوْثَرَ",
+      urduTranslation: "بیشک ہم نے تمہیں کوثر عطا کی",
+      englishTranslation: "Indeed, We have granted you al-Kawthar.",
     },
     {
       number: 2,
-      arabicText: 'فَصَلِّ لِرَبِّكَ وَانْحَرْ',
-      urduTranslation: 'تو اپنے پروردگار کے لیے نماز پڑھو اور قربانی کرو',
-      englishTranslation: 'So pray to your Lord and sacrifice.',
+      arabicText: "فَصَلِّ لِرَبِّكَ وَٱنْحَرْ",
+      urduTranslation: "تو اپنے پروردگار کے لیے نماز پڑھو اور قربانی کرو",
+      englishTranslation: "So pray to your Lord and sacrifice.",
     },
     {
       number: 3,
-      arabicText: 'إِنَّ شَانِئَكَ هُوَ الْأَبْتَرُ',
-      urduTranslation: 'بیشک تمہارا دشمن ہی بے نسل ہے',
-      englishTranslation: 'Indeed, your enemy is the one cut off.',
+      arabicText: "إِنَّ شَانِئَكَ هُوَ ٱلْأَبْتَرُ",
+      urduTranslation: "بیشک تمہارا دشمن ہی بے نسل ہے",
+      englishTranslation: "Indeed, your enemy is the one cut off.",
     },
   ],
 };
