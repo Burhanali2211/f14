@@ -94,34 +94,34 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
       {/* ── Background Bar ── */}
       <div 
         className={cn(
-          "mx-auto bg-card/60 backdrop-blur-2xl border-x border-t border-border/40 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] transition-all duration-500 ease-in-out",
+          "mx-auto bg-card/60 backdrop-blur-2xl border-x border-t border-border/40 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] transition-all duration-700 ease-in-out flex flex-col items-center",
           isPlaying 
-            ? "w-[80px] rounded-t-3xl pt-2 pb-6 px-4" // Mini mode
+            ? "w-16 h-16 rounded-full mb-6 p-0 border" // Substantially reduced Mini mode (Floating Circle)
             : "w-full max-w-[420px] rounded-t-[2.5rem] px-6 pt-3 pb-7 sm:pb-6" // Full mode
         )}
       >
-        {/* Compact Drag Handle / Accent */}
-        {!isPlaying && <div className="w-10 h-1 bg-muted-foreground/20 rounded-full mx-auto mb-2" />}
+        {/* Compact Drag Handle (Only in Full Mode) */}
+        {!isPlaying && <div className="w-10 h-1 bg-muted-foreground/20 rounded-full mx-auto mb-3" />}
 
         <div className={cn(
-          "w-full flex items-center gap-4 transition-all duration-500",
-          isPlaying ? "justify-center" : "justify-between"
+          "w-full flex items-center transition-all duration-700 h-full",
+          isPlaying ? "justify-center" : "justify-between gap-4"
         )}>
-          {/* Play/Pause Button - Premium Styled */}
+          {/* Play/Pause Button - Sleek and Minimal */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setIsPlaying(!isPlaying)}
             className={cn(
-              "rounded-2xl transition-all flex-shrink-0 animate-in zoom-in-50 duration-500 shadow-lg ring-1 ring-border/5",
+              "rounded-full transition-all duration-500 flex-shrink-0 shadow-lg ring-1 ring-border/5",
               isPlaying 
-                ? "w-14 h-14 bg-primary text-primary-foreground hover:bg-primary/90 scale-100 hover:scale-110" 
-                : "w-12 h-12 bg-muted/90 hover:bg-muted text-muted-foreground hover:text-foreground"
+                ? "w-12 h-12 bg-primary text-primary-foreground hover:bg-primary/90 scale-100" 
+                : "w-11 h-11 bg-muted/90 hover:bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
             {isPlaying 
-              ? <Pause className="w-7 h-7 fill-current transition-transform duration-300" /> 
-              : <Play className="w-6 h-6 ml-0.5 fill-current transition-transform duration-300" />
+              ? <Pause className="w-6 h-6 fill-current" /> 
+              : <Play className="w-5 h-5 ml-0.5 fill-current" />
             }
           </Button>
 
@@ -135,8 +135,8 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
                   className={cn(
                     "flex-1 py-2.5 rounded-xl text-[10px] sm:text-xs font-black transition-all",
                     speed === s.value 
-                      ? "bg-background text-primary shadow-sm ring-1 ring-primary/20 scale-105" 
-                      : "text-muted-foreground hover:text-foreground hover:bg-background/20"
+                      ? "bg-background text-primary shadow-sm" 
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {s.label.replace('x', '')}
@@ -144,18 +144,11 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
               ))}
             </div>
           )}
-
-          {/* Hidden Status Tag when playing - for cleaner UI */}
-          {isPlaying && (
-            <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1 bg-primary/10 backdrop-blur-md rounded-full border border-primary/20 animate-in slide-in-from-bottom-2 duration-700">
-              <span className="w-1.5 h-1.5 bg-primary rounded-full animate-pulse shadow-[0_0_8px_rgba(var(--primary),0.5)]" />
-              <span className="text-[9px] font-black uppercase tracking-widest text-primary">SCROLLING</span>
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
 };
+
 
 
