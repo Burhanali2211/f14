@@ -96,7 +96,7 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
         className={cn(
           "mx-auto bg-card/60 backdrop-blur-2xl border-x border-t border-border/40 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] transition-all duration-700 ease-in-out flex flex-col items-center",
           isPlaying 
-            ? "w-16 h-16 rounded-full mb-6 p-0 border" // Substantially reduced Mini mode (Floating Circle)
+            ? "w-24 h-14 rounded-t-[1.5rem] p-0" // Mini mode (Docked Tab)
             : "w-full max-w-[420px] rounded-t-[2.5rem] px-6 pt-3 pb-7 sm:pb-6" // Full mode
         )}
       >
@@ -105,7 +105,7 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
 
         <div className={cn(
           "w-full flex items-center transition-all duration-700 h-full",
-          isPlaying ? "justify-center" : "justify-between gap-4"
+          isPlaying ? "justify-center pt-1" : "justify-between gap-4"
         )}>
           {/* Play/Pause Button - Sleek and Minimal */}
           <Button
@@ -113,17 +113,18 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
             size="icon"
             onClick={() => setIsPlaying(!isPlaying)}
             className={cn(
-              "rounded-full transition-all duration-500 flex-shrink-0 shadow-lg ring-1 ring-border/5",
+              "rounded-full transition-all duration-500 flex-shrink-0 animate-in zoom-in-50",
               isPlaying 
-                ? "w-12 h-12 bg-primary text-primary-foreground hover:bg-primary/90 scale-100" 
-                : "w-11 h-11 bg-muted/90 hover:bg-muted text-muted-foreground hover:text-foreground"
+                ? "w-10 h-10 bg-primary/10 text-primary hover:bg-primary/20 scale-110 shadow-none border border-primary/10" // Smaller active button
+                : "w-11 h-11 bg-muted/90 hover:bg-muted text-muted-foreground hover:text-foreground shadow-lg"
             )}
           >
             {isPlaying 
-              ? <Pause className="w-6 h-6 fill-current" /> 
+              ? <Pause className="w-5 h-5 fill-current" /> 
               : <Play className="w-5 h-5 ml-0.5 fill-current" />
             }
           </Button>
+
 
           {/* Speed Selector (Hide when Playing) */}
           {!isPlaying && (
