@@ -62,9 +62,19 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
 
   useEffect(() => {
     if (isPlaying) {
+      // PREVENT LAG: Disable smooth scrolling while autoscrolling.
+      // If 'scroll-behavior: smooth' is on, every small scroll step 
+      // will fight the next frame, causing massive lag on mobile.
+      const originalStyle = document.documentElement.style.scrollBehavior;
+      document.documentElement.style.scrollBehavior = 'auto';
+      
       lastTimeRef.current = undefined;
-      scrollAccumulatorRef.current = 0; // Reset on start
+      scrollAccumulatorRef.current = 0;
       requestRef.current = requestAnimationFrame(animate);
+
+      return () => {
+        document.documentElement.style.scrollBehavior = originalStyle;
+      };
     } else {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
       lastPausedTimeRef.current = Date.now();
