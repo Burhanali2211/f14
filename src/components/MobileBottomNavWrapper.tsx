@@ -32,7 +32,9 @@ export const MobileBottomNavWrapper = () => {
     /^\/uploader\/piece\/.*$/, // Add/edit piece pages for uploader
     /^\/admin\/piece\/.*$/, // Add/edit piece pages for admin
     /^\/admin\/category\/.*$/, // Add/edit category pages
+    /^\/quran(\/.*)?$/, // Any Quran related pages
   ];
+
 
   // Check if current path matches any hidden pattern
   const shouldHide = hiddenPaths.some(pattern => pattern.test(location.pathname));

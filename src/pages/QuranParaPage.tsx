@@ -30,10 +30,10 @@ export default function QuranParaPage() {
             </Link>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -121,8 +121,7 @@ export default function QuranParaPage() {
           </p>
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }
+

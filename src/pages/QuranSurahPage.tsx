@@ -14,8 +14,9 @@ import { surahs } from '@/data/quran';
 import { getSurahVerses } from '@/data/quran/verses';
 import type { SurahVerses } from '@/data/quran/verses';
 import { toArabicNumber } from '@/lib/quran-types';
-import { AyahDisplay, Bismillah } from '@/components/quran';
+import { AyahDisplay, Bismillah, AutoScroll } from '@/components/quran';
 import { useTheme } from '@/hooks/use-theme';
+
 
 // ─── Reading preference constants ──────────────────────────────────────────
 
@@ -587,6 +588,10 @@ export default function QuranSurahPage() {
           </div>
         </SheetContent>
       </Sheet>
+      
+      {/* ── Auto Scroll Controls ─────────────────────────────────────────── */}
+      {!versesLoading && verses && <AutoScroll />}
     </div>
   );
 }
+

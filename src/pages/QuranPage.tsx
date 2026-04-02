@@ -113,8 +113,7 @@ export default function QuranPage() {
         
         <QuranList activeTab={activeTab} />
       </main>
-
-      <Footer />
     </div>
   );
 }
+
