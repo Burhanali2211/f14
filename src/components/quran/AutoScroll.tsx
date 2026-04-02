@@ -87,14 +87,14 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
   return (
     <div 
       className={cn(
-        "fixed bottom-0 inset-x-0 z-40 transition-all duration-700 ease-in-out",
+        "fixed bottom-0 inset-x-0 z-40 transition-all duration-200 ease-out",
         (isVisible || isPlaying) ? "translate-y-0" : "translate-y-full"
       )}
     >
       {/* ── Background Bar ── */}
       <div 
         className={cn(
-          "mx-auto bg-card/60 backdrop-blur-2xl border-x border-t border-border/40 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] transition-all duration-700 ease-in-out flex flex-col items-center",
+          "mx-auto bg-card/60 backdrop-blur-2xl border-x border-t border-border/40 shadow-[0_-8px_30px_rgb(0,0,0,0.12)] transition-all duration-200 ease-out flex flex-col items-center",
           isPlaying 
             ? "w-24 h-14 rounded-t-[1.5rem] p-0" // Mini mode (Docked Tab)
             : "w-full max-w-[420px] rounded-t-[2.5rem] px-6 pt-3 pb-7 sm:pb-6" // Full mode
@@ -104,7 +104,7 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
         {!isPlaying && <div className="w-10 h-1 bg-muted-foreground/20 rounded-full mx-auto mb-3" />}
 
         <div className={cn(
-          "w-full flex items-center transition-all duration-700 h-full",
+          "w-full flex items-center transition-all duration-200 h-full",
           isPlaying ? "justify-center pt-1" : "justify-between gap-4"
         )}>
           {/* Play/Pause Button - Sleek and Minimal */}
@@ -113,9 +113,9 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
             size="icon"
             onClick={() => setIsPlaying(!isPlaying)}
             className={cn(
-              "rounded-full transition-all duration-500 flex-shrink-0 animate-in zoom-in-50",
+              "rounded-full transition-all duration-200 flex-shrink-0 animate-in zoom-in-75",
               isPlaying 
-                ? "w-10 h-10 bg-primary/10 text-primary hover:bg-primary/20 scale-110 shadow-none border border-primary/10" // Smaller active button
+                ? "w-10 h-10 bg-primary/10 text-primary hover:bg-primary/20 scale-100 shadow-none border border-primary/10" // Smaller active button
                 : "w-11 h-11 bg-muted/90 hover:bg-muted text-muted-foreground hover:text-foreground shadow-lg"
             )}
           >
@@ -128,13 +128,13 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
 
           {/* Speed Selector (Hide when Playing) */}
           {!isPlaying && (
-            <div className="flex-1 flex items-center justify-between bg-muted/40 rounded-2xl p-1 border border-border/20 backdrop-blur-sm animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="flex-1 flex items-center justify-between bg-muted/40 rounded-2xl p-1 border border-border/20 backdrop-blur-sm animate-in fade-in slide-in-from-right-2 duration-200">
               {speeds.map((s) => (
                 <button
                   key={s.label}
                   onClick={() => setSpeed(s.value)}
                   className={cn(
-                    "flex-1 py-2.5 rounded-xl text-[10px] sm:text-xs font-black transition-all",
+                    "flex-1 py-2 rounded-xl text-[10px] sm:text-xs font-black transition-all",
                     speed === s.value 
                       ? "bg-background text-primary shadow-sm" 
                       : "text-muted-foreground hover:text-foreground"
