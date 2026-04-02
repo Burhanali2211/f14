@@ -76,6 +76,14 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
 
   // Handle visibility on scroll (Hide on scroll down, show on scroll up)
   useEffect(() => {
+    // CRITICAL PERFORMANCE OPTIMIZATION: 
+    // Disable the scroll listener entirely while autoscrolling.
+    // This stops the CPU from calculating direction on every single frame on mobile.
+    if (isPlaying) {
+      if (!isVisible) setIsVisible(true);
+      return;
+    }
+
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const lastScrollY = lastScrollYRef.current;
@@ -114,8 +122,8 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
       {/* ── Background Bar ── */}
       <div 
         className={cn(
-          "mx-auto bg-card/90 backdrop-blur-3xl border-t border-border/40 shadow-2xl transition-all duration-500 ease-in-out flex flex-col items-center",
-          "w-full sm:max-w-[180px] sm:rounded-t-[1.5rem] sm:border-x px-4 h-11" 
+          "mx-auto bg-card/95 backdrop-blur-xl border-t border-border/40 shadow-2xl transition-all duration-500 ease-in-out flex flex-col items-center",
+          "w-full sm:max-w-[200px] sm:rounded-t-[1.75rem] sm:border-x px-5 h-14" // Increased height to h-14
         )}
       >
         <div className="w-full flex items-center justify-between h-full">
@@ -130,45 +138,47 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
               if (!nextPlaying) setIsVisible(true);
             }}
             className={cn(
-              "rounded-full transition-all duration-300 w-8 h-8",
+              "rounded-full transition-all duration-300 w-10 h-10", // Slightly larger target
               isPlaying 
                 ? "bg-primary/20 text-primary hover:bg-primary/30" 
                 : "bg-muted/80 hover:bg-muted text-muted-foreground hover:text-foreground"
             )}
           >
             {isPlaying 
-              ? <Pause className="w-4 h-4 fill-current" /> 
-              : <Play className="w-4 h-4 ml-0.5 fill-current" />
+              ? <Pause className="w-5 h-5 fill-current" /> 
+              : <Play className="w-5 h-5 ml-0.5 fill-current" />
             }
           </Button>
 
-          <div className="h-4 w-px bg-border/40" />
+          <div className="h-5 w-px bg-border/40" />
 
           {/* Speed Dropdown Button */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button 
-                className="flex items-center gap-1.5 px-2.5 h-8 rounded-full bg-muted/40 hover:bg-muted/60 transition-colors border border-border/10"
+                className="flex items-center gap-2 px-3.5 h-10 rounded-full bg-muted/40 hover:bg-muted/60 transition-colors border border-border/10"
               >
-                <span className="text-[10px] font-black text-foreground">{speeds.find(s => s.value === speed)?.label.replace('x', '')}</span>
-                <ChevronUp className="w-3 h-3 text-muted-foreground" />
+                <span className="text-[11px] font-black text-foreground">{speeds.find(s => s.value === speed)?.label.replace('x', '')}</span>
+                <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" side="top" className="min-w-[80px] rounded-xl border-border/40 bg-card/95 backdrop-blur-xl mb-2">
-              <DropdownMenuLabel className="text-[10px] text-muted-foreground text-center">Scroll Speed</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {speeds.slice().reverse().map((s) => (
-                <DropdownMenuItem 
-                  key={s.label}
-                  onClick={() => setSpeed(s.value)}
-                  className={cn(
-                    "text-[10px] font-bold justify-center focus:bg-primary/10 focus:text-primary transition-colors cursor-pointer",
-                    speed === s.value && "bg-primary/10 text-primary"
-                  )}
-                >
-                  {s.label}
-                </DropdownMenuItem>
-              ))}
+            <DropdownMenuContent align="end" side="top" className="min-w-[100px] rounded-2xl border-border/40 bg-card/98 backdrop-blur-2xl mb-3 p-1.5">
+              <DropdownMenuLabel className="text-[11px] text-muted-foreground text-center py-2 font-bold uppercase tracking-tight">Scroll Speed</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-border/30" />
+              <div className="max-h-[300px] overflow-y-auto">
+                {speeds.slice().reverse().map((s) => (
+                  <DropdownMenuItem 
+                    key={s.label}
+                    onSelect={() => setSpeed(s.value)} // Use onSelect instead of onClick for mobile
+                    className={cn(
+                      "text-[11px] font-black justify-center h-10 rounded-xl focus:bg-primary/10 focus:text-primary transition-all cursor-pointer mb-1 last:mb-0",
+                      speed === s.value && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    {s.label}
+                  </DropdownMenuItem>
+                ))}
+              </div>
             </DropdownMenuContent>
           </DropdownMenu>
 
