@@ -384,7 +384,7 @@ export default function QuranSurahPage() {
                   className="quran-arabic-text text-foreground text-right"
                   dir="rtl"
                   lang="ar"
-                  style={{ fontSize: arabicFontSize, lineHeight: lineSpacing, letterSpacing: `${charGap}em` }}
+                  style={{ fontSize: arabicFontSize, lineHeight: lineSpacing }}
                 >
                   بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
                 </p>
@@ -503,8 +503,8 @@ export default function QuranSurahPage() {
             <section>
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <p className="text-sm font-semibold text-foreground">Character Gap</p>
-                  <p className="text-xs text-muted-foreground">Space between separate Arabic letters</p>
+                  <p className="text-sm font-semibold text-foreground">Word Spacing</p>
+                  <p className="text-xs text-muted-foreground">Adjust space between Arabic words</p>
                 </div>
                 <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">
                   {CHAR_LABELS[charIdx] ?? 'Normal'}

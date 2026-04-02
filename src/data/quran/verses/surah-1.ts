@@ -1,4 +1,15 @@
-import { SurahVerses } from './surah-1';
+export interface Ayah {
+  number: number;
+  arabicText: string;
+  urduTranslation: string;
+  englishTranslation: string;
+}
+
+export interface SurahVerses {
+  surahNumber: number;
+  bismillah: boolean;
+  ayahs: Ayah[];
+}
 
 export const surah1AlFatiha: SurahVerses = {
   surahNumber: 1,

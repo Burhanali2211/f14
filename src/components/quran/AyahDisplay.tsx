@@ -116,7 +116,9 @@ const AyahDisplayComponent = ({
         <div dir="rtl" lang="ar" className="mb-0.5">
           <p
             className="quran-arabic-text text-foreground text-right"
-            style={{ fontSize: arabicFontSize, lineHeight: lineSpacing, letterSpacing: `${charGap}em` }}
+            dir="rtl"
+            lang="ar"
+            style={{ fontSize: arabicFontSize, lineHeight: lineSpacing }}
           >
             {ayah.arabicText}
             {' '}
