@@ -62,13 +62,17 @@ export default function QuranSurahPage() {
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const mainRef = useRef<HTMLElement>(null);
-  const scrollStartRef = useRef(0);
-  const swipeOnCooldownRef = useRef(false);
 
   // Save scroll position when going back
   const handleGoBack = () => {
     sessionStorage.setItem(`${SCROLL_POSITION_KEY}-restore`, 'true');
     navigate('/quran');
+  };
+
+  // Navigate to surah and scroll to top
+  const navigateToSurah = (surahNum: number) => {
+    sessionStorage.setItem(`${SCROLL_POSITION_KEY}-restore`, 'true');
+    navigate(`/quran/surah/${surahNum}`);
   };
 
   // Reading preferences
@@ -162,57 +166,10 @@ export default function QuranSurahPage() {
     }
   };
 
-  // Handle scroll-to-next-surah
-  const handleSwipeToNext = () => {
-    const nextNum = getNextSurahNumber();
-    if (nextNum !== null && !swipeOnCooldownRef.current) {
-      swipeOnCooldownRef.current = true;
-      navigate(`/quran/surah/${nextNum}`);
-      setTimeout(() => {
-        swipeOnCooldownRef.current = false;
-      }, 300);
-    }
-  };
-
-  // Handle scroll-to-prev-surah
-  const handleSwipeToPrev = () => {
-    const prevNum = getPrevSurahNumber();
-    if (prevNum !== null && !swipeOnCooldownRef.current) {
-      swipeOnCooldownRef.current = true;
-      navigate(`/quran/surah/${prevNum}`);
-      setTimeout(() => {
-        swipeOnCooldownRef.current = false;
-      }, 300);
-    }
-  };
-
-  // Detect scroll beyond middle point
+  // Scroll to top when page loads
   useEffect(() => {
-    const handleScroll = () => {
-      if (!mainRef.current) return;
-      const elem = mainRef.current;
-      const scrollHeight = elem.scrollHeight - elem.clientHeight;
-      const scrolled = elem.scrollTop;
-
-      // If at bottom and user scrolls further (exceeds middle point)
-      if (scrolled >= scrollHeight - 100) { // Within 100px of bottom
-        // Get the middle point from scroll start
-        if (scrollStartRef.current > 0) {
-          const middleThreshold = scrollHeight * 0.5;
-          if (scrolled > middleThreshold) {
-            handleSwipeToNext();
-            scrollStartRef.current = 0;
-          }
-        } else {
-          scrollStartRef.current = scrolled;
-        }
-      }
-    };
-
-    const elem = mainRef.current;
-    if (elem) {
-      elem.addEventListener('scroll', handleScroll);
-      return () => elem.removeEventListener('scroll', handleScroll);
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
     }
   }, [number]);
 
@@ -370,24 +327,28 @@ export default function QuranSurahPage() {
         {/* Bottom prev / next */}
         <div className="flex items-center justify-between mt-8 pt-5 border-t border-border/40">
           {prevSurah ? (
-            <Link to={`/quran/surah/${prevSurah.number}`}>
-              <Button variant="outline" className="gap-1.5 rounded-xl px-3 h-10">
-                <ChevronLeft className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate max-w-[90px] sm:max-w-[160px] text-sm">
-                  {prevSurah.englishName}
-                </span>
-              </Button>
-            </Link>
+            <Button
+              onClick={() => navigateToSurah(prevSurah.number)}
+              variant="outline"
+              className="gap-1.5 rounded-xl px-3 h-10"
+            >
+              <ChevronLeft className="w-4 h-4 flex-shrink-0" />
+              <span className="truncate max-w-[90px] sm:max-w-[160px] text-sm">
+                {prevSurah.englishName}
+              </span>
+            </Button>
           ) : <div />}
           {nextSurah ? (
-            <Link to={`/quran/surah/${nextSurah.number}`}>
-              <Button variant="outline" className="gap-1.5 rounded-xl px-3 h-10">
-                <span className="truncate max-w-[90px] sm:max-w-[160px] text-sm">
-                  {nextSurah.englishName}
-                </span>
-                <ChevronRight className="w-4 h-4 flex-shrink-0" />
-              </Button>
-            </Link>
+            <Button
+              onClick={() => navigateToSurah(nextSurah.number)}
+              variant="outline"
+              className="gap-1.5 rounded-xl px-3 h-10"
+            >
+              <span className="truncate max-w-[90px] sm:max-w-[160px] text-sm">
+                {nextSurah.englishName}
+              </span>
+              <ChevronRight className="w-4 h-4 flex-shrink-0" />
+            </Button>
           ) : <div />}
         </div>
       </main>
