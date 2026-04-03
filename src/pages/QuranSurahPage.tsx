@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   ChevronLeft, ChevronRight, BookOpen,
   Settings, Sun, Moon, Eye, EyeOff,
@@ -8,7 +8,7 @@ import { SEOHead } from '@/components/SEOHead';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
+  Sheet, SheetContent,
 } from '@/components/ui/sheet';
 import { surahs } from '@/data/quran';
 import { getSurahVerses } from '@/data/quran/verses';
@@ -16,6 +16,7 @@ import type { SurahVerses } from '@/data/quran/verses';
 import { toArabicNumber } from '@/lib/quran-types';
 import { AyahDisplay, Bismillah, AutoScroll } from '@/components/quran';
 import { useTheme } from '@/hooks/use-theme';
+import { REVELATION_ORDER } from '@/data/quran/revelation-order';
 
 
 // ─── Reading preference constants ──────────────────────────────────────────
@@ -35,6 +36,7 @@ const LS_LINE         = 'quran-reader-line';
 const LS_CHAR         = 'quran-reader-char';
 const LS_URDU         = 'quran-reader-urdu';
 const LS_ENGLISH      = 'quran-reader-english';
+const LS_SORT_MODE    = 'quran-sort-mode';
 
 const CHAR_GAPS   = [0, 0.01, 0.02, 0.04, 0.06, 0.08] as const;
 const CHAR_LABELS = ['None', 'Minimal', 'Normal', 'Spacious', 'Wide', 'Extra'];
@@ -52,10 +54,22 @@ function clampToArray<T>(value: T, arr: readonly T[], fallback: T): T {
 
 // ─── Main page ──────────────────────────────────────────────────────────────
 
+const SCROLL_POSITION_KEY = 'quran-list-scroll-pos';
+
 export default function QuranSurahPage() {
   const { surahNumber } = useParams<{ surahNumber: string }>();
   const number = parseInt(surahNumber || '1', 10);
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
+  const mainRef = useRef<HTMLElement>(null);
+  const scrollStartRef = useRef(0);
+  const swipeOnCooldownRef = useRef(false);
+
+  // Save scroll position when going back
+  const handleGoBack = () => {
+    sessionStorage.setItem(`${SCROLL_POSITION_KEY}-restore`, 'true');
+    navigate('/quran');
+  };
 
   // Reading preferences
   const [arabicFontSize, setArabicFontSize] = useState<number>(() =>
@@ -116,6 +130,92 @@ export default function QuranSurahPage() {
   const toggleUrdu    = () => setShowUrdu(p    => { localStorage.setItem(LS_URDU,    String(!p)); return !p; });
   const toggleEnglish = () => setShowEnglish(p => { localStorage.setItem(LS_ENGLISH, String(!p)); return !p; });
 
+  // Get next surah based on sort mode
+  const getNextSurahNumber = (): number | null => {
+    const sortMode = localStorage.getItem(LS_SORT_MODE) || 'standard';
+
+    if (sortMode === 'chronological') {
+      // In revelation order: find the surah with the next revelation position
+      const currentRevPos = REVELATION_ORDER[number];
+      if (currentRevPos === 114) return null; // Last revealed surah
+      const nextSurah = surahs.find(s => REVELATION_ORDER[s.number] === currentRevPos + 1);
+      return nextSurah?.number ?? null;
+    } else {
+      // In standard order: just use number + 1
+      return number < 114 ? number + 1 : null;
+    }
+  };
+
+  // Get previous surah based on sort mode
+  const getPrevSurahNumber = (): number | null => {
+    const sortMode = localStorage.getItem(LS_SORT_MODE) || 'standard';
+
+    if (sortMode === 'chronological') {
+      // In revelation order: find the surah with the previous revelation position
+      const currentRevPos = REVELATION_ORDER[number];
+      if (currentRevPos === 1) return null; // First revealed surah
+      const prevSurah = surahs.find(s => REVELATION_ORDER[s.number] === currentRevPos - 1);
+      return prevSurah?.number ?? null;
+    } else {
+      // In standard order: just use number - 1
+      return number > 1 ? number - 1 : null;
+    }
+  };
+
+  // Handle scroll-to-next-surah
+  const handleSwipeToNext = () => {
+    const nextNum = getNextSurahNumber();
+    if (nextNum !== null && !swipeOnCooldownRef.current) {
+      swipeOnCooldownRef.current = true;
+      navigate(`/quran/surah/${nextNum}`);
+      setTimeout(() => {
+        swipeOnCooldownRef.current = false;
+      }, 300);
+    }
+  };
+
+  // Handle scroll-to-prev-surah
+  const handleSwipeToPrev = () => {
+    const prevNum = getPrevSurahNumber();
+    if (prevNum !== null && !swipeOnCooldownRef.current) {
+      swipeOnCooldownRef.current = true;
+      navigate(`/quran/surah/${prevNum}`);
+      setTimeout(() => {
+        swipeOnCooldownRef.current = false;
+      }, 300);
+    }
+  };
+
+  // Detect scroll beyond middle point
+  useEffect(() => {
+    const handleScroll = () => {
+      if (!mainRef.current) return;
+      const elem = mainRef.current;
+      const scrollHeight = elem.scrollHeight - elem.clientHeight;
+      const scrolled = elem.scrollTop;
+
+      // If at bottom and user scrolls further (exceeds middle point)
+      if (scrolled >= scrollHeight - 100) { // Within 100px of bottom
+        // Get the middle point from scroll start
+        if (scrollStartRef.current > 0) {
+          const middleThreshold = scrollHeight * 0.5;
+          if (scrolled > middleThreshold) {
+            handleSwipeToNext();
+            scrollStartRef.current = 0;
+          }
+        } else {
+          scrollStartRef.current = scrolled;
+        }
+      }
+    };
+
+    const elem = mainRef.current;
+    if (elem) {
+      elem.addEventListener('scroll', handleScroll);
+      return () => elem.removeEventListener('scroll', handleScroll);
+    }
+  }, [number]);
+
   // Derive current sizes / index for the selected font target
   const currentSizes  = fontTarget === 'arabic' ? ARABIC_SIZES : fontTarget === 'urdu' ? URDU_SIZES : ENGLISH_SIZES;
   const currentValue  = fontTarget === 'arabic' ? arabicFontSize : fontTarget === 'urdu' ? urduFontSize : englishFontSize;
@@ -140,8 +240,10 @@ export default function QuranSurahPage() {
   const charIdx = CHAR_GAPS.indexOf(charGap as typeof CHAR_GAPS[number]);
 
   const surah     = surahs.find(s => s.number === number);
-  const prevSurah = surahs.find(s => s.number === number - 1);
-  const nextSurah = surahs.find(s => s.number === number + 1);
+  const prevSurahNum = getPrevSurahNumber();
+  const nextSurahNum = getNextSurahNumber();
+  const prevSurah = prevSurahNum !== null ? surahs.find(s => s.number === prevSurahNum) : null;
+  const nextSurah = nextSurahNum !== null ? surahs.find(s => s.number === nextSurahNum) : null;
 
   // ── Not found ────────────────────────────────────────────────────────────
   if (!surah) {
@@ -163,13 +265,13 @@ export default function QuranSurahPage() {
 
       {/* ── Fixed top bar ──────────────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 z-30 h-14 flex items-center justify-between px-3 sm:px-5 bg-background/90 backdrop-blur-md border-b border-border/40">
-        <Link
-          to="/quran"
+        <button
+          onClick={handleGoBack}
           className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-muted transition-colors flex-shrink-0"
           aria-label="Back to Quran"
         >
           <ChevronLeft className="w-5 h-5" />
-        </Link>
+        </button>
 
         <div className="flex flex-col items-center min-w-0 px-2">
           <span className="font-arabic-heading text-base sm:text-lg font-bold text-foreground leading-tight truncate max-w-[180px] sm:max-w-xs">
@@ -190,7 +292,7 @@ export default function QuranSurahPage() {
       </header>
 
       {/* ── Scrollable content ──────────────────────────────────────────── */}
-      <main className="pt-12 pb-8 px-3 sm:px-5 max-w-2xl mx-auto">
+      <main ref={mainRef} className="pt-12 pb-8 px-3 sm:px-5 max-w-2xl mx-auto h-screen overflow-y-auto">
 
         {/* Surah info card */}
         <div className="bg-card/40 backdrop-blur-sm rounded-2xl border border-border/40 p-4 sm:p-6 mt-2 mb-4 text-center">
@@ -294,74 +396,67 @@ export default function QuranSurahPage() {
       <Sheet open={settingsOpen} onOpenChange={setSettingsOpen}>
         <SheetContent
           side="bottom"
-          className="rounded-t-2xl p-0 max-h-[90vh] overflow-y-auto"
+          className="rounded-t-3xl p-0 max-h-[65vh] overflow-y-auto will-change-transform"
         >
           {/* Drag handle */}
-          <div className="flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+          <div className="flex justify-center pt-2.5 pb-2 sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
+            <div className="w-12 h-1.5 rounded-full bg-muted-foreground/40 cursor-grab active:cursor-grabbing" />
           </div>
 
-          <SheetHeader className="px-5 pb-3 pt-1">
-            <SheetTitle className="text-base font-semibold">Reading Settings</SheetTitle>
-          </SheetHeader>
-
-          <div className="px-5 pb-8 space-y-6">
+          <div className="px-5 pb-6 space-y-4">
 
             {/* ── Text Size ── */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Text Size</p>
-                  <p className="text-xs text-muted-foreground">Adjust size per language</p>
-                </div>
-                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+            <section className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">Text Size</p>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                   {currentLabel}
                 </span>
               </div>
 
               {/* Language selector */}
-              <div className="flex gap-0.5 p-1 bg-muted/50 rounded-xl border border-border/30 mb-3">
+              <div className="flex gap-0.5 p-0.5 bg-muted/40 rounded-lg border border-border/30">
                 {(['arabic', 'urdu', 'english'] as FontTarget[]).map(target => (
                   <button
                     key={target}
                     onClick={() => setFontTarget(target)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all duration-150 ${
+                    className={`flex-1 py-1 rounded-md text-xs font-medium transition-colors duration-100 ${
                       fontTarget === target
-                        ? 'bg-background shadow-sm text-foreground border border-border/30'
+                        ? 'bg-background text-foreground shadow-sm'
                         : 'text-muted-foreground hover:text-foreground'
                     }`}
                   >
                     {target === 'arabic' ? (
-                      <span className="font-arabic">عربی</span>
+                      <span className="font-arabic text-xs">عربی</span>
                     ) : target === 'urdu' ? (
-                      <span className="font-arabic">اردو</span>
+                      <span className="font-arabic text-xs">اردو</span>
                     ) : (
-                      'English'
+                      'Eng'
                     )}
                   </button>
                 ))}
               </div>
 
               {/* A− · dots · A+ */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={decreaseFont}
                   disabled={currentIdx <= 0}
-                  className="w-12 h-12 rounded-2xl border-2 border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/40"
+                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/50 hover:bg-muted/70"
                   aria-label="Smaller text"
                 >
-                  <span className="text-base font-bold leading-none">A−</span>
+                  <span className="text-sm font-bold leading-none">A−</span>
                 </button>
 
-                <div className="flex-1 flex items-center justify-center gap-1.5">
+                <div className="flex-1 flex items-center justify-center gap-1">
                   {currentSizes.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => jumpToIdx(i)}
-                      className={`rounded-full transition-all duration-200 ${
+                      className={`rounded-full transition-all duration-100 ${
                         i === currentIdx
-                          ? 'w-3.5 h-3.5 bg-primary'
-                          : 'w-2.5 h-2.5 bg-muted-foreground/25 hover:bg-muted-foreground/50'
+                          ? 'w-3 h-3 bg-primary'
+                          : 'w-2 h-2 bg-muted-foreground/25 hover:bg-muted-foreground/40'
                       }`}
                       aria-label={SIZE_LABELS[i]}
                     />
@@ -371,81 +466,58 @@ export default function QuranSurahPage() {
                 <button
                   onClick={increaseFont}
                   disabled={currentIdx >= currentSizes.length - 1}
-                  className="w-12 h-12 rounded-2xl border-2 border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/40"
+                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/50 hover:bg-muted/70"
                   aria-label="Larger text"
                 >
-                  <span className="text-lg font-bold leading-none">A+</span>
+                  <span className="text-sm font-bold leading-none">A+</span>
                 </button>
               </div>
 
-              {/* Live preview — all three languages */}
-              <div className="mt-3 p-3 rounded-xl bg-muted/30 space-y-2">
+              {/* Live preview — compact */}
+              <div className="p-2 rounded-lg bg-muted/20 space-y-1 text-right">
                 <p
-                  className="quran-arabic-text text-foreground text-right"
+                  className="quran-arabic-text text-foreground leading-relaxed"
                   dir="rtl"
                   lang="ar"
-                  style={{ fontSize: arabicFontSize, lineHeight: lineSpacing }}
+                  style={{ fontSize: arabicFontSize * 0.75, lineHeight: lineSpacing }}
                 >
                   بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ
                 </p>
-                {showUrdu && (
-                  <p
-                    className="quran-urdu-text text-muted-foreground text-right"
-                    dir="rtl"
-                    lang="ur"
-                    style={{ fontSize: urduFontSize }}
-                  >
-                    اللہ کے نام سے جو رحمن و رحیم ہے
-                  </p>
-                )}
-                {showEnglish && (
-                  <p
-                    className="text-muted-foreground/85 font-sans"
-                    style={{ fontSize: englishFontSize }}
-                  >
-                    In the name of Allah, the Most Gracious, the Most Merciful.
-                  </p>
-                )}
               </div>
             </section>
 
-            <div className="h-px bg-border/40" />
-
             {/* ── Line Spacing ── */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Line Spacing</p>
-                  <p className="text-xs text-muted-foreground">Space between Arabic text lines</p>
-                </div>
-                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">Line Spacing</p>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                   {LINE_LABELS[lineIdx] ?? 'Normal'}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => lineIdx > 0 && setLine(LINE_GAPS[lineIdx - 1])}
                   disabled={lineIdx === 0}
-                  className="w-12 h-12 rounded-2xl border-2 border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/40"
+                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/50 hover:bg-muted/70"
                   aria-label="Less spacing"
                 >
-                  <svg viewBox="0 0 20 20" className="w-5 h-5 fill-current text-foreground">
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 fill-current text-foreground">
                     <rect x="2" y="4" width="16" height="2" rx="1"/>
                     <rect x="2" y="9" width="16" height="2" rx="1"/>
                     <rect x="2" y="14" width="16" height="2" rx="1"/>
                   </svg>
                 </button>
 
-                <div className="flex-1 flex items-center justify-center gap-1.5">
+                <div className="flex-1 flex items-center justify-center gap-1">
                   {LINE_GAPS.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setLine(LINE_GAPS[i])}
-                      className={`rounded-full transition-all duration-200 ${
+                      className={`rounded-full transition-all duration-100 ${
                         i === lineIdx
-                          ? 'w-3.5 h-3.5 bg-primary'
-                          : 'w-2.5 h-2.5 bg-muted-foreground/25 hover:bg-muted-foreground/50'
+                          ? 'w-3 h-3 bg-primary'
+                          : 'w-2 h-2 bg-muted-foreground/25 hover:bg-muted-foreground/40'
                       }`}
                       aria-label={LINE_LABELS[i]}
                     />
@@ -455,10 +527,10 @@ export default function QuranSurahPage() {
                 <button
                   onClick={() => lineIdx < LINE_GAPS.length - 1 && setLine(LINE_GAPS[lineIdx + 1])}
                   disabled={lineIdx === LINE_GAPS.length - 1}
-                  className="w-12 h-12 rounded-2xl border-2 border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/40"
+                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/50 hover:bg-muted/70"
                   aria-label="More spacing"
                 >
-                  <svg viewBox="0 0 20 20" className="w-5 h-5 fill-current text-foreground">
+                  <svg viewBox="0 0 20 20" className="w-4 h-4 fill-current text-foreground">
                     <rect x="2" y="2" width="16" height="2" rx="1"/>
                     <rect x="2" y="9" width="16" height="2" rx="1"/>
                     <rect x="2" y="16" width="16" height="2" rx="1"/>
@@ -467,71 +539,63 @@ export default function QuranSurahPage() {
               </div>
             </section>
 
-            <div className="h-px bg-border/40" />
-
             {/* ── Screen Theme ── */}
-            <section>
-              <p className="text-sm font-semibold text-foreground mb-1">Screen Theme</p>
-              <p className="text-xs text-muted-foreground mb-3">Choose what's easier on your eyes</p>
-              <div className="grid grid-cols-2 gap-3">
+            <section className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">Screen Theme</p>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => theme === 'dark' && toggleTheme()}
-                  className={`flex items-center justify-center gap-2 h-12 rounded-2xl border-2 font-medium text-sm transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border font-medium text-xs transition-colors ${
                     theme === 'light'
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-muted/30 text-muted-foreground'
+                      : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
-                  <Sun className="w-4 h-4" /> Light
+                  <Sun className="w-3.5 h-3.5" /> Light
                 </button>
                 <button
                   onClick={() => theme === 'light' && toggleTheme()}
-                  className={`flex items-center justify-center gap-2 h-12 rounded-2xl border-2 font-medium text-sm transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border font-medium text-xs transition-colors ${
                     theme === 'dark'
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-muted/30 text-muted-foreground'
+                      : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
-                  <Moon className="w-4 h-4" /> Dark
+                  <Moon className="w-3.5 h-3.5" /> Dark
                 </button>
               </div>
             </section>
 
-            <div className="h-px bg-border/40" />
-
             {/* ── Character Spacing ── */}
-            <section>
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Word Spacing</p>
-                  <p className="text-xs text-muted-foreground">Adjust space between Arabic words</p>
-                </div>
-                <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-primary/10 text-primary">
+            <section className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-foreground">Word Spacing</p>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                   {CHAR_LABELS[charIdx] ?? 'Normal'}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => charIdx > 0 && setChar(CHAR_GAPS[charIdx - 1])}
                   disabled={charIdx === 0}
-                  className="w-12 h-12 rounded-2xl border-2 border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/40"
+                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/50 hover:bg-muted/70"
                   aria-label="Less character gap"
                 >
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2 text-foreground">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-foreground">
                     <path d="M18 7H6M18 12H6M18 17H6" />
                   </svg>
                 </button>
 
-                <div className="flex-1 flex items-center justify-center gap-1.5">
+                <div className="flex-1 flex items-center justify-center gap-1">
                   {CHAR_GAPS.map((_, i) => (
                     <button
                       key={i}
                       onClick={() => setChar(CHAR_GAPS[i])}
-                      className={`rounded-full transition-all duration-200 ${
+                      className={`rounded-full transition-all duration-100 ${
                         i === charIdx
-                          ? 'w-3.5 h-3.5 bg-primary'
-                          : 'w-2.5 h-2.5 bg-muted-foreground/25 hover:bg-muted-foreground/50'
+                          ? 'w-3 h-3 bg-primary'
+                          : 'w-2 h-2 bg-muted-foreground/25 hover:bg-muted-foreground/40'
                       }`}
                       aria-label={CHAR_LABELS[i]}
                     />
@@ -541,46 +605,41 @@ export default function QuranSurahPage() {
                 <button
                   onClick={() => charIdx < CHAR_GAPS.length - 1 && setChar(CHAR_GAPS[charIdx + 1])}
                   disabled={charIdx === CHAR_GAPS.length - 1}
-                  className="w-12 h-12 rounded-2xl border-2 border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/40"
+                  className="w-10 h-10 rounded-lg border border-border flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed active:scale-95 transition-transform bg-muted/50 hover:bg-muted/70"
                   aria-label="More character gap"
                 >
-                  <svg viewBox="0 0 24 24" className="w-5 h-5 fill-none stroke-current stroke-2 text-foreground">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-none stroke-current stroke-2 text-foreground">
                     <path d="M21 7H3M21 12H3M21 17H3" />
                   </svg>
                 </button>
               </div>
             </section>
 
-            <div className="h-px bg-border/40" />
-
             {/* ── Translations ── */}
-            <section>
-              <p className="text-sm font-semibold text-foreground mb-1">Show Translations</p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Turn on or off the text below each verse
-              </p>
-              <div className="grid grid-cols-2 gap-3">
+            <section className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">Show Translations</p>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={toggleUrdu}
-                  className={`flex items-center justify-center gap-2 h-12 rounded-2xl border-2 font-medium text-sm transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border font-medium text-xs transition-colors ${
                     showUrdu
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-muted/30 text-muted-foreground'
+                      : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
-                  {showUrdu ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  <span className="font-arabic text-base">اردو</span>
+                  {showUrdu ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  <span className="font-arabic text-xs">اردو</span>
                 </button>
                 <button
                   onClick={toggleEnglish}
-                  className={`flex items-center justify-center gap-2 h-12 rounded-2xl border-2 font-medium text-sm transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-10 rounded-lg border font-medium text-xs transition-colors ${
                     showEnglish
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-muted/30 text-muted-foreground'
+                      : 'border-border bg-muted/30 text-muted-foreground hover:bg-muted/50'
                   }`}
                 >
-                  {showEnglish ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                  English
+                  {showEnglish ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  Eng
                 </button>
               </div>
             </section>

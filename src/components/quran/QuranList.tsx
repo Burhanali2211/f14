@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Search, BookOpen, Clock } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { surahs, paras } from '@/data/quran';
@@ -8,6 +8,7 @@ import { QuranViewTab } from './QuranTabs';
 import { getSurahsInRevelationOrder } from '@/data/quran/revelation-order';
 
 type SortMode = 'standard' | 'chronological';
+const LS_SORT_MODE = 'quran-sort-mode';
 
 interface QuranListProps {
   activeTab: QuranViewTab;
@@ -15,7 +16,19 @@ interface QuranListProps {
 
 export function QuranList({ activeTab }: QuranListProps) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortMode, setSortMode] = useState<SortMode>('standard');
+  const [sortMode, setSortMode] = useState<SortMode>(() => {
+    try {
+      const saved = localStorage.getItem(LS_SORT_MODE) as SortMode | null;
+      return saved === 'chronological' ? 'chronological' : 'standard';
+    } catch {
+      return 'standard';
+    }
+  });
+
+  // Persist sort mode
+  useEffect(() => {
+    localStorage.setItem(LS_SORT_MODE, sortMode);
+  }, [sortMode]);
 
   const filteredSurahs = useMemo(() => {
     let list = surahs;

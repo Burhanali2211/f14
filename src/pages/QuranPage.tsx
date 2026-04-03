@@ -1,24 +1,29 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Bookmark, Clock, ChevronRight, WifiOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { SEOHead } from '@/components/SEOHead';
 import { QuranHeader, QuranTabs, QuranList, QuranViewTab } from '@/components/quran';
 
+const SCROLL_POSITION_KEY = 'quran-list-scroll-pos';
+
 export default function QuranPage() {
   const [activeTab, setActiveTab] = useState<QuranViewTab>('surah');
   const [bookmarks, setBookmarks] = useState<any[]>([]);
   const [lastRead, setLastRead] = useState<any>(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
+  const mainRef = useRef<HTMLElement>(null);
+  const location = useLocation();
+  const scrollRestoreTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
+
     const savedBookmarks = JSON.parse(localStorage.getItem('f14-bookmarks') || '[]');
     const savedLastRead = JSON.parse(localStorage.getItem('f14-last-read') || 'null');
     setBookmarks(savedBookmarks);
@@ -30,6 +35,51 @@ export default function QuranPage() {
     };
   }, []);
 
+  // Save scroll position continuously
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    const handleScroll = () => {
+      sessionStorage.setItem(SCROLL_POSITION_KEY, String(main.scrollTop));
+    };
+
+    main.addEventListener('scroll', handleScroll, { passive: true });
+    return () => main.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Restore scroll position on page return
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+
+    if (scrollRestoreTimeoutRef.current) {
+      clearTimeout(scrollRestoreTimeoutRef.current);
+    }
+
+    // Check if we should restore (coming back from surah page)
+    const restoreFlag = sessionStorage.getItem(`${SCROLL_POSITION_KEY}-restore`);
+    if (restoreFlag === 'true') {
+      const savedPosition = sessionStorage.getItem(SCROLL_POSITION_KEY);
+      if (savedPosition) {
+        const position = parseInt(savedPosition, 10);
+        if (!isNaN(position) && position > 0) {
+          // Wait a bit for layout to settle
+          scrollRestoreTimeoutRef.current = setTimeout(() => {
+            main.scrollTop = position;
+            sessionStorage.removeItem(`${SCROLL_POSITION_KEY}-restore`);
+          }, 100);
+        }
+      }
+    }
+
+    return () => {
+      if (scrollRestoreTimeoutRef.current) {
+        clearTimeout(scrollRestoreTimeoutRef.current);
+      }
+    };
+  }, [location]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
@@ -39,7 +89,7 @@ export default function QuranPage() {
       
       <Header />
       
-      <main className="container py-8 flex-1 px-4 sm:px-6">
+      <main ref={mainRef} className="container py-8 flex-1 px-4 sm:px-6 overflow-y-auto">
         <Link 
           to="/" 
           className="inline-flex items-center gap-2 text-base font-medium text-muted-foreground hover:text-foreground transition-colors mb-6"
