@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { safeQuery } from './db-utils';
 import { logger } from './logger';
-import { getCurrentUser } from './auth-utils';
 import type { UserRole, UserProfile } from './supabase-types';
 
 // Cache for user profile to prevent repeated API calls
@@ -48,8 +47,9 @@ export async function getUserProfile(userId: string): Promise<UserProfile | null
 
 export async function getCurrentUserRole(): Promise<UserRole> {
   try {
+    const { getCurrentUser } = await import('./auth-utils');
     const user = getCurrentUser();
-    
+
     if (!user) {
       return 'user';
     }
@@ -64,8 +64,9 @@ export async function getCurrentUserRole(): Promise<UserRole> {
 
 export async function getCurrentUserProfile(): Promise<UserProfile | null> {
   try {
+    const { getCurrentUser } = await import('./auth-utils');
     const user = getCurrentUser();
-    
+
     if (!user) {
       profileCache = null;
       return null;

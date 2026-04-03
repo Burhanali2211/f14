@@ -3,7 +3,6 @@ import { AlertTriangle, Home, RefreshCw, Trash2, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import { errorTracker } from '@/lib/error-tracking';
-import { forceClearCacheAndReload } from '@/lib/app-version';
 
 interface Props {
   children: ReactNode;
@@ -104,6 +103,7 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   handleForceClear = async () => {
+    const { forceClearCacheAndReload } = await import('@/lib/app-version');
     await forceClearCacheAndReload();
   };
 

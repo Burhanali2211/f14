@@ -4,7 +4,6 @@
  */
 
 import { useEffect, useState, useRef } from 'react';
-import { getCurrentAppVersion, getStoredAppVersion, hasVersionChanged, storeAppVersion, clearAllCachesOnUpdate, markVersionAsShown } from '@/lib/app-version';
 import { logger } from '@/lib/logger';
 
 const CHECK_INTERVAL = 5 * 60 * 1000; // Check every 5 minutes
@@ -18,6 +17,7 @@ export function UpdateNotification() {
   const handleUpdate = async () => {
     try {
       logger.info('Auto-updating app...');
+      const { getCurrentAppVersion, storeAppVersion, clearAllCachesOnUpdate, markVersionAsShown } = await import('@/lib/app-version');
       await clearAllCachesOnUpdate();
       if ('serviceWorker' in navigator) {
         const registration = await navigator.serviceWorker.getRegistration();
@@ -42,9 +42,10 @@ export function UpdateNotification() {
 
   const checkForUpdates = async () => {
     if (isChecking) return;
-    
+
     setIsChecking(true);
     try {
+      const { getCurrentAppVersion, getStoredAppVersion, storeAppVersion, markVersionAsShown, hasVersionChanged } = await import('@/lib/app-version');
       const currentVersion = await getCurrentAppVersion();
       const storedVersion = getStoredAppVersion();
 
@@ -66,7 +67,7 @@ export function UpdateNotification() {
           current: currentVersion,
           stored: storedVersion,
         });
-        
+
         // Auto-apply update - no manual refresh needed
         const versionId = currentVersion.buildHash || `v${currentVersion.version}-${currentVersion.buildTime}`;
         if (checkingVersionRef.current !== versionId) {
