@@ -148,10 +148,16 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => {
-      isMountedRef.current = false;
       container.removeEventListener('scroll', handleScroll);
     };
   }, [isVisible, isPlaying, containerRef]);
+
+  // Dedicated unmount safeguard
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   return (
     <div 
