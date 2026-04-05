@@ -43,10 +43,17 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
 
   // ── Interaction Handling ───────────────────────────────────────────────
   
-  const handleUserInteraction = useCallback(() => {
+  const handleUserInteraction = useCallback((e: Event) => {
     if (!isPlaying) return;
     
-    // Flag that user is touching/scrolling
+    // If the click happened inside the AutoScroll control pill, ignore it.
+    // We only care about interactions on the content area.
+    if (e.target instanceof Node) {
+      const controls = document.getElementById('auto-scroll-controls');
+      if (controls && controls.contains(e.target)) return;
+    }
+
+    // Flag that user is touching/scrolling content
     isUserInteractingRef.current = true;
     
     // Clear existing timeout
@@ -168,6 +175,7 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
     >
       {/* ── Floating Responsive Pill ── */}
       <div 
+        id="auto-scroll-controls"
         className={cn(
           "pointer-events-auto bg-card/80 backdrop-blur-2xl border border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center gap-1 p-1.5 rounded-full",
           "h-14 min-w-[140px] px-2 transition-transform active:scale-95 duration-300",
