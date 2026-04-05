@@ -612,7 +612,7 @@ export default function QuranSurahPage() {
       </Sheet>
       
       {/* ── Auto Scroll Controls ─────────────────────────────────────────── */}
-      {!versesLoading && verses && <AutoScroll />}
+      {!versesLoading && verses && <AutoScroll containerRef={mainRef} />}
     </div>
   );
 }
