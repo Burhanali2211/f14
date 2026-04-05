@@ -74,21 +74,21 @@ const AyahDisplayComponent = ({
                 <MoreHorizontal className="w-5 h-5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 p-2 rounded-2xl shadow-xl border-border/40 backdrop-blur-xl bg-card/95">
-              <DropdownMenuLabel className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-2">Ayah {surahNumber}:{ayah.number} Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-border/20" />
-              <DropdownMenuItem onClick={markLastRead} className="text-sm font-medium h-11 rounded-xl cursor-pointer">
-                <BookOpen className="w-4 h-4 mr-3 text-primary" /> Mark as Last Read
+            <DropdownMenuContent align="start" className="w-64 p-2.5 rounded-[2rem] shadow-2xl border-border/40 backdrop-blur-2xl bg-card/98">
+              <DropdownMenuLabel className="text-xs font-black uppercase tracking-widest text-muted-foreground px-3 py-3">Ayah {surahNumber}:{ayah.number} Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-border/20 mx-2" />
+              <DropdownMenuItem onClick={markLastRead} className="text-base font-bold h-14 rounded-2xl cursor-pointer px-4">
+                <BookOpen className="w-5 h-5 mr-4 text-primary" /> Mark as Last Read
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={saveBookmark} className="text-sm font-medium h-11 rounded-xl cursor-pointer">
-                <Bookmark className="w-4 h-4 mr-3 text-primary" /> Bookmark Ayah
+              <DropdownMenuItem onClick={saveBookmark} className="text-base font-bold h-14 rounded-2xl cursor-pointer px-4">
+                <Bookmark className="w-5 h-5 mr-4 text-primary" /> Bookmark Ayah
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 const url = window.location.href.split('#')[0] + `#ayah-${ayah.number}`;
                 navigator.clipboard.writeText(url);
                 alert('Ayah link copied!');
-              }} className="text-sm font-medium h-11 rounded-xl cursor-pointer">
-                <Share2 className="w-4 h-4 mr-3 text-primary" /> Copy Share Link
+              }} className="text-base font-bold h-14 rounded-2xl cursor-pointer px-4">
+                <Share2 className="w-5 h-5 mr-4 text-primary" /> Copy Share Link
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
