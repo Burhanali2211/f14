@@ -70,8 +70,8 @@ const AyahDisplayComponent = ({
         <div className="flex items-center justify-between mb-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-8 h-8 rounded-lg hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary border border-border/40">
-                <MoreHorizontal className="w-4.5 h-4.5" />
+              <button className="w-11 h-11 rounded-xl hover:bg-primary/10 flex items-center justify-center transition-all duration-200 text-muted-foreground hover:text-primary border border-border/40 active:scale-90 touch-none" aria-label="Ayah actions">
+                <MoreHorizontal className="w-5 h-5" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">

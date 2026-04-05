@@ -117,7 +117,9 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
     }
     
     return () => {
+      setIsPlaying(false);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
+      if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
     };
   }, [isPlaying, animate, containerRef]);
 
