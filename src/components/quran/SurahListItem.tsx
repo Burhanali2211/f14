@@ -25,7 +25,7 @@ export function SurahListItem({ surah, sortMode = 'standard' }: SurahListItemPro
         <span className={`font-bold text-sm leading-none ${
           isMeccan ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
         }`}>
-          {surah.number}
+          {sortMode === 'chronological' ? revOrder : surah.number}
         </span>
       </div>
 
@@ -50,6 +50,11 @@ export function SurahListItem({ surah, sortMode = 'standard' }: SurahListItemPro
 
         {/* Middle row: English name · meaning */}
         <div className="flex items-center gap-1.5 text-xs mb-1">
+          {sortMode === 'chronological' && (
+            <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-bold text-[10px] flex-shrink-0">
+              #{surah.number}
+            </span>
+          )}
           <span className="font-semibold text-foreground/80 truncate">{surah.englishName}</span>
           <span className="text-muted-foreground/35 flex-shrink-0">·</span>
           <span className="text-muted-foreground/60 truncate italic">{surah.englishMeaning}</span>
