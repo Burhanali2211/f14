@@ -72,9 +72,11 @@ export default function DuaDetailPage() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
-        title={`${dua.name} - ${dua.nameAr} | Followers of 14`}
-        description={dua.description}
+        title={`${dua.name} (${dua.nameAr}) - Dua & Ziyarat | Followers of 14`}
+        description={`${dua.name}: ${dua.description || 'Listen and read the full text of ' + dua.name}. Available with Arabic text and English translation on Followers of 14.`}
+        keywords={`${dua.name}, ${dua.nameAr}, dua lyrics, ziyarat, islamic prayer, ${category?.name || ''}, followers of 14, f14`}
       />
+
 
       <Header />
 

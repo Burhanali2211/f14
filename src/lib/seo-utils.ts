@@ -8,7 +8,7 @@ import type { Piece, Category, Imam } from './supabase-types';
 
 const SITE_NAME = 'Followers of 14';
 const SITE_ALT_NAMES = ['Khanda Azaadars', 'Lyrics Hub', 'F14'];
-const SITE_URL = 'https://followersof14.com';
+const SITE_URL = 'https://followersof14.online';
 
 /**
  * Generate SEO-optimized meta description from piece content
@@ -18,29 +18,29 @@ export function generateMetaDescription(piece: Piece, maxLength = 160): string {
   const title = piece.title || '';
   const reciter = piece.reciter || '';
   const language = piece.language || '';
-  
+
   let desc = `${title}`;
   if (reciter) desc += ` by ${reciter}`;
   desc += ` - Read complete text, lyrics & audio.`;
-  
+
   if (piece.text_content && piece.text_content.length > 0) {
     const cleanText = piece.text_content
       .replace(/\s+/g, ' ')
       .replace(/[^\w\s\u0600-\u06FF]/g, '')
       .trim()
       .substring(0, 80);
-    
+
     if (cleanText.length > 20) {
       desc += ` "${cleanText}..."`;
     }
   }
-  
+
   desc += ` Free on ${SITE_NAME}.`;
-  
+
   if (desc.length > maxLength) {
     desc = desc.substring(0, maxLength - 3) + '...';
   }
-  
+
   return desc;
 }
 
@@ -49,7 +49,7 @@ export function generateMetaDescription(piece: Piece, maxLength = 160): string {
  */
 export function generateKeywords(piece: Piece, category?: Category, imam?: Imam): string {
   const keywords: string[] = [];
-  
+
   if (piece.title) {
     keywords.push(piece.title);
     const titleWords = piece.title.split(/\s+/).filter(w => w.length > 2);
@@ -59,7 +59,7 @@ export function generateKeywords(piece: Piece, category?: Category, imam?: Imam)
     keywords.push(`read ${piece.title}`);
     keywords.push(`${piece.title} online`);
   }
-  
+
   if (piece.reciter) {
     keywords.push(piece.reciter);
     keywords.push(`${piece.reciter} recitation`);
@@ -69,7 +69,7 @@ export function generateKeywords(piece: Piece, category?: Category, imam?: Imam)
       keywords.push(`${piece.title} ${piece.reciter}`);
     }
   }
-  
+
   if (category?.name) {
     keywords.push(category.name);
     keywords.push(`${category.name} lyrics`);
@@ -78,40 +78,50 @@ export function generateKeywords(piece: Piece, category?: Category, imam?: Imam)
       keywords.push(`${piece.title} ${category.name}`);
     }
   }
-  
+
   if (imam?.name) {
     keywords.push(imam.name);
     if (piece.title) {
       keywords.push(`${piece.title} ${imam.name}`);
     }
   }
-  
+
   if (piece.language) {
     keywords.push(piece.language);
     keywords.push(`${piece.language} poetry`);
     keywords.push(`${piece.language} recitation`);
   }
-  
+
   if (piece.tags && Array.isArray(piece.tags)) {
     keywords.push(...piece.tags);
   }
-  
+
   keywords.push(
     SITE_NAME,
     ...SITE_ALT_NAMES,
+    'followers of 14',
+    'followersof14',
     'islamic poetry',
     'naat',
-    'noha', 
+    'noha',
+    'manqabat',
+    'manqabat lyrics',
     'dua',
+    'quran lyrics',
+    'quran recitation',
     'manqabat',
     'marsiya',
     'islamic content',
     'islamic recitation',
     'recitation lyrics',
     'read online',
+    'shia poetry online',
+    'karbala poetry',
+    'lyrics hub online',
     'free recitation'
   );
-  
+
+
   return [...new Set(keywords)].join(', ');
 }
 
@@ -127,10 +137,10 @@ export function generateArticleStructuredData(
   const currentUrl = siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
   const pieceUrl = `${currentUrl}/piece/${piece.id}`;
   const firstImageUrl = getFirstImageUrl(piece.image_url);
-  const imageUrl = firstImageUrl 
-    ? (firstImageUrl.startsWith('http') ? firstImageUrl : `${currentUrl}${firstImageUrl}`) 
+  const imageUrl = firstImageUrl
+    ? (firstImageUrl.startsWith('http') ? firstImageUrl : `${currentUrl}${firstImageUrl}`)
     : `${currentUrl}/main.png`;
-  
+
   const structuredData: Record<string, any> = {
     '@context': 'https://schema.org',
     '@type': 'Article',
@@ -158,7 +168,7 @@ export function generateArticleStructuredData(
       '@id': pieceUrl,
     },
   };
-  
+
   // Add category
   if (category) {
     structuredData.articleSection = category.name;
@@ -167,7 +177,7 @@ export function generateArticleStructuredData(
       name: category.name,
     };
   }
-  
+
   // Add imam
   if (imam) {
     structuredData.about = {
@@ -176,15 +186,15 @@ export function generateArticleStructuredData(
       ...(imam.title && { jobTitle: imam.title }),
     };
   }
-  
+
   // Add keywords
   structuredData.keywords = generateKeywords(piece, category, imam);
-  
+
   // Add language
   if (piece.language) {
     structuredData.inLanguage = piece.language;
   }
-  
+
   // Add comprehensive video schema if available
   if (piece.video_url) {
     structuredData.video = {
@@ -199,7 +209,7 @@ export function generateArticleStructuredData(
       ...(piece.reciter && { publisher: { '@type': 'Person', name: piece.reciter } }),
     };
   }
-  
+
   // Add audio schema if available
   if (piece.audio_url) {
     structuredData.audio = {
@@ -210,12 +220,12 @@ export function generateArticleStructuredData(
       ...(piece.reciter && { creator: { '@type': 'Person', name: piece.reciter } }),
     };
   }
-  
+
   // Add text content for better indexing
   if (piece.text_content) {
     structuredData.text = piece.text_content.substring(0, 500); // First 500 chars for preview
   }
-  
+
   // Add view count for credibility
   if (piece.view_count && piece.view_count > 0) {
     structuredData.interactionStatistic = {
@@ -224,7 +234,7 @@ export function generateArticleStructuredData(
       userInteractionCount: piece.view_count,
     };
   }
-  
+
   return structuredData;
 }
 
@@ -236,7 +246,7 @@ export function generateBreadcrumbStructuredData(
   siteUrl?: string
 ): Record<string, any> {
   const currentUrl = siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
-  
+
   return {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -259,7 +269,7 @@ export function generateCollectionPageStructuredData(
 ): Record<string, any> {
   const currentUrl = siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
   const categoryUrl = `${currentUrl}/category/${category.slug}`;
-  
+
   return {
     '@context': 'https://schema.org',
     '@type': 'CollectionPage',
@@ -292,7 +302,7 @@ export function generateCollectionPageStructuredData(
  */
 export function generateWebSiteStructuredData(siteUrl?: string): Record<string, any> {
   const currentUrl = siteUrl || (typeof window !== 'undefined' ? window.location.origin : '');
-  
+
   return {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
@@ -309,8 +319,9 @@ export function generateWebSiteStructuredData(siteUrl?: string): Record<string, 
       'query-input': 'required name=search_term_string',
     },
     inLanguage: ['en', 'ur', 'ar', 'fa'],
-    keywords: 'Followers of 14, khanda azaadars, lyrics hub, naat, noha, dua, manqabat, marsiya, islamic poetry, recitation lyrics',
+    keywords: 'Followers of 14, khanda azaadars, lyrics hub, naat, noha, manqabat, manqabat, quran, dua, manqabat, marsiya, islamic poetry, recitation lyrics',
   };
+
 }
 
 /**

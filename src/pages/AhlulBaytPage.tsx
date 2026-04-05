@@ -71,13 +71,14 @@ export default function AhlulBaytPage() {
     const pageUrl = `${siteUrl}/ahlul-bayt`;
     
     return {
-      title: 'Browse by Ahlul Bayt (AS) - All Holy Personalities',
-      description: 'Explore recitations in honor of all the Holy Personalities of Ahlul Bayt (AS). Browse Naat, Noha, Dua, Manqabat, and Marsiya dedicated to the Holy Family.',
-      keywords: 'Ahlul Bayt, Holy Personalities, Islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Ahlul Bayt recitations',
+      title: 'Ahlul Bayt (AS) - Islamic Personalities & Recitations | Followers of 14',
+      description: 'Explore recitations in honor of the Holy Personalities of Ahlul Bayt (AS). Browse Naat, Noha, Dua, Manqabat, and Marsiya dedicated to the Holy Family on Followers of 14.',
+      keywords: 'Ahlul Bayt, Holy Personalities, Islamic poetry, Naat, Noha, Dua, Manqabat, Marsiya, Ahlul Bayt recitations, Followers of 14',
       url: pageUrl,
       image: `${siteUrl}/main.png`,
-      type: 'website',
+      type: 'website' as const,
     };
+
   }, []);
 
   if (loading) {

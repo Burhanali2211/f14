@@ -37,12 +37,12 @@ export function SEOHead({
 }: SEOHeadProps) {
   const location = useLocation();
   const siteName = 'Followers of 14';
-  const siteUrl = 'https://followersof14.com';
+  const siteUrl = 'https://followersof14.online';
   const currentUrl = url || `${siteUrl}${location.pathname}`;
   const ogImage = image 
     ? (image.startsWith('http') ? image : `${siteUrl}${image.startsWith('/') ? image : '/' + image}`)
     : `${siteUrl}/main.png`;
-  const fullTitle = title ? `${title} | ${siteName}` : `${siteName} - Islamic Poetry & Recitation Platform`;
+  const fullTitle = title ? `${title} | ${siteName}` : `${siteName} | Islamic Lyrics, Noha, Manqabat, Quran`;
 
   useEffect(() => {
     // Update document title

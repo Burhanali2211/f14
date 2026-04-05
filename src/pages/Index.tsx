@@ -49,18 +49,19 @@ export default function Index() {
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title="Followers of 14 | Khanda Azaadars | Lyrics Hub - Islamic Poetry & Recitations"
-        description="Followers of 14 (Khanda Azaadars, Lyrics Hub) - The #1 destination for Islamic poetry. Find any Naat, Noha, Dua, Manqabat, Marsiya by name with full text, audio & video. Search thousands of recitations in Urdu, Arabic, Persian. Free access."
-        keywords="Followers of 14, followers of fourteen, F14, khanda azaadars, khanda azadars, lyrics hub, islamic lyrics, naat lyrics, noha lyrics, marsiya lyrics, manqabat lyrics, dua lyrics, islamic poetry, naat, noha, dua, manqabat, marsiya, salam, qasida, islamic recitation, read online, free recitation"
+        title="Followers of 14 | Islamic Lyrics Hub - Noha, Manqabat, Quran, Naat"
+        description="Followers of 14 - The complete Islamic lyrics repository. Find lyrics of Noha, Manqabat, Quran, Naat, and Dua in Urdu, Arabic, Persian. Search any recitation by name and read complete lyrics."
+        keywords="Followers of 14, islamic lyrics, noha lyrics, manqabat, manqabat lyrics, quran lyrics, islamic poetry hub, followersof14, shia poetry, azadari lyrics, karbala lyrics"
         image={`${siteUrl}/main.png`}
         url={siteUrl}
         type="website"
         structuredData={seoStructuredData}
         canonicalUrl={siteUrl}
       />
-      
+
+
       <Header />
-      
+
       <HeroSection
         siteSettings={siteSettings}
         stats={stats}

@@ -5,10 +5,10 @@ export const config = {
 const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-const SITE_URL = process.env.SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://followersof14.vercel.app');
+const SITE_URL = process.env.SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://followersof14.online');
 const SITE_NAME = 'Followers of 14';
 const SITE_ALT_NAME = 'Islamic Poetry & Recitation';
-const DEFAULT_IMAGE = `${SITE_URL}/main.png`;
+const DEFAULT_IMAGE = `https://followersof14.online/main.png`;
 const DEFAULT_DESCRIPTION = 'Followers of 14 - The #1 destination for Islamic poetry. Find any recitation by name - Naat, Noha, Dua, Manqabat, Marsiya with full text, audio & video.';
 
 function escapeHtml(text: string): string {

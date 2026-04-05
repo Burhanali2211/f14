@@ -216,9 +216,11 @@ export default function QuranSurahPage() {
   return (
     <div className="min-h-screen bg-background">
       <SEOHead
-        title={`Surah ${surah.englishName} (${surah.arabicName}) | The Holy Quran`}
-        description={`Read Surah ${surah.englishName} — ${surah.englishMeaning}. ${surah.verseCount} verses.`}
+        title={`Surah ${surah.englishName} (${surah.arabicName}) - Quran Recitation | Followers of 14`}
+        description={`Read and listen to Surah ${surah.englishName} (${surah.englishMeaning}) with full Arabic text, Urdu and English translation. ${surah.verseCount} verses available on Followers of 14.`}
+        keywords={`Surah ${surah.englishName}, ${surah.arabicName}, Quran recitation, Surah ${surah.number}, quran lyrics, quran english translation, quran urdu translation, followers of 14`}
       />
+
 
       {/* ── Fixed top bar ──────────────────────────────────────────────── */}
       <header className="fixed top-0 inset-x-0 z-30 h-14 flex items-center justify-between px-3 sm:px-5 bg-background/90 backdrop-blur-md border-b border-border/40">
