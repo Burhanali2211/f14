@@ -26,7 +26,6 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
   const scrollAccumulatorRef = useRef(0);
   const isUserInteractingRef = useRef(false);
   const interactionTimeoutRef = useRef<NodeJS.Timeout>();
-  const isMountedRef = useRef(true);
 
   const speeds = [
     { label: '0.1x', value: 0.1 },
@@ -43,17 +42,10 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
 
   // ── Interaction Handling ───────────────────────────────────────────────
   
-  const handleUserInteraction = useCallback((e: Event) => {
+  const handleUserInteraction = useCallback(() => {
     if (!isPlaying) return;
     
-    // If the click happened inside the AutoScroll control pill, ignore it.
-    // We only care about interactions on the content area.
-    if (e.target instanceof Node) {
-      const controls = document.getElementById('auto-scroll-controls');
-      if (controls && controls.contains(e.target)) return;
-    }
-
-    // Flag that user is touching/scrolling content
+    // Flag that user is touching/scrolling
     isUserInteractingRef.current = true;
     
     // Clear existing timeout
@@ -71,9 +63,7 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
   // ── Core Animation Logic ───────────────────────────────────────────────
 
   const animate = useCallback((time: number) => {
-    if (!isMountedRef.current || !isPlaying) return;
-
-    if (!isUserInteractingRef.current && containerRef?.current) {
+    if (isPlaying && !isUserInteractingRef.current && containerRef?.current) {
       if (lastTimeRef.current !== undefined) {
         const deltaTime = time - lastTimeRef.current;
         
@@ -127,9 +117,7 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
     }
     
     return () => {
-      setIsPlaying(false);
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
-      if (interactionTimeoutRef.current) clearTimeout(interactionTimeoutRef.current);
     };
   }, [isPlaying, animate, containerRef]);
 
@@ -154,17 +142,8 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-    };
+    return () => container.removeEventListener('scroll', handleScroll);
   }, [isVisible, isPlaying, containerRef]);
-
-  // Dedicated unmount safeguard
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   return (
     <div 
@@ -175,7 +154,6 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
     >
       {/* ── Floating Responsive Pill ── */}
       <div 
-        id="auto-scroll-controls"
         className={cn(
           "pointer-events-auto bg-card/80 backdrop-blur-2xl border border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center gap-1 p-1.5 rounded-full",
           "h-14 min-w-[140px] px-2 transition-transform active:scale-95 duration-300",

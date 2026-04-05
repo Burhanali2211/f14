@@ -70,25 +70,25 @@ const AyahDisplayComponent = ({
         <div className="flex items-center justify-between mb-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="w-12 h-12 rounded-xl hover:bg-primary/10 flex items-center justify-center transition-all duration-200 text-muted-foreground hover:text-primary border border-border/40 active:scale-90 touch-none" aria-label="Ayah actions">
-                <MoreHorizontal className="w-5.5 h-5.5" />
+              <button className="w-10 h-10 rounded-xl hover:bg-primary/10 flex items-center justify-center transition-colors text-muted-foreground hover:text-primary border border-border/40 active:scale-95">
+                <MoreHorizontal className="w-5 h-5" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuLabel className="text-xs">Ayah {surahNumber}:{ayah.number} Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={markLastRead} className="text-xs">
-                <BookOpen className="w-3.5 h-3.5 mr-2" /> Mark as Last Read
+            <DropdownMenuContent align="start" className="w-56 p-2 rounded-2xl shadow-xl border-border/40 backdrop-blur-xl bg-card/95">
+              <DropdownMenuLabel className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-2">Ayah {surahNumber}:{ayah.number} Actions</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-border/20" />
+              <DropdownMenuItem onClick={markLastRead} className="text-sm font-medium h-11 rounded-xl cursor-pointer">
+                <BookOpen className="w-4 h-4 mr-3 text-primary" /> Mark as Last Read
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={saveBookmark} className="text-xs">
-                <Bookmark className="w-3.5 h-3.5 mr-2" /> Bookmark Ayah
+              <DropdownMenuItem onClick={saveBookmark} className="text-sm font-medium h-11 rounded-xl cursor-pointer">
+                <Bookmark className="w-4 h-4 mr-3 text-primary" /> Bookmark Ayah
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 const url = window.location.href.split('#')[0] + `#ayah-${ayah.number}`;
                 navigator.clipboard.writeText(url);
                 alert('Ayah link copied!');
-              }} className="text-xs">
-                <Share2 className="w-3.5 h-3.5 mr-2" /> Copy Share Link
+              }} className="text-sm font-medium h-11 rounded-xl cursor-pointer">
+                <Share2 className="w-4 h-4 mr-3 text-primary" /> Copy Share Link
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
