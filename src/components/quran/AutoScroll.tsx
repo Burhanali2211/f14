@@ -26,6 +26,7 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
   const scrollAccumulatorRef = useRef(0);
   const isUserInteractingRef = useRef(false);
   const interactionTimeoutRef = useRef<NodeJS.Timeout>();
+  const isMountedRef = useRef(true);
 
   const speeds = [
     { label: '0.1x', value: 0.1 },
@@ -63,7 +64,9 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
   // ── Core Animation Logic ───────────────────────────────────────────────
 
   const animate = useCallback((time: number) => {
-    if (isPlaying && !isUserInteractingRef.current && containerRef?.current) {
+    if (!isMountedRef.current || !isPlaying) return;
+
+    if (!isUserInteractingRef.current && containerRef?.current) {
       if (lastTimeRef.current !== undefined) {
         const deltaTime = time - lastTimeRef.current;
         
@@ -144,7 +147,10 @@ export const AutoScroll: React.FC<AutoScrollProps> = ({ containerRef }) => {
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
-    return () => container.removeEventListener('scroll', handleScroll);
+    return () => {
+      isMountedRef.current = false;
+      container.removeEventListener('scroll', handleScroll);
+    };
   }, [isVisible, isPlaying, containerRef]);
 
   return (
