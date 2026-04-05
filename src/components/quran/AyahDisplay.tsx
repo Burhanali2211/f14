@@ -37,8 +37,6 @@ const AyahDisplayComponent = ({
   lineSpacing = 3.2,
   charGap = 0.02,
 }: AyahDisplayProps) => {
-  const [localShowUrdu, setLocalShowUrdu] = useState(showUrdu);
-  const [localShowEnglish, setLocalShowEnglish] = useState(showEnglish);
 
   const saveBookmark = () => {
     const existing = JSON.parse(localStorage.getItem('f14-bookmarks') || '[]');
@@ -78,15 +76,6 @@ const AyahDisplayComponent = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
               <DropdownMenuLabel className="text-xs">Ayah {surahNumber}:{ayah.number} Actions</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setLocalShowUrdu(!localShowUrdu)} className="text-xs">
-                {localShowUrdu ? <EyeOff className="w-3.5 h-3.5 mr-2" /> : <Eye className="w-3.5 h-3.5 mr-2" />}
-                {localShowUrdu ? 'Hide' : 'Show'} Urdu
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setLocalShowEnglish(!localShowEnglish)} className="text-xs">
-                {localShowEnglish ? <EyeOff className="w-3.5 h-3.5 mr-2" /> : <Eye className="w-3.5 h-3.5 mr-2" />}
-                {localShowEnglish ? 'Hide' : 'Show'} English
-              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={markLastRead} className="text-xs">
                 <BookOpen className="w-3.5 h-3.5 mr-2" /> Mark as Last Read
@@ -132,7 +121,7 @@ const AyahDisplayComponent = ({
         </div>
 
         {/* Urdu translation */}
-        {localShowUrdu && ayah.urduTranslation && (
+        {showUrdu && ayah.urduTranslation && (
           <div
             dir="rtl"
             lang="ur"
@@ -148,7 +137,7 @@ const AyahDisplayComponent = ({
         )}
 
         {/* English translation */}
-        {localShowEnglish && ayah.englishTranslation && (
+        {showEnglish && ayah.englishTranslation && (
           <div className="mt-2.5 pt-2.5 border-t border-border/20">
             <p
               className="text-muted-foreground/85 font-sans leading-relaxed"
@@ -158,6 +147,7 @@ const AyahDisplayComponent = ({
             </p>
           </div>
         )}
+
 
 
       </div>
